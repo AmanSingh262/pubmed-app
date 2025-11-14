@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// In production, API is served from same domain
+// In development, use localhost:5000
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '/api'  // Same domain in production
+  : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
 
 const api = {
   // Get all categories
