@@ -78,27 +78,41 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'PubMed Intelligent Article Filtration API',
-    version: '1.0.0',
-    endpoints: {
-      search: '/api/search',
-      categories: '/api/categories',
-      export: '/api/export',
-      health: '/api/health'
-    }
-  });
-});
-
 // Serve static files from React build (for production)
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
   
+  // API info endpoint for /api root
+  app.get('/api', (req, res) => {
+    res.json({
+      message: 'PubMed Intelligent Article Filtration API',
+      version: '1.0.0',
+      endpoints: {
+        search: '/api/search',
+        categories: '/api/categories',
+        export: '/api/export',
+        health: '/api/health'
+      }
+    });
+  });
+  
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  });
+} else {
+  // In development, show API info at root
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'PubMed Intelligent Article Filtration API',
+      version: '1.0.0',
+      endpoints: {
+        search: '/api/search',
+        categories: '/api/categories',
+        export: '/api/export',
+        health: '/api/health'
+      }
+    });
   });
 }
 
