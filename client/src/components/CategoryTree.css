@@ -1,0 +1,231 @@
+.category-tree {
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.category-item {
+  margin-bottom: 10px;
+}
+
+.category-header-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+
+.category-header:hover {
+  background: #f3f4f6;
+}
+
+.category-checkbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  flex-shrink: 0;
+}
+
+.category-checkbox:hover:not(.disabled) {
+  border-color: #667eea;
+  background: #f0f9ff;
+}
+
+.category-checkbox.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.category-checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.category-checkbox .check-icon {
+  font-size: 12px;
+  color: white;
+}
+
+/* Study type specific checkbox colors */
+.category-tree.study-animal .category-checkbox.selected,
+.category-tree.study-animal .type-item.selected {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #10b981;
+}
+
+.category-tree.study-animal .category-checkbox:hover:not(.disabled):not(.selected) {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.category-tree.study-animal .type-item:hover:not(.disabled):not(.selected) {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+}
+
+.category-tree.study-human .category-checkbox.selected,
+.category-tree.study-human .type-item.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.category-tree.study-human .category-checkbox:hover:not(.disabled):not(.selected) {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.category-tree.study-human .type-item:hover:not(.disabled):not(.selected) {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
+}
+
+.category-icon {
+  color: #667eea;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.category-name {
+  font-size: 15px;
+  flex: 1;
+}
+
+.subcategory-list {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.subcategory-item {
+  margin-bottom: 8px;
+}
+
+.subcategory-header-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subcategory-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  color: #374151;
+  flex: 1;
+}
+
+.subcategory-header:hover {
+  background: #fafafa;
+  border-color: #d1d5db;
+}
+
+.subcategory-icon {
+  color: #9ca3af;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+}
+
+.subcategory-name {
+  font-size: 14px;
+  flex: 1;
+}
+
+.type-list {
+  margin-left: 20px;
+  margin-top: 6px;
+}
+
+.type-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.type-item:hover:not(.disabled):not(.selected) {
+  background: #f0f9ff;
+  border-color: #667eea;
+  color: #1f2937;
+}
+
+.type-item.selected {
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.type-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.type-name {
+  flex: 1;
+}
+
+.check-icon {
+  font-size: 14px;
+  color: white;
+}
+
+.loading-text {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px;
+  font-size: 14px;
+}
+
+/* Custom scrollbar for category tree */
+.category-tree::-webkit-scrollbar {
+  width: 6px;
+}
+
+.category-tree::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.category-tree::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.category-tree::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

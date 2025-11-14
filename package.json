@@ -1,0 +1,37 @@
+{
+  "name": "pubmed-intelligent-filter",
+  "version": "1.0.0",
+  "description": "Intelligent PubMed Article Filtration System with hierarchical category filtering",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server/index.js",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "node server/index.js",
+    "install-all": "npm install && cd client && npm install"
+  },
+  "keywords": [
+    "pubmed",
+    "research",
+    "filtering",
+    "medical",
+    "articles"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "express-rate-limit": "^7.1.5",
+    "node-cache": "^5.1.2",
+    "xml2js": "^0.6.2",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  }
+}

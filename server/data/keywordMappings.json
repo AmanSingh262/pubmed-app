@@ -1,0 +1,1045 @@
+{
+  "animalStudies": {
+    "name": "Animal Studies",
+    "categories": {
+      "pharmacodynamics": {
+        "name": "Pharmacodynamics",
+        "subcategories": {
+          "primary": {
+            "name": "Primary Pharmacodynamics",
+            "types": {
+              "invivo": {
+                "name": "In Vivo",
+                "keywords": [
+                  "In vivo Pharmacodynamics",
+                  "Animal Models",
+                  "Dose-Response Relationship, Drug",
+                  "Drug Effects",
+                  "Receptor Binding",
+                  "Therapeutic Effect",
+                  "Pharmacologic Action",
+                  "Signal Transduction",
+                  "Dynamic Drug Concentrations"
+                ],
+                "meshTerms": [
+                  "In vivo Pharmacodynamics[MeSH]",
+                  "Animal Models[MeSH]",
+                  "Dose-Response Relationship, Drug[MeSH]",
+                  "Drug Effects[MeSH]",
+                  "Receptor Binding[MeSH]"
+                ],
+                "textKeywords": [
+                  "Therapeutic Effect[tiab]",
+                  "Pharmacologic Action[tiab]",
+                  "Signal Transduction[tiab]",
+                  "Dynamic Drug Concentrations[tiab]"
+                ]
+              },
+              "invitro": {
+                "name": "In Vitro",
+                "keywords": [
+                  "In vitro Pharmacodynamics",
+                  "Cell Line, Tumor",
+                  "Receptor Ligand Binding",
+                  "Enzyme Inhibition",
+                  "Binding Assay",
+                  "Cell Culture Technique",
+                  "In vitro Antimicrobial Activity"
+                ],
+                "meshTerms": [
+                  "In vitro Pharmacodynamics[MeSH]",
+                  "Cell Line, Tumor[MeSH]",
+                  "Receptor Ligand Binding[MeSH]",
+                  "Enzyme Inhibition[MeSH]",
+                  "Cell Culture Technique[MeSH]",
+                  "In vitro Antimicrobial Activity[MeSH]"
+                ],
+                "textKeywords": [
+                  "Binding Assay[tiab]"
+                ]
+              }
+            }
+          },
+          "secondary": {
+            "name": "Secondary Pharmacodynamics",
+            "types": {
+              "general": {
+                "name": "Secondary Pharmacological Actions",
+                "keywords": [
+                  "Secondary Pharmacological Actions",
+                  "Off-Target Effects",
+                  "Adverse Drug Reaction",
+                  "Non-Specific Drug Effects",
+                  "Side Effects",
+                  "Downstream Signaling",
+                  "Pharmacological Profiling"
+                ],
+                "meshTerms": [
+                  "Adverse Drug Reaction[MeSH]"
+                ],
+                "textKeywords": [
+                  "Secondary Pharmacological Actions[tiab]",
+                  "Off-Target Effects[tiab]",
+                  "Non-Specific Drug Effects[tiab]",
+                  "Side Effects[tiab]",
+                  "Downstream Signaling[tiab]",
+                  "Pharmacological Profiling[tiab]"
+                ]
+              },
+              "interaction": {
+                "name": "Pharmacodynamic Drug Interaction",
+                "keywords": [
+                  "Pharmacodynamic Interaction",
+                  "Drug Synergism",
+                  "Drug Antagonism",
+                  "Drug Interaction",
+                  "Receptor Competition",
+                  "Effect Modification",
+                  "Therapeutic Drug Monitoring"
+                ],
+                "meshTerms": [
+                  "Pharmacodynamic Interaction[MeSH]",
+                  "Drug Synergism[MeSH]",
+                  "Drug Antagonism[MeSH]",
+                  "Drug Interaction[MeSH]",
+                  "Therapeutic Drug Monitoring[MeSH]"
+                ],
+                "textKeywords": [
+                  "Receptor Competition[tiab]",
+                  "Effect Modification[tiab]"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "safetyPharmacology": {
+        "name": "Safety Pharmacology",
+        "subcategories": {
+          "cns": {
+            "name": "Effect on Central Nervous System (CNS)",
+            "keywords": [
+              "Central Nervous System",
+              "Neurotoxicity",
+              "Behavioral Toxicity",
+              "Neuropharmacology",
+              "Seizures",
+              "Locomotor Activity",
+              "Cognitive Dysfunction",
+              "Neurotransmitter Release",
+              "Motor Coordination"
+            ],
+            "meshTerms": [
+              "Central Nervous System[MeSH]",
+              "Neurotoxicity[MeSH]",
+              "Behavioral Toxicity[MeSH]",
+              "Neuropharmacology[MeSH]",
+              "Seizures[MeSH]",
+              "Locomotor Activity[MeSH]",
+              "Cognitive Dysfunction[MeSH]"
+            ],
+            "textKeywords": [
+              "Neurotransmitter Release[tiab]",
+              "Motor Coordination[tiab]"
+            ]
+          },
+          "cvs": {
+            "name": "Effect on Cardiovascular System (CVS)",
+            "keywords": [
+              "Cardiovascular System",
+              "Cardiotoxicity",
+              "Electrocardiography",
+              "QT Interval",
+              "hERG Channel",
+              "Arrhythmia",
+              "Hemodynamics",
+              "Blood Pressure",
+              "Heart Rate"
+            ],
+            "meshTerms": [
+              "Cardiovascular System[MeSH]",
+              "Cardiotoxicity[MeSH]",
+              "Electrocardiography[MeSH]",
+              "QT Interval[MeSH]",
+              "Arrhythmia[MeSH]",
+              "Hemodynamics[MeSH]",
+              "Blood Pressure[MeSH]",
+              "Heart Rate[MeSH]"
+            ],
+            "textKeywords": [
+              "hERG Channel[tiab]"
+            ]
+          },
+          "other": {
+            "name": "Other Effects",
+            "keywords": [
+              "Respiratory System",
+              "Respiratory Function Tests",
+              "Renal Toxicity",
+              "Hepatotoxicity",
+              "Gastrointestinal Toxicity",
+              "Genotoxicity",
+              "Immunotoxicity",
+              "Toxicity Testing",
+              "Animal Welfare"
+            ],
+            "meshTerms": [
+              "Respiratory System[MeSH]",
+              "Respiratory Function Tests[MeSH]",
+              "Renal Toxicity[MeSH]",
+              "Hepatotoxicity[MeSH]",
+              "Gastrointestinal Toxicity[MeSH]",
+              "Genotoxicity[MeSH]",
+              "Immunotoxicity[MeSH]",
+              "Toxicity Testing[MeSH]",
+              "Animal Welfare[MeSH]"
+            ],
+            "textKeywords": []
+          }
+        }
+      },
+      "pharmacokinetics": {
+        "name": "Pharmacokinetics",
+        "subcategories": {
+          "methodOfAnalysis": {
+            "name": "Method of Analysis",
+            "keywords": [
+              "Pharmacokinetics",
+              "Bioanalytical Techniques",
+              "Liquid Chromatography-Mass Spectrometry",
+              "Quantitative Assay",
+              "Bioanalytical Method Validation",
+              "Analytical Method Development",
+              "Sample Preparation"
+            ],
+            "meshTerms": [
+              "Pharmacokinetics[MeSH]",
+              "Bioanalytical Techniques[MeSH]",
+              "Liquid Chromatography-Mass Spectrometry[MeSH]",
+              "Quantitative Assay[MeSH]"
+            ],
+            "textKeywords": [
+              "Bioanalytical Method Validation[tiab]",
+              "Analytical Method Development[tiab]",
+              "Sample Preparation[tiab]"
+            ]
+          },
+          "absorption": {
+            "name": "Absorption",
+            "keywords": [
+              "Drug Absorption",
+              "Bioavailability",
+              "First-Pass Effect",
+              "Gastrointestinal Absorption",
+              "Drug Solubility",
+              "Permeability"
+            ],
+            "meshTerms": [
+              "Drug Absorption[MeSH]",
+              "Bioavailability[MeSH]",
+              "First-Pass Effect[MeSH]"
+            ],
+            "textKeywords": [
+              "Gastrointestinal Absorption[tiab]",
+              "Drug Solubility[tiab]",
+              "Permeability[tiab]"
+            ]
+          },
+          "distribution": {
+            "name": "Distribution",
+            "keywords": [
+              "Drug Distribution",
+              "Volume of Distribution",
+              "Plasma Protein Binding",
+              "Tissue Distribution",
+              "Blood-Brain Barrier"
+            ],
+            "meshTerms": [
+              "Drug Distribution[MeSH]",
+              "Plasma Protein Binding[MeSH]",
+              "Blood-Brain Barrier[MeSH]"
+            ],
+            "textKeywords": [
+              "Volume of Distribution[tiab]",
+              "Tissue Distribution[tiab]"
+            ]
+          },
+          "metabolism": {
+            "name": "Metabolism",
+            "keywords": [
+              "Drug Metabolism",
+              "Cytochrome P450 Enzymes",
+              "Phase I Metabolism",
+              "Phase II Metabolism",
+              "Enzyme Induction",
+              "Metabolite Profiling"
+            ],
+            "meshTerms": [
+              "Drug Metabolism[MeSH]",
+              "Cytochrome P450 Enzymes[MeSH]",
+              "Enzyme Induction[MeSH]"
+            ],
+            "textKeywords": [
+              "Phase I Metabolism[tiab]",
+              "Phase II Metabolism[tiab]",
+              "Metabolite Profiling[tiab]"
+            ]
+          },
+          "excretion": {
+            "name": "Excretion",
+            "keywords": [
+              "Drug Excretion",
+              "Renal Clearance",
+              "Biliary Excretion",
+              "Glomerular Filtration Rate",
+              "Excretion Rate"
+            ],
+            "meshTerms": [
+              "Drug Excretion[MeSH]",
+              "Renal Clearance[MeSH]",
+              "Glomerular Filtration Rate[MeSH]"
+            ],
+            "textKeywords": [
+              "Biliary Excretion[tiab]",
+              "Excretion Rate[tiab]"
+            ]
+          },
+          "other": {
+            "name": "Other Pharmacokinetics Studies",
+            "keywords": [
+              "Pharmacokinetic Variability",
+              "Dose Proportionality",
+              "Pharmacokinetic Modeling",
+              "Non-Compartmental Analysis",
+              "Therapeutic Drug Monitoring"
+            ],
+            "meshTerms": [
+              "Pharmacokinetic Variability[MeSH]",
+              "Therapeutic Drug Monitoring[MeSH]"
+            ],
+            "textKeywords": [
+              "Dose Proportionality[tiab]",
+              "Pharmacokinetic Modeling[tiab]",
+              "Non-Compartmental Analysis[tiab]"
+            ]
+          }
+        }
+      },
+      "toxicology": {
+        "name": "Toxicology",
+        "subcategories": {
+          "singleDose": {
+            "name": "Single Dose Toxicity",
+            "keywords": [
+              "Acute Toxicity",
+              "Single Dose Toxicity",
+              "Dose Escalation",
+              "Toxicological Evaluation"
+            ],
+            "meshTerms": [
+              "Acute Toxicity[MeSH]"
+            ],
+            "textKeywords": [
+              "Single Dose Toxicity[tiab]",
+              "Dose Escalation[tiab]",
+              "Toxicological Evaluation[tiab]"
+            ]
+          },
+          "repeatDose": {
+            "name": "Repeat Dose Toxicity",
+            "keywords": [
+              "Subchronic Toxicity",
+              "Chronic Toxicity",
+              "Repeat Dose Toxicity",
+              "Toxicity Studies",
+              "Dose-Response Relationship, Drug"
+            ],
+            "meshTerms": [
+              "Subchronic Toxicity[MeSH]",
+              "Chronic Toxicity[MeSH]",
+              "Dose-Response Relationship, Drug[MeSH]"
+            ],
+            "textKeywords": [
+              "Repeat Dose Toxicity[tiab]",
+              "Toxicity Studies[tiab]"
+            ]
+          },
+          "genotoxicity": {
+            "name": "Genotoxicity",
+            "keywords": [
+              "Genotoxicity Tests",
+              "Mutagenicity Tests",
+              "DNA Damage",
+              "Chromosome Aberrations",
+              "Ames Test"
+            ],
+            "meshTerms": [
+              "Genotoxicity Tests[MeSH]",
+              "Mutagenicity Tests[MeSH]",
+              "DNA Damage[MeSH]",
+              "Chromosome Aberrations[MeSH]"
+            ],
+            "textKeywords": [
+              "Ames Test[tiab]"
+            ]
+          },
+          "carcinogenicity": {
+            "name": "Carcinogenicity",
+            "keywords": [
+              "Carcinogenicity",
+              "Neoplasms, Experimental",
+              "Tumor Promotion",
+              "Oncogenesis"
+            ],
+            "meshTerms": [
+              "Carcinogenicity[MeSH]",
+              "Neoplasms, Experimental[MeSH]",
+              "Oncogenesis[MeSH]"
+            ],
+            "textKeywords": [
+              "Tumor Promotion[tiab]"
+            ]
+          },
+          "reproductiveToxicity": {
+            "name": "Reproductive and Developmental Toxicity",
+            "types": {
+              "fertility": {
+                "name": "Fertility and Early Embryonic Development",
+                "keywords": [
+                  "Fertility Regulation",
+                  "Early Embryonic Development"
+                ],
+                "meshTerms": [
+                  "Fertility Regulation[MeSH]"
+                ],
+                "textKeywords": [
+                  "Early Embryonic Development[tiab]"
+                ]
+              },
+              "embryoFetal": {
+                "name": "Embryo Foetal Development",
+                "keywords": [
+                  "Embryo-Fetal Toxicity",
+                  "Foetal Development"
+                ],
+                "meshTerms": [
+                  "Foetal Development[MeSH]"
+                ],
+                "textKeywords": [
+                  "Embryo-Fetal Toxicity[tiab]"
+                ]
+              },
+              "prenatalPostnatal": {
+                "name": "Prenatal and Postnatal Development",
+                "keywords": [
+                  "Prenatal Exposure Delayed Effects",
+                  "Postnatal Development"
+                ],
+                "meshTerms": [
+                  "Prenatal Exposure Delayed Effects[MeSH]"
+                ],
+                "textKeywords": [
+                  "Postnatal Development[tiab]"
+                ]
+              }
+            }
+          },
+          "localTolerance": {
+            "name": "Local Tolerance",
+            "keywords": [
+              "Local Toxicity",
+              "Irritation Tests",
+              "Sensitization",
+              "Dermal Toxicity"
+            ],
+            "meshTerms": [
+              "Irritation Tests[MeSH]",
+              "Sensitization[MeSH]",
+              "Dermal Toxicity[MeSH]"
+            ],
+            "textKeywords": [
+              "Local Toxicity[tiab]"
+            ]
+          },
+          "otherToxicity": {
+            "name": "Other Toxicity Studies",
+            "keywords": [
+              "Immunotoxicity",
+              "Nephrotoxicity",
+              "Hepatotoxicity",
+              "Neurotoxicity",
+              "Toxicokinetics",
+              "Organ Toxicity"
+            ],
+            "meshTerms": [
+              "Immunotoxicity[MeSH]",
+              "Nephrotoxicity[MeSH]",
+              "Hepatotoxicity[MeSH]",
+              "Neurotoxicity[MeSH]",
+              "Toxicokinetics[MeSH]"
+            ],
+            "textKeywords": [
+              "Organ Toxicity[tiab]"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "humanStudies": {
+    "name": "Human Studies",
+    "categories": {
+      "pharmacokinetics": {
+        "name": "Pharmacokinetics",
+        "subcategories": {
+          "methodOfAnalysis": {
+            "name": "Method of Analysis",
+            "keywords": [
+              "LC-MS/MS",
+              "Liquid Chromatography-Mass Spectrometry",
+              "Bioanalytical Method Validation",
+              "Chromatography Techniques",
+              "Quantitative Assay",
+              "Sensitivity and Specificity",
+              "Non-compartmental Analysis",
+              "Compartmental Modeling",
+              "Phoenix WinNonlin"
+            ],
+            "meshTerms": [
+              "Liquid Chromatography-Mass Spectrometry[MeSH]",
+              "Chromatography[MeSH]",
+              "Sensitivity and Specificity[MeSH]"
+            ],
+            "textKeywords": [
+              "LC-MS/MS[tiab]",
+              "Bioanalytical Method Validation[tiab]",
+              "Non-compartmental Analysis[tiab]",
+              "Compartmental Modeling[tiab]",
+              "Phoenix WinNonlin[tiab]"
+            ]
+          },
+          "absorption": {
+            "name": "Absorption",
+            "keywords": [
+              "Bioavailability",
+              "First-pass Metabolism",
+              "Gastric pH Influence",
+              "Gastric Emptying Time",
+              "Intestinal Transit Time",
+              "Drug Solubility and Permeability",
+              "P-glycoprotein",
+              "Transporter Proteins",
+              "Formulation Effects"
+            ],
+            "meshTerms": [
+              "Biological Availability[MeSH]",
+              "Gastrointestinal Transit[MeSH]",
+              "ATP Binding Cassette Transporter, Subfamily B, Member 1[MeSH]",
+              "Intestinal Absorption[MeSH]"
+            ],
+            "textKeywords": [
+              "First-pass Metabolism[tiab]",
+              "Gastric pH[tiab]",
+              "P-glycoprotein[tiab]",
+              "Formulation Effects[tiab]"
+            ]
+          },
+          "distribution": {
+            "name": "Distribution",
+            "keywords": [
+              "Volume of Distribution",
+              "Plasma Protein Binding",
+              "Tissue Penetration",
+              "Blood-Brain Barrier",
+              "Lipophilicity",
+              "Tissue Binding",
+              "Body Composition Effects"
+            ],
+            "meshTerms": [
+              "Tissue Distribution[MeSH]",
+              "Protein Binding[MeSH]",
+              "Blood-Brain Barrier[MeSH]"
+            ],
+            "textKeywords": [
+              "Volume of Distribution[tiab]",
+              "Tissue Penetration[tiab]",
+              "Lipophilicity[tiab]",
+              "Body Composition[tiab]"
+            ]
+          },
+          "metabolism": {
+            "name": "Metabolism",
+            "keywords": [
+              "Hepatic Metabolism",
+              "Cytochrome P450 Enzymes",
+              "CYP450",
+              "Phase I Metabolism",
+              "Phase II Metabolism",
+              "Enzyme Induction",
+              "Enzyme Inhibition",
+              "Metabolite Profiling",
+              "Genetic Polymorphisms"
+            ],
+            "meshTerms": [
+              "Cytochrome P-450 Enzyme System[MeSH]",
+              "Metabolic Detoxication, Phase I[MeSH]",
+              "Metabolic Detoxication, Phase II[MeSH]",
+              "Enzyme Induction[MeSH]",
+              "Polymorphism, Genetic[MeSH]"
+            ],
+            "textKeywords": [
+              "Hepatic Metabolism[tiab]",
+              "CYP450[tiab]",
+              "Metabolite Profiling[tiab]"
+            ]
+          },
+          "excretion": {
+            "name": "Excretion",
+            "keywords": [
+              "Renal Clearance",
+              "Biliary Excretion",
+              "Glomerular Filtration Rate",
+              "GFR",
+              "Tubular Secretion",
+              "Tubular Reabsorption",
+              "Half-life",
+              "Elimination Rate Constant"
+            ],
+            "meshTerms": [
+              "Metabolic Clearance Rate[MeSH]",
+              "Glomerular Filtration Rate[MeSH]",
+              "Half-Life[MeSH]",
+              "Kidney Tubules[MeSH]"
+            ],
+            "textKeywords": [
+              "Renal Clearance[tiab]",
+              "Biliary Excretion[tiab]",
+              "Tubular Secretion[tiab]",
+              "Elimination Rate[tiab]"
+            ]
+          },
+          "specialPopulations": {
+            "name": "Pharmacokinetics in Special Populations",
+            "keywords": [
+              "Pediatric Pharmacokinetics",
+              "Geriatric Pharmacokinetics",
+              "Pregnancy Pharmacokinetics",
+              "Renal Impairment",
+              "Hepatic Impairment",
+              "Age-related Physiological Changes",
+              "Polypharmacy Effects",
+              "Dose Adjustment"
+            ],
+            "meshTerms": [
+              "Aged[MeSH]",
+              "Child[MeSH]",
+              "Pregnancy[MeSH]",
+              "Renal Insufficiency[MeSH]",
+              "Liver Diseases[MeSH]",
+              "Polypharmacy[MeSH]"
+            ],
+            "textKeywords": [
+              "Pediatric Pharmacokinetics[tiab]",
+              "Geriatric[tiab]",
+              "Dose Adjustment[tiab]",
+              "Special Populations[tiab]"
+            ]
+          },
+          "drugInteraction": {
+            "name": "Pharmacokinetics Drug Interaction",
+            "keywords": [
+              "Drug-Drug Interaction",
+              "Enzyme Induction",
+              "Enzyme Inhibition",
+              "Transporter-Mediated Interaction",
+              "Pharmacokinetic Interaction Mechanisms",
+              "Clinical Significance of Interactions",
+              "Therapeutic Drug Monitoring"
+            ],
+            "meshTerms": [
+              "Drug Interactions[MeSH]",
+              "Enzyme Induction[MeSH]",
+              "Drug Monitoring[MeSH]"
+            ],
+            "textKeywords": [
+              "Drug-Drug Interaction[tiab]",
+              "Transporter-Mediated[tiab]",
+              "Pharmacokinetic Interaction[tiab]"
+            ]
+          }
+        }
+      },
+      "pharmacodynamics": {
+        "name": "Pharmacodynamics",
+        "subcategories": {
+          "proposedIndications": {
+            "name": "Related to Proposed Indications",
+            "keywords": [
+              "Dose-Response Relationship",
+              "Receptor Binding",
+              "Receptor Sensitivity",
+              "Agonist",
+              "Antagonist",
+              "Efficacy",
+              "Potency",
+              "Therapeutic Index",
+              "Mechanism of Action",
+              "Target Tissue",
+              "Post-Receptor Effects",
+              "Signal Transduction",
+              "Pharmacologic Effect",
+              "Clinical Biomarkers",
+              "Therapeutic Window",
+              "Receptor Selectivity"
+            ],
+            "meshTerms": [
+              "Dose-Response Relationship, Drug[MeSH]",
+              "Receptors, Drug[MeSH]",
+              "Drug Agonists[MeSH]",
+              "Drug Antagonists[MeSH]",
+              "Biomarkers[MeSH]"
+            ],
+            "textKeywords": [
+              "Mechanism of Action[tiab]",
+              "Therapeutic Index[tiab]",
+              "Signal Transduction[tiab]",
+              "Receptor Selectivity[tiab]",
+              "Therapeutic Window[tiab]"
+            ]
+          },
+          "drugInteraction": {
+            "name": "Pharmacodynamic Drug Interaction",
+            "keywords": [
+              "Receptor Competition",
+              "Synergistic Effect",
+              "Antagonistic Effect",
+              "Additive Effect",
+              "Drug Interaction Mechanism",
+              "Receptor Modulation",
+              "Enzyme Inhibition",
+              "Enzyme Induction",
+              "Toxicodynamic Interaction",
+              "Therapeutic Drug Monitoring",
+              "Drug Resistance",
+              "Altered Signal Transduction"
+            ],
+            "meshTerms": [
+              "Drug Interactions[MeSH]",
+              "Drug Synergism[MeSH]",
+              "Drug Resistance[MeSH]",
+              "Signal Transduction[MeSH]"
+            ],
+            "textKeywords": [
+              "Receptor Competition[tiab]",
+              "Synergistic Effect[tiab]",
+              "Antagonistic Effect[tiab]",
+              "Toxicodynamic[tiab]"
+            ]
+          }
+        }
+      },
+      "efficacy": {
+        "name": "Efficacy",
+        "subcategories": {
+          "placeboControlled": {
+            "name": "Placebo-Controlled Studies",
+            "keywords": [
+              "Randomized Controlled Trial",
+              "RCT",
+              "Placebo Group",
+              "Double-Blind",
+              "Blinding",
+              "Control Group",
+              "Treatment Effect",
+              "Statistical Significance",
+              "Intention-to-Treat Analysis",
+              "Relative Risk Reduction",
+              "RRR",
+              "Absolute Risk Reduction",
+              "ARR",
+              "Number Needed to Treat",
+              "NNT"
+            ],
+            "meshTerms": [
+              "Randomized Controlled Trial[Publication Type]",
+              "Placebos[MeSH]",
+              "Double-Blind Method[MeSH]",
+              "Treatment Outcome[MeSH]"
+            ],
+            "textKeywords": [
+              "Placebo-Controlled[tiab]",
+              "Number Needed to Treat[tiab]",
+              "Intention-to-Treat[tiab]"
+            ]
+          },
+          "activeControlled": {
+            "name": "Active-Controlled Studies",
+            "keywords": [
+              "Active Comparator",
+              "Non-Inferiority Trial",
+              "Equivalence Trial",
+              "Head-to-Head Comparison",
+              "Superiority Trial",
+              "Dose Comparison",
+              "Efficacy Endpoint",
+              "Comparative Effectiveness",
+              "Treatment Arms"
+            ],
+            "meshTerms": [
+              "Comparative Effectiveness Research[MeSH]",
+              "Equivalence Trial[Publication Type]"
+            ],
+            "textKeywords": [
+              "Active Comparator[tiab]",
+              "Non-Inferiority[tiab]",
+              "Head-to-Head[tiab]",
+              "Superiority Trial[tiab]"
+            ]
+          },
+          "uncontrolled": {
+            "name": "Uncontrolled Studies",
+            "keywords": [
+              "Open-Label Study",
+              "Single-Arm Study",
+              "Observational Study",
+              "Case Series",
+              "Pilot Study",
+              "Exploratory Study",
+              "Historical Controls"
+            ],
+            "meshTerms": [
+              "Observational Study[Publication Type]",
+              "Pilot Projects[MeSH]"
+            ],
+            "textKeywords": [
+              "Open-Label[tiab]",
+              "Single-Arm[tiab]",
+              "Case Series[tiab]",
+              "Historical Controls[tiab]"
+            ]
+          },
+          "paediatrics": {
+            "name": "Efficacy in Paediatrics",
+            "keywords": [
+              "Pediatric Population",
+              "Paediatric",
+              "Age Stratification",
+              "Developmental Pharmacology",
+              "Pediatric Dose Adjustment",
+              "Growth and Maturation",
+              "Pediatric Clinical Trials",
+              "Safety and Efficacy in Children"
+            ],
+            "meshTerms": [
+              "Child[MeSH]",
+              "Pediatrics[MeSH]",
+              "Adolescent[MeSH]",
+              "Infant[MeSH]"
+            ],
+            "textKeywords": [
+              "Pediatric[tiab]",
+              "Paediatric[tiab]",
+              "Children[tiab]",
+              "Developmental Pharmacology[tiab]"
+            ]
+          },
+          "dosage": {
+            "name": "Dosage",
+            "keywords": [
+              "Dose-Response Relationship",
+              "Therapeutic Dose",
+              "Dose Escalation",
+              "Maximum Tolerated Dose",
+              "MTD",
+              "Dose Optimization",
+              "Dosing Regimen",
+              "Steady-State Concentration",
+              "Pharmacodynamics Correlation"
+            ],
+            "meshTerms": [
+              "Dose-Response Relationship, Drug[MeSH]",
+              "Maximum Tolerated Dose[MeSH]"
+            ],
+            "textKeywords": [
+              "Dose Escalation[tiab]",
+              "Dose Optimization[tiab]",
+              "Dosing Regimen[tiab]",
+              "Steady-State[tiab]"
+            ]
+          }
+        }
+      },
+      "safety": {
+        "name": "Safety",
+        "subcategories": {
+          "adverseReactions": {
+            "name": "Adverse Drug Reactions (ADR)",
+            "keywords": [
+              "Adverse Event",
+              "AE",
+              "Serious Adverse Event",
+              "SAE",
+              "Side Effect",
+              "Dose-Related Toxicity",
+              "Hypersensitivity Reactions",
+              "Idiosyncratic Reaction",
+              "Causality Assessment",
+              "Pharmacovigilance",
+              "Risk Management",
+              "Safety Signal Detection"
+            ],
+            "meshTerms": [
+              "Adverse Drug Reaction Reporting Systems[MeSH]",
+              "Drug-Related Side Effects and Adverse Reactions[MeSH]",
+              "Pharmacovigilance[MeSH]"
+            ],
+            "textKeywords": [
+              "Adverse Event[tiab]",
+              "Side Effect[tiab]",
+              "Safety Signal[tiab]",
+              "Idiosyncratic[tiab]"
+            ]
+          },
+          "warningsAndPrecautions": {
+            "name": "Special Warnings and Precautions",
+            "keywords": [
+              "Contraindications",
+              "Black Box Warning",
+              "Risk Minimization Measures",
+              "Monitoring Parameters",
+              "Drug Safety Alerts",
+              "Precautionary Statements",
+              "Warning Labels",
+              "Risk-Benefit Analysis"
+            ],
+            "meshTerms": [
+              "Contraindications[MeSH]",
+              "Risk Assessment[MeSH]"
+            ],
+            "textKeywords": [
+              "Black Box Warning[tiab]",
+              "Precautions[tiab]",
+              "Risk-Benefit[tiab]",
+              "Safety Alert[tiab]"
+            ]
+          },
+          "pregnancy": {
+            "name": "Pregnancy",
+            "keywords": [
+              "Teratogenicity",
+              "Embryotoxicity",
+              "Pregnancy Exposure Registry",
+              "Fetal Risk",
+              "Pregnancy and Lactation Labeling Rule",
+              "PLLR",
+              "Gestational Timing of Exposure",
+              "Maternal-Fetal Drug Transfer",
+              "Reproductive Toxicology"
+            ],
+            "meshTerms": [
+              "Pregnancy[MeSH]",
+              "Teratogens[MeSH]",
+              "Abnormalities, Drug-Induced[MeSH]",
+              "Maternal-Fetal Exchange[MeSH]"
+            ],
+            "textKeywords": [
+              "Pregnancy[tiab]",
+              "Teratogenicity[tiab]",
+              "Fetal Risk[tiab]",
+              "Gestational[tiab]"
+            ]
+          },
+          "breastfeeding": {
+            "name": "Breast-feeding",
+            "keywords": [
+              "Drug Transfer into Breast Milk",
+              "Milk-to-Plasma Ratio",
+              "Infant Exposure",
+              "Lactation Risk Assessment",
+              "Neonatal Toxicity",
+              "Breastfeeding Safety"
+            ],
+            "meshTerms": [
+              "Breast Feeding[MeSH]",
+              "Milk, Human[MeSH]",
+              "Lactation[MeSH]"
+            ],
+            "textKeywords": [
+              "Breast Milk[tiab]",
+              "Milk-to-Plasma[tiab]",
+              "Lactation[tiab]",
+              "Breastfeeding[tiab]"
+            ]
+          },
+          "fertility": {
+            "name": "Fertility",
+            "keywords": [
+              "Reproductive Toxicity",
+              "Infertility Risk",
+              "Gametotoxicity",
+              "Fertility Studies"
+            ],
+            "meshTerms": [
+              "Fertility[MeSH]",
+              "Reproductive Toxicity[MeSH]",
+              "Infertility[MeSH]"
+            ],
+            "textKeywords": [
+              "Fertility[tiab]",
+              "Gametotoxicity[tiab]",
+              "Reproductive Function[tiab]"
+            ]
+          },
+          "overdose": {
+            "name": "Overdose",
+            "keywords": [
+              "Toxic Dose",
+              "Poisoning",
+              "Acute Toxicity",
+              "Overdosage Management",
+              "Antidote",
+              "Supportive Care",
+              "Dose-Limiting Toxicity"
+            ],
+            "meshTerms": [
+              "Drug Overdose[MeSH]",
+              "Poisoning[MeSH]",
+              "Antidotes[MeSH]"
+            ],
+            "textKeywords": [
+              "Overdose[tiab]",
+              "Toxic Dose[tiab]",
+              "Overdosage[tiab]"
+            ]
+          },
+          "postMarketing": {
+            "name": "Post-marketing Surveillance",
+            "keywords": [
+              "Pharmacovigilance",
+              "Adverse Event Reporting System",
+              "AERS",
+              "Risk Evaluation and Mitigation Strategies",
+              "REMS",
+              "Signal Detection",
+              "Real-World Evidence",
+              "Safety Monitoring",
+              "Post-Authorization Safety Studies",
+              "PASS"
+            ],
+            "meshTerms": [
+              "Pharmacovigilance[MeSH]",
+              "Product Surveillance, Postmarketing[MeSH]",
+              "Adverse Drug Reaction Reporting Systems[MeSH]"
+            ],
+            "textKeywords": [
+              "Post-marketing[tiab]",
+              "REMS[tiab]",
+              "Real-World Evidence[tiab]",
+              "Signal Detection[tiab]"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

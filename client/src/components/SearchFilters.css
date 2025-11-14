@@ -1,0 +1,152 @@
+.search-filters {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 20px;
+}
+
+.filters-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px 0;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.filter-group {
+  margin-bottom: 16px;
+}
+
+.filter-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.year-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1f2937;
+  transition: all 0.2s ease;
+}
+
+.year-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.year-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.year-separator {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.filter-checkbox:hover:not(:has(input:disabled)) {
+  background-color: #f9fafb;
+}
+
+.filter-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.filter-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.filter-icon {
+  color: #667eea;
+  font-size: 16px;
+}
+
+.filter-checkbox span {
+  flex: 1;
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.btn-reset-filters {
+  width: 100%;
+  padding: 10px;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.btn-reset-filters:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.btn-reset-filters:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Study type specific colors */
+.card.study-animal .search-filters .filters-title,
+.card.study-animal .search-filters .filter-icon {
+  color: #10b981;
+}
+
+.card.study-animal .search-filters .year-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.card.study-animal .search-filters input[type="checkbox"] {
+  accent-color: #10b981;
+}
+
+.card.study-human .search-filters .filters-title,
+.card.study-human .search-filters .filter-icon {
+  color: #667eea;
+}
+
+.card.study-human .search-filters .year-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.card.study-human .search-filters input[type="checkbox"] {
+  accent-color: #667eea;
+}

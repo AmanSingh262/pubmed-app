@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "build": "cd client && npm run build",
+    "start": "node server/index.js",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && nodemon index.js",
+    "client": "cd client && npm start",
+    "deploy:backend": "echo 'Push to GitHub and deploy via Render dashboard'",
+    "deploy:frontend": "cd client && npm run build && echo 'Deploy build folder to Netlify'"
+  }
+}
