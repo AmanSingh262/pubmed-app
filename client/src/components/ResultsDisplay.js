@@ -8,7 +8,7 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
     return null;
   }
 
-  const { totalArticles, retrievedArticles, filteredArticles, articles, processingTime } = results;
+  const { totalArticles, filteredArticles, articles, processingTime } = results;
 
   const reductionPercentage = totalArticles > 0
     ? Math.round(((totalArticles - filteredArticles) / totalArticles) * 100)
