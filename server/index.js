@@ -12,6 +12,7 @@ dotenv.config();
 const searchRoutes = require('./routes/search');
 const categoryRoutes = require('./routes/categories');
 const exportRoutes = require('./routes/export');
+const referenceDocRoutes = require('./routes/referenceDoc');
 
 // Initialize Express app
 const app = express();
@@ -68,6 +69,7 @@ app.use((req, res, next) => {
 app.use('/api/search', searchRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/reference-doc', referenceDocRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

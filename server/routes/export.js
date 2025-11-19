@@ -11,6 +11,72 @@ const {
 } = require('docx');
 
 /**
+ * Helper function to extract abbreviations from text
+ * Finds patterns like "Full Term (ABB)" and creates alphabetical list
+ */
+function extractAbbreviations(text) {
+  if (!text || typeof text !== 'string') return [];
+  
+  const abbreviations = new Map(); // Use Map to avoid duplicates
+  
+  // Pattern to match: "Full Term (ABBR)" where ABBR is 2-6 uppercase letters or mixed case
+  // Examples: "Pharmacokinetics (PK)", "Central Nervous System (CNS)", "Area Under Curve (AUC)"
+  const pattern = /([A-Z][a-z]+(?:\s+[A-Z]?[a-z]+)*)\s*\(([A-Z]{2,6}|[A-Z][a-z]{1,5})\)/g;
+  
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const fullTerm = match[1].trim();
+    const abbr = match[2].trim();
+    
+    // Store with abbreviation as key to avoid duplicates
+    if (!abbreviations.has(abbr)) {
+      abbreviations.set(abbr, fullTerm);
+    }
+  }
+  
+  // Convert to array and sort alphabetically by abbreviation
+  const abbrArray = Array.from(abbreviations.entries())
+    .map(([abbr, fullTerm]) => ({ abbr, fullTerm }))
+    .sort((a, b) => a.abbr.localeCompare(b.abbr));
+  
+  return abbrArray;
+}
+
+/**
+ * Helper function to collect all abbreviations from all articles
+ */
+function collectAllAbbreviations(articles) {
+  const allAbbreviations = new Map();
+  
+  articles.forEach(article => {
+    // Extract from title
+    if (article.title) {
+      const titleAbbr = extractAbbreviations(article.title);
+      titleAbbr.forEach(({ abbr, fullTerm }) => {
+        if (!allAbbreviations.has(abbr)) {
+          allAbbreviations.set(abbr, fullTerm);
+        }
+      });
+    }
+    
+    // Extract from abstract
+    if (article.abstract) {
+      const abstractAbbr = extractAbbreviations(article.abstract);
+      abstractAbbr.forEach(({ abbr, fullTerm }) => {
+        if (!allAbbreviations.has(abbr)) {
+          allAbbreviations.set(abbr, fullTerm);
+        }
+      });
+    }
+  });
+  
+  // Convert to sorted array
+  return Array.from(allAbbreviations.entries())
+    .map(([abbr, fullTerm]) => ({ abbr, fullTerm }))
+    .sort((a, b) => a.abbr.localeCompare(b.abbr));
+}
+
+/**
  * Helper function to clean and format text according to UK scientific standards
  */
 function cleanText(text) {
@@ -615,6 +681,52 @@ router.post('/unified-word', async (req, res) => {
         );
       }
     });
+
+    // Add Abbreviations section (before References)
+    const allAbbreviations = collectAllAbbreviations(allArticles);
+    
+    if (allAbbreviations.length > 0) {
+      sections.push(
+        new Paragraph({ text: '' }),
+        new Paragraph({ text: '' }),
+        new Paragraph({
+          text: 'Abbreviations',
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.LEFT,
+          spacing: {
+            before: convertInchesToTwip(0.3),
+            after: convertInchesToTwip(0.2)
+          }
+        }),
+        new Paragraph({ text: '' })
+      );
+      
+      // Add each abbreviation
+      allAbbreviations.forEach(({ abbr, fullTerm }) => {
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${abbr}`,
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: `\t${fullTerm}`,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
+            alignment: AlignmentType.LEFT,
+            spacing: {
+              after: convertInchesToTwip(0.05),
+              line: Math.round(formatting.lineSpacing * 240)
+            }
+          })
+        );
+      });
+    }
 
     // Add References section
     sections.push(

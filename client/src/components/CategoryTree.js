@@ -94,20 +94,18 @@ function CategoryTree({ studyType, categories, selectedCategories, onToggleCateg
               {isSelected(category.key) && <FaCheck className="check-icon" />}
             </div>
 
-            {/* Add custom keyword button for Pharmacodynamics */}
-            {category.key === 'pharmacodynamics' && (
-              <div
-                className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
-                onClick={() => !disabled && toggleCustomInput(category.key)}
-                title="Add custom keywords"
-              >
-                <FaPlus />
-              </div>
-            )}
+            {/* Add custom keyword button for ALL main categories */}
+            <div
+              className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
+              onClick={() => !disabled && toggleCustomInput(category.key)}
+              title="Add custom keywords for this category"
+            >
+              <FaPlus />
+            </div>
           </div>
 
-          {/* Custom keyword input for Pharmacodynamics */}
-          {category.key === 'pharmacodynamics' && showCustomInput[category.key] && (
+          {/* Custom keyword input for ALL main categories */}
+          {showCustomInput[category.key] && (
             <div className="custom-keyword-input-wrapper">
               <input
                 type="text"
@@ -156,20 +154,18 @@ function CategoryTree({ studyType, categories, selectedCategories, onToggleCateg
                       {isSelected(subcategory.path) && <FaCheck className="check-icon" />}
                     </div>
 
-                    {/* Add custom keyword button for Primary Pharmacodynamics in Animal Studies */}
-                    {studyType === 'animal' && category.key === 'pharmacodynamics' && subcategory.key === 'primary' && (
-                      <div
-                        className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
-                        onClick={() => !disabled && toggleCustomInput(subcategory.path)}
-                        title="Add custom keywords"
-                      >
-                        <FaPlus />
-                      </div>
-                    )}
+                    {/* Add custom keyword button for ALL subcategories */}
+                    <div
+                      className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
+                      onClick={() => !disabled && toggleCustomInput(subcategory.path)}
+                      title="Add custom keywords for this subcategory"
+                    >
+                      <FaPlus />
+                    </div>
                   </div>
 
-                  {/* Custom keyword input for Primary Pharmacodynamics in Animal Studies */}
-                  {studyType === 'animal' && category.key === 'pharmacodynamics' && subcategory.key === 'primary' && showCustomInput[subcategory.path] && (
+                  {/* Custom keyword input for ALL subcategories */}
+                  {showCustomInput[subcategory.path] && (
                     <div className="custom-keyword-input-wrapper">
                       <input
                         type="text"
