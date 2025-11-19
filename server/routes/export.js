@@ -683,27 +683,7 @@ router.post('/unified-word', async (req, res) => {
 
         // PMID, Authors, and Journal sections removed as per user request
 
-        // Show similarity score for reference documents
-        if (article.similarityScore !== undefined && studyType === 'reference') {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `Similarity Score: ${article.similarityScore}%`,
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2,
-                  color: '9333ea'
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(0.1),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
+        // Similarity Score removed as per user request
 
         // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
         if (article.abstract) {
@@ -711,21 +691,7 @@ router.post('/unified-word', async (req, res) => {
           const isStructured = typeof article.abstract === 'object' && article.abstract.structured;
           
           if (isStructured && article.abstract.sections) {
-            // Handle structured abstract with labeled sections
-            sections.push(
-              new Paragraph({
-                text: 'Abstract',
-                bold: true,
-                font: formatting.font,
-                size: (formatting.fontSize + 2) * 2,
-                alignment,
-                spacing: {
-                  before: convertInchesToTwip(0.1),
-                  after: convertInchesToTwip(0.1)
-                }
-              })
-            );
-            
+            // Handle structured abstract with labeled sections (without "Abstract" heading)
             article.abstract.sections.forEach(section => {
               if (section.label) {
                 // Add section heading (e.g., "Importance:", "Objective:", etc.)
