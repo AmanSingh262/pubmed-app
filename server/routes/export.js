@@ -550,6 +550,7 @@ router.post('/unified-word', async (req, res) => {
         // PMID, Authors, and Journal sections removed as per user request
 
         // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
+        // Abstract heading removed as per user request - showing only the paragraph
         if (article.abstract) {
           let processedAbstract = cleanText(article.abstract);
           processedAbstract = restructureAbstract(processedAbstract);
@@ -559,21 +560,6 @@ router.post('/unified-word', async (req, res) => {
           const inTextCitation = generateInTextCitation(article);
           
           sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Abstract: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            }),
             new Paragraph({
               children: [
                 ...abstractParts.map(part => new TextRun({
@@ -716,7 +702,7 @@ router.post('/unified-word', async (req, res) => {
       }
     });
     
-    // Add formatted citations with proper Vancouver format
+    // Add formatted citations with proper APA format and justified alignment
     disambiguatedArticles.forEach((article, index) => {
       const citation = formatCitation(article, citationStyle);
       const cleanedCitation = cleanText(citation);
@@ -735,7 +721,7 @@ router.post('/unified-word', async (req, res) => {
               size: formatting.fontSize * 2
             })
           ],
-          alignment: AlignmentType.LEFT,
+          alignment: AlignmentType.JUSTIFIED,
           spacing: {
             after: convertInchesToTwip(0.1),
             line: Math.round(formatting.lineSpacing * 240)
@@ -842,7 +828,8 @@ router.post('/word', async (req, res) => {
 
       // PMID, Authors, and Journal sections removed as per user request
 
-      // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)y, and blue for citations)
+      // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
+      // Abstract heading removed as per user request - showing only the paragraph
       if (article.abstract) {
         let processedAbstract = cleanText(article.abstract);
         processedAbstract = restructureAbstract(processedAbstract);
@@ -852,21 +839,6 @@ router.post('/word', async (req, res) => {
         const inTextCitation = generateInTextCitation(article);
         
         sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Abstract: ',
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })
-            ],
-            alignment,
-            spacing: {
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
-          }),
           new Paragraph({
             children: [
               ...abstractParts.map(part => new TextRun({
