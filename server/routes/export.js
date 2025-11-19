@@ -11,8 +11,73 @@ const {
 } = require('docx');
 
 /**
+ * Helper function to replace first occurrence of full terms with "Full Term (ABBR)"
+ * and subsequent occurrences with just "ABBR"
+ */
+function replaceWithAbbreviations(text, abbreviationsMap) {
+  if (!text || !abbreviationsMap || abbreviationsMap.size === 0) return text;
+  
+  let processedText = text;
+  const usedAbbreviations = new Set();
+  
+  // Sort abbreviations by full term length (longest first) to avoid partial matches
+  const sortedAbbrs = Array.from(abbreviationsMap.entries())
+    .sort((a, b) => b[1].length - a[1].length);
+  
+  sortedAbbrs.forEach(([abbr, fullTerm]) => {
+    // Create regex to find the full term (case-insensitive, whole word)
+    // Match the capitalized version of the term
+    const capitalizedTerm = fullTerm.charAt(0).toUpperCase() + fullTerm.slice(1);
+    const pattern = new RegExp(`\\b${capitalizedTerm}\\b`, 'g');
+    
+    let firstMatch = true;
+    processedText = processedText.replace(pattern, (match) => {
+      if (firstMatch) {
+        firstMatch = false;
+        usedAbbreviations.add(abbr);
+        return `${match} (${abbr})`;
+      } else {
+        return abbr;
+      }
+    });
+  });
+  
+  return processedText;
+}
+
+// Standard abbreviations as per user requirements
+const STANDARD_ABBREVIATIONS = new Map([
+  ['µg', 'microgram'],
+  ['a.c.', 'before food or meals'],
+  ['a.m.', 'before noon'],
+  ['admin', 'administration'],
+  ['approx.', 'approximately'],
+  ['ATC', 'anatomical therapeutic chemical'],
+  ['AUC', 'area under the curve'],
+  ['bid', 'twice daily'],
+  ['CAS', 'chemical abstract services'],
+  ['CL/F', 'oral clearance'],
+  ['CLcr', 'creatinine clearance'],
+  ['cm', 'centimeter'],
+  ['Cmax', 'maximal plasma concentrations'],
+  ['CNS', 'central nervous system'],
+  ['CV', 'cardiovascular'],
+  ['g', 'gram'],
+  ['h', 'hours'],
+  ['im', 'intramuscular'],
+  ['IV', 'intravenous'],
+  ['kg', 'kilogram'],
+  ['L', 'liters'],
+  ['mg', 'milligram'],
+  ['mL', 'milliliter'],
+  ['PI', 'product information'],
+  ['PK', 'pharmacokinetics']
+]);
+
+/**
  * Helper function to extract abbreviations from text
  * Finds patterns like "Full Term (ABB)" and creates alphabetical list
+ * Definitions start with lowercase unless proper noun
  */
 function extractAbbreviations(text) {
   if (!text || typeof text !== 'string') return [];
@@ -28,9 +93,13 @@ function extractAbbreviations(text) {
     const fullTerm = match[1].trim();
     const abbr = match[2].trim();
     
+    // Convert full term to lowercase unless it's a proper noun
+    // Keep first letter lowercase for definitions
+    const definition = fullTerm.charAt(0).toLowerCase() + fullTerm.slice(1);
+    
     // Store with abbreviation as key to avoid duplicates
     if (!abbreviations.has(abbr)) {
-      abbreviations.set(abbr, fullTerm);
+      abbreviations.set(abbr, definition);
     }
   }
   
@@ -44,9 +113,11 @@ function extractAbbreviations(text) {
 
 /**
  * Helper function to collect all abbreviations from all articles
+ * Includes standard abbreviations and extracted abbreviations
  */
 function collectAllAbbreviations(articles) {
-  const allAbbreviations = new Map();
+  // Start with standard abbreviations
+  const allAbbreviations = new Map(STANDARD_ABBREVIATIONS);
   
   articles.forEach(article => {
     // Extract from title
@@ -70,7 +141,7 @@ function collectAllAbbreviations(articles) {
     }
   });
   
-  // Convert to sorted array
+  // Convert to sorted array (alphabetically by abbreviation)
   return Array.from(allAbbreviations.entries())
     .map(([abbr, fullTerm]) => ({ abbr, fullTerm }))
     .sort((a, b) => a.abbr.localeCompare(b.abbr));
@@ -544,11 +615,32 @@ router.post('/unified-word', async (req, res) => {
     categoryGroups.forEach((group, groupIndex) => {
       const { studyType, categoryPath, articles } = group;
       
-      // Add category heading
-      const studyTypeText = studyType === 'animal' ? 'Animal Studies' : 'Human Studies';
+      // Auto-detect category for reference documents or use provided categoryPath
+      let categoryHeading = categoryPath;
+      
+      // If this is from reference document, use the category from the first article
+      if (articles.length > 0 && articles[0].category) {
+        categoryHeading = articles[0].category;
+      }
+      
+      // Add category heading with auto-detected or provided category
+      let studyTypeText = '';
+      if (studyType === 'animal') {
+        studyTypeText = 'Animal Studies';
+      } else if (studyType === 'human') {
+        studyTypeText = 'Human Studies';
+      } else if (studyType === 'reference') {
+        // Reference document - use just the category name
+        studyTypeText = '';
+      } else {
+        studyTypeText = studyType.charAt(0).toUpperCase() + studyType.slice(1);
+      }
+      
+      const headingText = studyTypeText ? `${studyTypeText} - ${categoryHeading}` : categoryHeading;
+      
       sections.push(
         new Paragraph({
-          text: `${studyTypeText} - ${categoryPath}`,
+          text: headingText,
           heading: HeadingLevel.HEADING_2,
           alignment: AlignmentType.LEFT,
           spacing: {
@@ -563,7 +655,7 @@ router.post('/unified-word', async (req, res) => {
         new Paragraph({
           children: [
             new TextRun({
-              text: `A Study was conducted to evaluate the ${categoryPath}`,
+              text: `A Study was conducted to evaluate the ${categoryHeading}`,
               font: formatting.font,
               size: formatting.fontSize * 2,
               color: '666666'
@@ -591,6 +683,10 @@ router.post('/unified-word', async (req, res) => {
         if (article.abstract) {
           let processedAbstract = cleanText(article.abstract);
           processedAbstract = restructureAbstract(processedAbstract);
+          
+          // Apply abbreviation replacements (first use: "Full Term (ABBR)", subsequent: "ABBR")
+          processedAbstract = replaceWithAbbreviations(processedAbstract, STANDARD_ABBREVIATIONS);
+          
           const abstractParts = addCombinedFormatting(processedAbstract);
           
           // Generate in-text citation
@@ -701,7 +797,7 @@ router.post('/unified-word', async (req, res) => {
         new Paragraph({ text: '' })
       );
       
-      // Add each abbreviation
+      // Add each abbreviation with Times New Roman 10pt
       allAbbreviations.forEach(({ abbr, fullTerm }) => {
         sections.push(
           new Paragraph({
@@ -709,13 +805,13 @@ router.post('/unified-word', async (req, res) => {
               new TextRun({
                 text: `${abbr}`,
                 bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
+                font: 'Times New Roman',
+                size: 20 // 10pt = 20 half-points
               }),
               new TextRun({
                 text: `\t${fullTerm}`,
-                font: formatting.font,
-                size: formatting.fontSize * 2
+                font: 'Times New Roman',
+                size: 20 // 10pt = 20 half-points
               })
             ],
             alignment: AlignmentType.LEFT,

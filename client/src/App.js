@@ -12,6 +12,7 @@ import ResultsDisplay from './components/ResultsDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
 import ExportOptions from './components/ExportOptions';
 import SelectCart from './components/SelectCart';
+import ReferenceDocUpload from './components/ReferenceDocUpload';
 import { CartProvider, useCart } from './context/CartContext';
 
 import api from './services/api';
@@ -31,6 +32,8 @@ function AppContent() {
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [referenceDocResults, setReferenceDocResults] = useState(null);
+  const [showReferenceResults, setShowReferenceResults] = useState(false);
 
   // Get cart context
   const { cartItems, openCart } = useCart();
@@ -133,6 +136,74 @@ function AppContent() {
         categoryPath: selectedCategories.map(cat => cat.path).join(', ')
       });
       toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (error) {
+      toast.error('Failed to export results');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleReferenceDocResults = (data) => {
+    setReferenceDocResults(data);
+    setShowReferenceResults(true);
+    setShowResults(false);
+    toast.success(`Found ${data.totalArticles} similar articles organized into ${Object.keys(data.categorizedArticles).length} categories`);
+  };
+
+  const handleToggleReferenceArticle = (pmid) => {
+    setReferenceDocResults(prev => {
+      if (!prev) return prev;
+      
+      const updatedCategories = {};
+      Object.keys(prev.categorizedArticles).forEach(category => {
+        updatedCategories[category] = prev.categorizedArticles[category].map(article => {
+          if (article.pmid === pmid) {
+            return { ...article, selected: !article.selected };
+          }
+          return article;
+        });
+      });
+      
+      return {
+        ...prev,
+        categorizedArticles: updatedCategories
+      };
+    });
+  };
+
+  const handleExportReferenceDoc = async (format) => {
+    if (!referenceDocResults) {
+      toast.warning('No reference document results to export');
+      return;
+    }
+
+    // Collect all selected articles
+    const selectedArticles = [];
+    Object.entries(referenceDocResults.categorizedArticles).forEach(([category, articles]) => {
+      articles.forEach(article => {
+        if (article.selected) {
+          selectedArticles.push({ ...article, category });
+        }
+      });
+    });
+
+    if (selectedArticles.length === 0) {
+      toast.warning('Please select at least one article to export');
+      return;
+    }
+
+    try {
+      // Auto-detect categories from the selected articles
+      const detectedCategories = [...new Set(selectedArticles.map(a => a.category))];
+      
+      await api.exportResults(format, {
+        articles: selectedArticles,
+        query: `Reference Document: ${referenceDocResults.fileName}`,
+        studyType: 'reference',
+        categoryPath: detectedCategories.join(', '),
+        isReferenceDoc: true,
+        detectedCategories: detectedCategories
+      });
+      toast.success(`Exported ${selectedArticles.length} selected articles as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Failed to export results');
       console.error('Export error:', error);
@@ -250,9 +321,12 @@ function AppContent() {
           </div>
 
           <div className="content-area">
+            {/* Reference Document Upload */}
+            <ReferenceDocUpload onResultsReceived={handleReferenceDocResults} />
+
             {loading && <LoadingSpinner />}
 
-            {!loading && !showResults && (
+            {!loading && !showResults && !showReferenceResults && (
               <div className="welcome-message">
                 <div className="welcome-card">
                   <h2>🔬 Welcome to PubMed Intelligent Filter</h2>
@@ -302,6 +376,69 @@ function AppContent() {
                   categoryPath={selectedCategories.map(cat => cat.path).join(', ')}
                 />
               </>
+            )}
+
+            {!loading && showReferenceResults && referenceDocResults && (
+              <div className="reference-doc-results">
+                <div className="results-header">
+                  <h2>📄 Similar Articles from Reference Document</h2>
+                  <div className="results-info">
+                    <p><strong>File:</strong> {referenceDocResults.fileName}</p>
+                    <p><strong>Total Articles:</strong> {referenceDocResults.totalArticles}</p>
+                    <p><strong>Key Terms Used:</strong> {referenceDocResults.keyTerms?.join(', ')}</p>
+                  </div>
+                </div>
+
+                <ExportOptions
+                  onExport={handleExportReferenceDoc}
+                  disabled={false}
+                />
+
+                {Object.entries(referenceDocResults.categorizedArticles).map(([category, articles]) => (
+                  <div key={category} className="category-results-section">
+                    <h3 className="category-heading">{category} ({articles.length} articles)</h3>
+                    <div className="articles-grid">
+                      {articles.map((article, idx) => (
+                        <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
+                          <div className="article-select-header">
+                            <input
+                              type="checkbox"
+                              checked={article.selected || false}
+                              onChange={() => handleToggleReferenceArticle(article.pmid)}
+                              className="article-checkbox"
+                            />
+                            <span className="relevance-score">Relevance: {article.relevanceScore}%</span>
+                          </div>
+                          <h4 className="article-title">{article.title}</h4>
+                          <div className="article-meta">
+                            <span className="article-pmid">PMID: {article.pmid}</span>
+                            {article.authors && article.authors.length > 0 && (
+                              <span className="article-authors">
+                                {article.authors.slice(0, 3).join(', ')}
+                                {article.authors.length > 3 ? ', et al.' : ''}
+                              </span>
+                            )}
+                          </div>
+                          {article.journal && (
+                            <div className="article-journal">{article.journal}</div>
+                          )}
+                          {article.publicationDate && (
+                            <div className="article-date">{article.publicationDate}</div>
+                          )}
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="article-link"
+                          >
+                            View on PubMed →
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

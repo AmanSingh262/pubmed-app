@@ -192,9 +192,12 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const articles = [];
     
     if (fetchResponse.data.result) {
-      pmids.forEach(pmid => {
+      pmids.forEach((pmid, index) => {
         const article = fetchResponse.data.result[pmid];
         if (article) {
+          // Calculate relevance score (higher for earlier results)
+          const relevanceScore = Math.max(0, 100 - (index * 2)).toFixed(1);
+          
           articles.push({
             pmid: pmid,
             title: article.title || '',
@@ -202,7 +205,9 @@ router.post('/upload', upload.single('document'), async (req, res) => {
             journal: article.fulljournalname || article.source || '',
             publicationDate: article.pubdate || '',
             abstract: '', // Will be fetched if needed
-            url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+            url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+            relevanceScore: relevanceScore,
+            selected: false // For selection in UI
           });
         }
       });
