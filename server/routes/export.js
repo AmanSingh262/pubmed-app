@@ -18,7 +18,7 @@ function cleanText(text) {
   
   let cleaned = text;
   
-  // Convert US to UK spelling
+  // Convert US to UK spelling (comprehensive medical terms)
   cleaned = cleaned.replace(/\bfavor\b/gi, 'favour');
   cleaned = cleaned.replace(/\bfavored\b/gi, 'favoured');
   cleaned = cleaned.replace(/\bfavoring\b/gi, 'favouring');
@@ -26,20 +26,75 @@ function cleanText(text) {
   cleaned = cleaned.replace(/\banalyze\b/gi, 'analyse');
   cleaned = cleaned.replace(/\banalyzed\b/gi, 'analysed');
   cleaned = cleaned.replace(/\banalyzing\b/gi, 'analysing');
+  cleaned = cleaned.replace(/\brealize\b/gi, 'realise');
+  cleaned = cleaned.replace(/\brealized\b/gi, 'realised');
+  cleaned = cleaned.replace(/\borganize\b/gi, 'organise');
+  cleaned = cleaned.replace(/\borganized\b/gi, 'organised');
+  cleaned = cleaned.replace(/\bmetabolize\b/gi, 'metabolise');
+  cleaned = cleaned.replace(/\bmetabolized\b/gi, 'metabolised');
+  cleaned = cleaned.replace(/\bmetabolizing\b/gi, 'metabolising');
+  cleaned = cleaned.replace(/\bcenter\b/gi, 'centre');
+  cleaned = cleaned.replace(/\bcentered\b/gi, 'centred');
+  cleaned = cleaned.replace(/\btumor\b/gi, 'tumour');
+  cleaned = cleaned.replace(/\btumors\b/gi, 'tumours');
+  cleaned = cleaned.replace(/\bbehavior\b/gi, 'behaviour');
+  cleaned = cleaned.replace(/\blicense\b/gi, 'licence');
+  cleaned = cleaned.replace(/\bdefense\b/gi, 'defence');
   
-  // Fix abbreviations
+  // Standardize medical abbreviations (volumes)
   cleaned = cleaned.replace(/\bml\b/g, 'mL');
   cleaned = cleaned.replace(/\bMl\b/g, 'mL');
   cleaned = cleaned.replace(/\bmcg\b/gi, 'µg');
+  cleaned = cleaned.replace(/\bmicrogram\b/gi, 'µg');
+  cleaned = cleaned.replace(/\bmicrograms\b/gi, 'µg');
   cleaned = cleaned.replace(/\bmmol\b/g, 'mM');
   cleaned = cleaned.replace(/\bMmol\b/g, 'mM');
-  cleaned = cleaned.replace(/\b(\d+)\s*l\b/g, '$1 L');
+  cleaned = cleaned.replace(/\b(\d+)\s*l\b/gi, '$1 L');
+  cleaned = cleaned.replace(/\bliter\b/gi, 'L');
+  cleaned = cleaned.replace(/\bliters\b/gi, 'L');
+  cleaned = cleaned.replace(/\blitre\b/gi, 'L');
+  cleaned = cleaned.replace(/\blitres\b/gi, 'L');
+  
+  // Standardize time abbreviations
   cleaned = cleaned.replace(/\b(\d+)\s*h\b/g, '$1 hours');
+  cleaned = cleaned.replace(/\b(\d+)\s*hrs\b/gi, '$1 hours');
+  cleaned = cleaned.replace(/\bwks\b/gi, 'weeks');
+  cleaned = cleaned.replace(/\byrs\b/gi, 'years');
   
   // Standardize pharmacokinetic terms
   cleaned = cleaned.replace(/\bcmax\b/gi, 'Cmax');
   cleaned = cleaned.replace(/\btmax\b/gi, 'Tmax');
   cleaned = cleaned.replace(/\bauc\b/gi, 'AUC');
+  cleaned = cleaned.replace(/\bCL\/F\b/g, 'CL/F');
+  cleaned = cleaned.replace(/\bt1\/2\b/gi, 'T1/2');
+  cleaned = cleaned.replace(/\bhalf-life\b/gi, 'half-life');
+  
+  // Standardize dosing abbreviations
+  cleaned = cleaned.replace(/\bbid\b/gi, 'twice daily');
+  cleaned = cleaned.replace(/\bqd\b/gi, 'once daily');
+  cleaned = cleaned.replace(/\bqid\b/gi, 'four times daily');
+  cleaned = cleaned.replace(/\bq\.d\.\b/gi, 'once daily');
+  cleaned = cleaned.replace(/\bq2h\b/gi, 'every 2 hours');
+  cleaned = cleaned.replace(/\bqh\b/gi, 'every hour');
+  cleaned = cleaned.replace(/\bqn\b/gi, 'every night');
+  cleaned = cleaned.replace(/\bqod\b/gi, 'every other day');
+  cleaned = cleaned.replace(/\ba\.c\.\b/gi, 'before meals');
+  cleaned = cleaned.replace(/\ba\.m\.\b/gi, 'before noon');
+  
+  // Standardize administration routes
+  cleaned = cleaned.replace(/\bpo\b/gi, 'oral');
+  cleaned = cleaned.replace(/\biv\b/gi, 'intravenous');
+  cleaned = cleaned.replace(/\bim\b/gi, 'intramuscular');
+  
+  // Standardize weight and measurement
+  cleaned = cleaned.replace(/\bkg\b/g, 'kg');
+  cleaned = cleaned.replace(/\bmg\b/g, 'mg');
+  cleaned = cleaned.replace(/\bcm\b/g, 'cm');
+  cleaned = cleaned.replace(/\bwt\.\b/gi, 'weight');
+  
+  // Standardize versus
+  cleaned = cleaned.replace(/\bv\.s\b/gi, 'versus');
+  cleaned = cleaned.replace(/\bvs\.\b/gi, 'versus');
   
   // Standardize P-value notation
   cleaned = cleaned.replace(/\bp\s*</gi, 'P<');
@@ -47,6 +102,35 @@ function cleanText(text) {
   cleaned = cleaned.replace(/\bp\s*=/gi, 'P=');
   
   return cleaned;
+}
+
+/**
+ * Helper function to restructure abstract text from Methods/Results/Conclusions to narrative format
+ */
+function restructureAbstract(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  let restructured = text;
+  
+  // Convert "Methods:" section to narrative
+  restructured = restructured.replace(/\bMethods?:\s*/gi, 'A study was conducted to ');
+  restructured = restructured.replace(/\bObjective:\s*/gi, 'The objective was to ');
+  restructured = restructured.replace(/\bObjectives:\s*/gi, 'The objectives were to ');
+  restructured = restructured.replace(/\bAim:\s*/gi, 'The aim was to ');
+  restructured = restructured.replace(/\bAims:\s*/gi, 'The aims were to ');
+  
+  // Convert "Results:" section to narrative
+  restructured = restructured.replace(/\bResults?:\s*/gi, 'The study showed that ');
+  restructured = restructured.replace(/\bFindings?:\s*/gi, 'The findings indicated that ');
+  
+  // Convert "Conclusions:" section to narrative
+  restructured = restructured.replace(/\bConclusions?:\s*/gi, 'The study concluded that ');
+  restructured = restructured.replace(/\bSummary:\s*/gi, 'In summary, ');
+  
+  // Convert "Background:" section
+  restructured = restructured.replace(/\bBackground:\s*/gi, 'The background for this study was ');
+  
+  return restructured;
 }
 
 /**
@@ -105,6 +189,31 @@ function addItalicFormatting(text) {
   }
   
   return parts.length > 0 ? parts : [{ text, italics: false }];
+}
+
+/**
+ * Helper function to generate in-text citation (Author et al, Year)
+ */
+function generateInTextCitation(article) {
+  const authors = article.authors || [];
+  const year = article.publicationDate ? article.publicationDate.split(' ')[0] : 'n.d.';
+  
+  if (authors.length === 0) {
+    return `(Unknown, ${year})`;
+  } else if (authors.length === 1) {
+    // Single author: (Smith, 2019)
+    const lastName = authors[0].split(' ').pop();
+    return `(${lastName}, ${year})`;
+  } else if (authors.length === 2) {
+    // Two authors: (Smith and Jones, 2019)
+    const lastName1 = authors[0].split(' ').pop();
+    const lastName2 = authors[1].split(' ').pop();
+    return `(${lastName1} and ${lastName2}, ${year})`;
+  } else {
+    // Three or more: (Smith et al, 2019)
+    const lastName = authors[0].split(' ').pop();
+    return `(${lastName} et al, ${year})`;
+  }
 }
 
 /**
@@ -369,10 +478,14 @@ router.post('/unified-word', async (req, res) => {
           );
         }
 
-        // Abstract (with text cleaning and italicization)
+        // Abstract (with text cleaning, restructuring, and italicization)
         if (article.abstract) {
-          const cleanedAbstract = cleanText(article.abstract);
-          const abstractParts = addItalicFormatting(cleanedAbstract);
+          let processedAbstract = cleanText(article.abstract);
+          processedAbstract = restructureAbstract(processedAbstract);
+          const abstractParts = addItalicFormatting(processedAbstract);
+          
+          // Generate in-text citation
+          const inTextCitation = generateInTextCitation(article);
           
           sections.push(
             new Paragraph({
@@ -391,12 +504,19 @@ router.post('/unified-word', async (req, res) => {
               }
             }),
             new Paragraph({
-              children: abstractParts.map(part => new TextRun({
-                text: part.text,
-                italics: part.italics,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })),
+              children: [
+                ...abstractParts.map(part => new TextRun({
+                  text: part.text,
+                  italics: part.italics,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })),
+                new TextRun({
+                  text: ` ${inTextCitation}`,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
               alignment,
               spacing: {
                 after: convertInchesToTwip(formatting.spacingAfter / 72),
@@ -626,9 +746,51 @@ router.post('/unified-word', async (req, res) => {
       new Paragraph({ text: '' })
     );
 
-    // Add formatted citations
-    allArticles.forEach((article, index) => {
+    // Sort articles alphabetically by first author's last name for Vancouver style
+    const sortedArticles = [...allArticles].sort((a, b) => {
+      const authorsA = a.authors || [];
+      const authorsB = b.authors || [];
+      
+      const lastNameA = authorsA.length > 0 ? authorsA[0].split(' ').pop() : 'Unknown';
+      const lastNameB = authorsB.length > 0 ? authorsB[0].split(' ').pop() : 'Unknown';
+      
+      return lastNameA.localeCompare(lastNameB);
+    });
+    
+    // Remove duplicate references based on PMID
+    const uniqueArticles = [];
+    const seenPMIDs = new Set();
+    
+    sortedArticles.forEach(article => {
+      const pmid = article.pmid || article.title; // Use title as fallback if no PMID
+      if (!seenPMIDs.has(pmid)) {
+        seenPMIDs.add(pmid);
+        uniqueArticles.push(article);
+      }
+    });
+    
+    // Handle same author/year disambiguation (add 'a', 'b', etc.)
+    const citationMap = new Map();
+    const disambiguatedArticles = uniqueArticles.map(article => {
+      const authors = article.authors || [];
+      const year = article.publicationDate ? article.publicationDate.split(' ')[0] : 'n.d.';
+      const firstAuthor = authors.length > 0 ? authors[0].split(' ').pop() : 'Unknown';
+      const key = `${firstAuthor}_${year}`;
+      
+      if (citationMap.has(key)) {
+        const count = citationMap.get(key);
+        citationMap.set(key, count + 1);
+        return { ...article, yearSuffix: String.fromCharCode(96 + count + 1) }; // 'b', 'c', etc.
+      } else {
+        citationMap.set(key, 1);
+        return { ...article, yearSuffix: 'a' };
+      }
+    });
+    
+    // Add formatted citations with proper Vancouver format
+    disambiguatedArticles.forEach((article, index) => {
       const citation = formatCitation(article, citationStyle);
+      const cleanedCitation = cleanText(citation);
       
       sections.push(
         new Paragraph({
@@ -639,7 +801,7 @@ router.post('/unified-word', async (req, res) => {
               size: formatting.fontSize * 2
             }),
             new TextRun({
-              text: citation,
+              text: cleanedCitation,
               font: formatting.font,
               size: formatting.fontSize * 2
             })
@@ -834,10 +996,14 @@ router.post('/word', async (req, res) => {
         );
       }
 
-      // Abstract (with text cleaning and italicization)
+      // Abstract (with text cleaning, restructuring, and italicization)
       if (article.abstract) {
-        const cleanedAbstract = cleanText(article.abstract);
-        const abstractParts = addItalicFormatting(cleanedAbstract);
+        let processedAbstract = cleanText(article.abstract);
+        processedAbstract = restructureAbstract(processedAbstract);
+        const abstractParts = addItalicFormatting(processedAbstract);
+        
+        // Generate in-text citation
+        const inTextCitation = generateInTextCitation(article);
         
         sections.push(
           new Paragraph({
@@ -856,12 +1022,19 @@ router.post('/word', async (req, res) => {
             }
           }),
           new Paragraph({
-            children: abstractParts.map(part => new TextRun({
-              text: part.text,
-              italics: part.italics,
-              font: formatting.font,
-              size: formatting.fontSize * 2
-            })),
+            children: [
+              ...abstractParts.map(part => new TextRun({
+                text: part.text,
+                italics: part.italics,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })),
+              new TextRun({
+                text: ` ${inTextCitation}`,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
             alignment,
             spacing: {
               after: convertInchesToTwip(formatting.spacingAfter / 72),
