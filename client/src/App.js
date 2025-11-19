@@ -78,7 +78,7 @@ function App() {
       if (data.filteredArticles === 0) {
         toast.info('No articles found matching the selected criteria');
       } else {
-        toast.success(`Found ${data.filteredArticles} relevant articles!`);
+        toast.success(`Found top ${data.filteredArticles} relevant articles!`);
       }
     } catch (error) {
       toast.error('Failed to search articles. Please try again.');

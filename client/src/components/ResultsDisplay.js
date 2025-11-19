@@ -60,7 +60,7 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
           <div className="results-info">
             <FaChartBar />
             <span>
-              Showing <strong>{filteredArticles}</strong> most relevant articles out of{' '}
+              Showing top <strong>{filteredArticles}</strong> relevant articles out of{' '}
               <strong>{totalArticles}</strong> total results
               {reductionPercentage > 0 && (
                 <> (reduced manual review by <strong>{reductionPercentage}%</strong>)</>

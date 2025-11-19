@@ -174,7 +174,7 @@ router.post('/', async (req, res) => {
           fullText
         }
       },
-      message: `Found ${combinedArticles.length} relevant articles out of ${searchResults.totalCount} total results`
+      message: `Found top ${combinedArticles.length} relevant articles out of ${searchResults.totalCount} total results`
     });
 
   } catch (error) {
