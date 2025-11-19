@@ -441,7 +441,7 @@ function AppContent() {
                                 onChange={() => handleToggleReferenceArticle(article.pmid)}
                                 className="article-checkbox"
                               />
-                              <span className="relevance-score">Relevance: {article.relevanceScore}%</span>
+                              <span className="relevance-score">Similarity: {article.similarityScore}%</span>
                             </div>
                             <h4 className="article-title">{article.title}</h4>
                             <div className="article-meta">

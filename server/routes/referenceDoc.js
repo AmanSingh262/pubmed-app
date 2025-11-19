@@ -77,6 +77,37 @@ function extractKeyTerms(text) {
 }
 
 /**
+ * Helper function to calculate similarity score between reference document and article
+ * Returns a percentage score based on keyword overlap
+ */
+function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '') {
+  if (!referenceKeyTerms || referenceKeyTerms.length === 0) return 0;
+  
+  // Combine title and abstract for comparison
+  const articleText = `${articleTitle} ${articleAbstract}`.toLowerCase();
+  
+  // Count how many reference terms appear in the article
+  let matchCount = 0;
+  let weightedScore = 0;
+  
+  referenceKeyTerms.forEach((term, index) => {
+    // Give higher weight to more important terms (earlier in the list)
+    const weight = referenceKeyTerms.length - index;
+    
+    if (articleText.includes(term)) {
+      matchCount++;
+      weightedScore += weight;
+    }
+  });
+  
+  // Calculate percentage (weighted by term importance)
+  const maxPossibleScore = referenceKeyTerms.reduce((sum, _, idx) => sum + (referenceKeyTerms.length - idx), 0);
+  const similarityPercentage = (weightedScore / maxPossibleScore) * 100;
+  
+  return Math.min(100, Math.round(similarityPercentage * 10) / 10); // Round to 1 decimal
+}
+
+/**
  * Helper function to categorize articles based on content
  */
 function categorizeArticles(articles) {
@@ -195,23 +226,28 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       pmids.forEach((pmid, index) => {
         const article = fetchResponse.data.result[pmid];
         if (article) {
-          // Calculate relevance score (higher for earlier results)
-          const relevanceScore = Math.max(0, 100 - (index * 2)).toFixed(1);
+          const title = article.title || '';
+          
+          // Calculate similarity score based on keyword overlap with reference document
+          const similarityScore = calculateSimilarityScore(keyTerms, title);
           
           articles.push({
             pmid: pmid,
-            title: article.title || '',
+            title: title,
             authors: article.authors?.map(a => a.name) || [],
             journal: article.fulljournalname || article.source || '',
             publicationDate: article.pubdate || '',
             abstract: '', // Will be fetched if needed
             url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
-            relevanceScore: relevanceScore,
+            similarityScore: similarityScore,
             selected: false // For selection in UI
           });
         }
       });
     }
+    
+    // Sort articles by similarity score (highest first)
+    articles.sort((a, b) => b.similarityScore - a.similarityScore);
     
     // Step 3: Categorize articles
     const categorizedArticles = categorizeArticles(articles);

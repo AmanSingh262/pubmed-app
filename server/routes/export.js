@@ -683,13 +683,13 @@ router.post('/unified-word', async (req, res) => {
 
         // PMID, Authors, and Journal sections removed as per user request
 
-        // Show relevance score for reference documents
-        if (article.relevanceScore && studyType === 'reference') {
+        // Show similarity score for reference documents
+        if (article.similarityScore !== undefined && studyType === 'reference') {
           sections.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `Relevance Score: ${article.relevanceScore}%`,
+                  text: `Similarity Score: ${article.similarityScore}%`,
                   bold: true,
                   font: formatting.font,
                   size: formatting.fontSize * 2,
