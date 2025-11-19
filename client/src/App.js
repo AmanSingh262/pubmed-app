@@ -36,7 +36,7 @@ function AppContent() {
   const [showReferenceResults, setShowReferenceResults] = useState(false);
 
   // Get cart context
-  const { cartItems, openCart } = useCart();
+  const { cartItems, openCart, addToCart, isInCart } = useCart();
 
   // Load categories on mount
   useEffect(() => {
@@ -168,6 +168,12 @@ function AppContent() {
         categorizedArticles: updatedCategories
       };
     });
+  };
+
+  const handleAddReferenceToCart = (article, category) => {
+    // Add article to cart with category information
+    addToCart(article, category, 'reference');
+    toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
   };
 
   const handleExportReferenceDoc = async (format) => {
@@ -398,43 +404,55 @@ function AppContent() {
                   <div key={category} className="category-results-section">
                     <h3 className="category-heading">{category} ({articles.length} articles)</h3>
                     <div className="articles-grid">
-                      {articles.map((article, idx) => (
-                        <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
-                          <div className="article-select-header">
-                            <input
-                              type="checkbox"
-                              checked={article.selected || false}
-                              onChange={() => handleToggleReferenceArticle(article.pmid)}
-                              className="article-checkbox"
-                            />
-                            <span className="relevance-score">Relevance: {article.relevanceScore}%</span>
-                          </div>
-                          <h4 className="article-title">{article.title}</h4>
-                          <div className="article-meta">
-                            <span className="article-pmid">PMID: {article.pmid}</span>
-                            {article.authors && article.authors.length > 0 && (
-                              <span className="article-authors">
-                                {article.authors.slice(0, 3).join(', ')}
-                                {article.authors.length > 3 ? ', et al.' : ''}
-                              </span>
+                      {articles.map((article, idx) => {
+                        const inCart = isInCart(article.pmid);
+                        return (
+                          <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
+                            <div className="article-select-header">
+                              <input
+                                type="checkbox"
+                                checked={article.selected || false}
+                                onChange={() => handleToggleReferenceArticle(article.pmid)}
+                                className="article-checkbox"
+                              />
+                              <span className="relevance-score">Relevance: {article.relevanceScore}%</span>
+                            </div>
+                            <h4 className="article-title">{article.title}</h4>
+                            <div className="article-meta">
+                              <span className="article-pmid">PMID: {article.pmid}</span>
+                              {article.authors && article.authors.length > 0 && (
+                                <span className="article-authors">
+                                  {article.authors.slice(0, 3).join(', ')}
+                                  {article.authors.length > 3 ? ', et al.' : ''}
+                                </span>
+                              )}
+                            </div>
+                            {article.journal && (
+                              <div className="article-journal">{article.journal}</div>
                             )}
+                            {article.publicationDate && (
+                              <div className="article-date">{article.publicationDate}</div>
+                            )}
+                            <div className="article-actions">
+                              <a
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="article-link"
+                              >
+                                View on PubMed →
+                              </a>
+                              <button
+                                className={`btn-add-to-cart ${inCart ? 'in-cart' : ''}`}
+                                onClick={() => handleAddReferenceToCart(article, category)}
+                                disabled={inCart}
+                              >
+                                {inCart ? '✓ In Cart' : '🛒 Add to Cart'}
+                              </button>
+                            </div>
                           </div>
-                          {article.journal && (
-                            <div className="article-journal">{article.journal}</div>
-                          )}
-                          {article.publicationDate && (
-                            <div className="article-date">{article.publicationDate}</div>
-                          )}
-                          <a
-                            href={article.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="article-link"
-                          >
-                            View on PubMed →
-                          </a>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
