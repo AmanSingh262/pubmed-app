@@ -11,10 +11,12 @@ import SearchFilters from './components/SearchFilters';
 import ResultsDisplay from './components/ResultsDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
 import ExportOptions from './components/ExportOptions';
+import SelectCart from './components/SelectCart';
+import { CartProvider, useCart } from './context/CartContext';
 
 import api from './services/api';
 
-function App() {
+function AppContent() {
   const [query, setQuery] = useState('');
   const [studyType, setStudyType] = useState('animal');
   const [categories, setCategories] = useState(null);
@@ -29,6 +31,9 @@ function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+
+  // Get cart context
+  const { cartItems, isCartOpen, openCart } = useCart();
 
   // Load categories on mount
   useEffect(() => {
@@ -149,6 +154,18 @@ function App() {
       />
 
       <Header />
+
+      {/* Cart Button */}
+      <button 
+        className="cart-toggle-btn" 
+        onClick={openCart}
+        title="View Cart"
+      >
+        <span className="cart-icon">🛒</span>
+        {cartItems.length > 0 && (
+          <span className="cart-badge">{cartItems.length}</span>
+        )}
+      </button>
 
       <div className="container">
         <div className="search-section">
@@ -289,7 +306,18 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Select Cart Panel */}
+      <SelectCart />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <CartProvider>
+      <AppContent />
+    </CartProvider>
   );
 }
 

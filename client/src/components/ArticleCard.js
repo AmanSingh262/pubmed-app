@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import './ArticleCard.css';
-import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar, FaCheckCircle, FaCircle } from 'react-icons/fa';
+import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar, FaCheckCircle, FaCircle, FaShoppingCart, FaCheck } from 'react-icons/fa';
 
-function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect }) {
+function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, onAddToCart, isInCart }) {
   const [expanded, setExpanded] = useState(false);
 
   const {
@@ -99,6 +99,24 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect }
             <div className="score-label">{getScoreLabel(relevanceScore)}</div>
           </div>
         </div>
+        {onAddToCart && (
+          <button
+            className={`add-to-cart-btn ${isInCart ? 'in-cart' : ''}`}
+            onClick={() => onAddToCart(article)}
+            disabled={isInCart}
+            title={isInCart ? "Already in cart" : "Add to cart"}
+          >
+            {isInCart ? (
+              <>
+                <FaCheck /> In Cart
+              </>
+            ) : (
+              <>
+                <FaShoppingCart /> Add to Cart
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="article-info">

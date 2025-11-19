@@ -3,10 +3,14 @@ import './ResultsDisplay.css';
 import ArticleCard from './ArticleCard';
 import { FaInfoCircle, FaChartBar, FaFileWord, FaCheckCircle } from 'react-icons/fa';
 import ExportModal from './ExportModal';
+import { useCart } from '../context/CartContext';
 
 function ResultsDisplay({ results, query, studyType, categoryPath }) {
   const [selectedArticles, setSelectedArticles] = useState([]);
   const [showExportModal, setShowExportModal] = useState(false);
+  
+  // Get cart functions
+  const { addToCart, isInCart } = useCart();
 
   if (!results || !results.articles) {
     return null;
@@ -27,6 +31,10 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
         return [...prev, article];
       }
     });
+  };
+
+  const handleAddToCart = (article) => {
+    addToCart(article, categoryPath, studyType);
   };
 
   const handleDone = () => {
@@ -120,6 +128,8 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
                 isSelectable={true}
                 isSelected={selectedArticles.some(a => a.pmid === article.pmid)}
                 onToggleSelect={handleToggleSelect}
+                onAddToCart={handleAddToCart}
+                isInCart={isInCart(article)}
               />
             ))}
           </div>

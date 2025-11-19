@@ -11,6 +11,392 @@ const {
 } = require('docx');
 
 /**
+ * Helper function to format citations
+ */
+function formatCitation(article, style) {
+  const authors = article.authors || [];
+  const title = article.title || 'Untitled';
+  const journal = article.journal || '';
+  const year = article.publicationDate ? article.publicationDate.split(' ')[0] : 'n.d.';
+  const pmid = article.pmid || '';
+  const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
+
+  // Format authors based on style
+  let authorString = '';
+  
+  if (style === 'APA') {
+    // APA: Last, F. M., Last, F. M., & Last, F. M.
+    if (authors.length === 0) {
+      authorString = 'Unknown Author';
+    } else if (authors.length === 1) {
+      authorString = authors[0];
+    } else if (authors.length === 2) {
+      authorString = `${authors[0]} & ${authors[1]}`;
+    } else {
+      authorString = authors.slice(0, -1).join(', ') + ', & ' + authors[authors.length - 1];
+    }
+    return `${authorString}. (${year}). ${title}. ${journal}. ${url}`;
+    
+  } else if (style === 'MLA') {
+    // MLA: Last, First M. "Title." Journal (Year): n. pag. Web.
+    authorString = authors.length > 0 ? authors[0] : 'Unknown Author';
+    if (authors.length > 1) {
+      authorString += ', et al';
+    }
+    return `${authorString}. "${title}." ${journal} (${year}): n. pag. Web. ${url}`;
+    
+  } else if (style === 'Chicago') {
+    // Chicago: Last, First M. "Title." Journal (Year): pages.
+    authorString = authors.length > 0 ? authors[0] : 'Unknown Author';
+    if (authors.length > 1) {
+      authorString += ', et al';
+    }
+    return `${authorString}. "${title}." ${journal} (${year}). ${url}`;
+    
+  } else if (style === 'Vancouver') {
+    // Vancouver: Authors. Title. Journal. Year;PMID.
+    if (authors.length === 0) {
+      authorString = 'Unknown Author';
+    } else if (authors.length <= 6) {
+      authorString = authors.join(', ');
+    } else {
+      authorString = authors.slice(0, 6).join(', ') + ', et al';
+    }
+    return `${authorString}. ${title}. ${journal}. ${year}; PMID: ${pmid}. Available from: ${url}`;
+  }
+  
+  // Default fallback
+  return `${authors.join(', ')}. ${title}. ${journal}. ${year}. ${url}`;
+}
+
+/**
+ * POST /api/export/unified-word
+ * Export articles from cart (grouped by category) to Microsoft Word format
+ */
+router.post('/unified-word', async (req, res) => {
+  try {
+    const { groupedArticles, formatting } = req.body;
+
+    if (!groupedArticles || typeof groupedArticles !== 'object' || Object.keys(groupedArticles).length === 0) {
+      return res.status(400).json({ error: 'No grouped articles provided' });
+    }
+
+    // Convert alignment string to docx enum
+    const alignmentMap = {
+      'left': AlignmentType.LEFT,
+      'center': AlignmentType.CENTER,
+      'right': AlignmentType.RIGHT,
+      'justify': AlignmentType.JUSTIFIED
+    };
+
+    const alignment = alignmentMap[formatting.alignment] || AlignmentType.JUSTIFIED;
+    const citationStyle = formatting.citationStyle || 'APA';
+
+    // Create document sections
+    const sections = [];
+    
+    // Collect all articles for references section
+    const allArticles = [];
+
+    // Add main heading
+    sections.push(
+      new Paragraph({
+        text: 'PubMed Research Export',
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          after: convertInchesToTwip(0.3)
+        }
+      }),
+      new Paragraph({ text: '' })
+    );
+
+    // Process each category group
+    const categoryGroups = Object.values(groupedArticles);
+    
+    categoryGroups.forEach((group, groupIndex) => {
+      const { studyType, categoryPath, articles } = group;
+      
+      // Add category heading
+      sections.push(
+        new Paragraph({
+          text: `${studyType} - ${categoryPath}`,
+          heading: HeadingLevel.HEADING_2,
+          alignment: AlignmentType.LEFT,
+          spacing: {
+            before: convertInchesToTwip(0.2),
+            after: convertInchesToTwip(0.15)
+          }
+        })
+      );
+      
+      // Add category description
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `A Study was conducted to evaluate the ${categoryPath}`,
+              italics: true,
+              font: formatting.font,
+              size: formatting.fontSize * 2,
+              color: '666666'
+            })
+          ],
+          alignment,
+          spacing: {
+            after: convertInchesToTwip(0.15)
+          }
+        }),
+        new Paragraph({ text: '' })
+      );
+
+      // Add articles in this category
+      articles.forEach((article, articleIndex) => {
+        allArticles.push(article);
+        const globalIndex = allArticles.length;
+
+        // Article number and title
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${globalIndex}. `,
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: article.title || 'No title available',
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
+            alignment,
+            spacing: {
+              before: convertInchesToTwip(formatting.spacingBefore / 72),
+              after: convertInchesToTwip(formatting.spacingAfter / 72),
+              line: Math.round(formatting.lineSpacing * 240),
+              lineRule: 'auto'
+            }
+          })
+        );
+
+        // PMID
+        if (article.pmid) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'PMID: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: article.pmid.toString(),
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Authors
+        if (article.authors && Array.isArray(article.authors) && article.authors.length > 0) {
+          const authorsText = article.authors.join(', ');
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Authors: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: authorsText,
+                  italics: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Journal and date
+        if (article.journal || article.publicationDate) {
+          const journalText = [
+            article.journal,
+            article.publicationDate
+          ].filter(Boolean).join(', ');
+
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Publication: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: journalText,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Abstract
+        if (article.abstract) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Abstract: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            }),
+            new Paragraph({
+              text: article.abstract,
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              },
+              font: formatting.font,
+              size: formatting.fontSize * 2
+            })
+          );
+        }
+
+        // Add spacing between articles
+        if (articleIndex < articles.length - 1) {
+          sections.push(new Paragraph({ text: '' }));
+        }
+      });
+
+      // Add horizontal divider between categories (except after last one)
+      if (groupIndex < categoryGroups.length - 1) {
+        sections.push(
+          new Paragraph({ text: '' }),
+          new Paragraph({
+            text: '',
+            spacing: {
+              before: convertInchesToTwip(0.2),
+              after: convertInchesToTwip(0.2)
+            },
+            border: {
+              bottom: {
+                color: '999999',
+                space: 1,
+                value: 'single',
+                size: 12
+              }
+            }
+          }),
+          new Paragraph({ text: '' })
+        );
+      }
+    });
+
+    // Add References section
+    sections.push(
+      new Paragraph({ text: '' }),
+      new Paragraph({ text: '' }),
+      new Paragraph({
+        text: 'References',
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.LEFT,
+        spacing: {
+          before: convertInchesToTwip(0.3),
+          after: convertInchesToTwip(0.2)
+        }
+      }),
+      new Paragraph({ text: '' })
+    );
+
+    // Add formatted citations
+    allArticles.forEach((article, index) => {
+      const citation = formatCitation(article, citationStyle);
+      
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${index + 1}. `,
+              font: formatting.font,
+              size: formatting.fontSize * 2
+            }),
+            new TextRun({
+              text: citation,
+              font: formatting.font,
+              size: formatting.fontSize * 2
+            })
+          ],
+          alignment: AlignmentType.LEFT,
+          spacing: {
+            after: convertInchesToTwip(0.1),
+            line: Math.round(formatting.lineSpacing * 240)
+          }
+        })
+      );
+    });
+
+    // Create the document
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: sections
+        }
+      ]
+    });
+
+    // Generate buffer
+    const buffer = await Packer.toBuffer(doc);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename=pubmed_unified_export_${Date.now()}.docx`);
+    res.setHeader('Content-Length', buffer.length);
+
+    res.send(buffer);
+  } catch (error) {
+    console.error('Unified Word export error:', error);
+    res.status(500).json({ error: 'Failed to generate unified Word document', details: error.message });
+  }
+});
+
+/**
  * POST /api/export/word
  * Export selected articles to Microsoft Word format
  */
