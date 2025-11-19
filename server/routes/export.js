@@ -192,6 +192,161 @@ function addItalicFormatting(text) {
 }
 
 /**
+ * Helper function to combine italic formatting and blue color for references
+ * This handles both biological terms (italic) and citations/Table/Figure (blue)
+ */
+function addCombinedFormatting(text) {
+  if (!text || typeof text !== 'string') return [];
+  
+  const parts = [];
+  
+  // First, identify all italic terms (biological/scientific)
+  const italicPatterns = [
+    /\bin vitro\b/gi,
+    /\bin vivo\b/gi,
+    /\bex vivo\b/gi,
+    /\bEscherichia coli\b/gi,
+    /\bStaphylococcus aureus\b/gi,
+    /\bPseudomonas aeruginosa\b/gi,
+    /\bCandida albicans\b/gi,
+    /\b[A-Z][a-z]+ [a-z]+\b/g // Genus species pattern
+  ];
+  
+  // Then identify all blue color terms (citations, Table, Figure)
+  const bluePatterns = [
+    /\([A-Z][a-z]+(?:\s+et\s+al)?(?:\s+and\s+[A-Z][a-z]+)?\s*,\s*\d{4}[a-z]?\)/g,
+    /\bTable\s+\d+/gi,
+    /\bFigure\s+\d+/gi
+  ];
+  
+  // Collect all matches with their type
+  const allMatches = [];
+  
+  italicPatterns.forEach(pattern => {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      allMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+        type: 'italic'
+      });
+    }
+  });
+  
+  bluePatterns.forEach(pattern => {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      allMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+        type: 'blue'
+      });
+    }
+  });
+  
+  // Sort by position and handle overlaps
+  allMatches.sort((a, b) => a.start - b.start);
+  
+  // Remove overlaps (blue takes precedence over italic)
+  const uniqueMatches = [];
+  allMatches.forEach(match => {
+    if (uniqueMatches.length === 0 || match.start >= uniqueMatches[uniqueMatches.length - 1].end) {
+      uniqueMatches.push(match);
+    } else if (match.type === 'blue' && uniqueMatches[uniqueMatches.length - 1].type === 'italic') {
+      // Replace italic with blue if they overlap
+      uniqueMatches[uniqueMatches.length - 1] = match;
+    }
+  });
+  
+  // Build parts array
+  let lastIndex = 0;
+  uniqueMatches.forEach(match => {
+    if (match.start > lastIndex) {
+      parts.push({ text: text.substring(lastIndex, match.start), italics: false, color: null });
+    }
+    parts.push({ 
+      text: match.text, 
+      italics: match.type === 'italic', 
+      color: match.type === 'blue' ? '0000FF' : null 
+    });
+    lastIndex = match.end;
+  });
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ text: text.substring(lastIndex), italics: false, color: null });
+  }
+  
+  return parts.length > 0 ? parts : [{ text, italics: false, color: null }];
+}
+
+/**
+ * Helper function to add blue color to references, Table, and Figure mentions
+ * Pattern matches: (Author, Year), (Author et al, Year), Table X, Figure X
+ */
+function addBlueColorToReferences(text) {
+  if (!text || typeof text !== 'string') return [];
+  
+  const parts = [];
+  let remaining = text;
+  
+  // Patterns to match and color blue
+  const bluePatterns = [
+    // Author citations: (Smith, 2019), (Smith et al, 2019), (Smith and Jones, 2019)
+    /\([A-Z][a-z]+(?:\s+et\s+al)?(?:\s+and\s+[A-Z][a-z]+)?\s*,\s*\d{4}[a-z]?\)/g,
+    // Table references: Table 1, Table X, etc.
+    /\bTable\s+\d+/gi,
+    // Figure references: Figure 1, Figure X, etc.
+    /\bFigure\s+\d+/gi
+  ];
+  
+  let lastIndex = 0;
+  const matches = [];
+  
+  // Find all matches
+  bluePatterns.forEach(pattern => {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      matches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0]
+      });
+    }
+  });
+  
+  // Sort matches by position and remove overlaps
+  matches.sort((a, b) => a.start - b.start);
+  const uniqueMatches = [];
+  matches.forEach(match => {
+    if (uniqueMatches.length === 0 || match.start >= uniqueMatches[uniqueMatches.length - 1].end) {
+      uniqueMatches.push(match);
+    }
+  });
+  
+  // Build parts array with blue color for matches
+  uniqueMatches.forEach(match => {
+    if (match.start > lastIndex) {
+      parts.push({ text: text.substring(lastIndex, match.start), color: null });
+    }
+    parts.push({ text: match.text, color: '0000FF' }); // Blue color
+    lastIndex = match.end;
+  });
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ text: text.substring(lastIndex), color: null });
+  }
+  
+  return parts.length > 0 ? parts : [{ text, color: null }];
+}
+
+/**
  * Helper function to generate in-text citation (Author et al, Year)
  */
 function generateInTextCitation(article) {
@@ -337,13 +492,12 @@ router.post('/unified-word', async (req, res) => {
         })
       );
       
-      // Add category description
+      // Add category description (removed italic formatting as per user request)
       sections.push(
         new Paragraph({
           children: [
             new TextRun({
               text: `A Study was conducted to evaluate the ${categoryPath}`,
-              italics: true,
               font: formatting.font,
               size: formatting.fontSize * 2,
               color: '666666'
@@ -393,96 +547,13 @@ router.post('/unified-word', async (req, res) => {
           })
         );
 
-        // PMID
-        if (article.pmid) {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'PMID: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: article.pmid.toString(),
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
+        // PMID, Authors, and Journal sections removed as per user request
 
-        // Authors
-        if (article.authors && Array.isArray(article.authors) && article.authors.length > 0) {
-          const authorsText = article.authors.join(', ');
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Authors: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: authorsText,
-                  italics: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-
-        // Journal and date
-        if (article.journal || article.publicationDate) {
-          const journalText = [
-            article.journal,
-            article.publicationDate
-          ].filter(Boolean).join(', ');
-
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Publication: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: journalText,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-
-        // Abstract (with text cleaning, restructuring, and italicization)
+        // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
         if (article.abstract) {
           let processedAbstract = cleanText(article.abstract);
           processedAbstract = restructureAbstract(processedAbstract);
-          const abstractParts = addItalicFormatting(processedAbstract);
+          const abstractParts = addCombinedFormatting(processedAbstract);
           
           // Generate in-text citation
           const inTextCitation = generateInTextCitation(article);
@@ -508,11 +579,13 @@ router.post('/unified-word', async (req, res) => {
                 ...abstractParts.map(part => new TextRun({
                   text: part.text,
                   italics: part.italics,
+                  color: part.color || undefined,
                   font: formatting.font,
                   size: formatting.fontSize * 2
                 })),
                 new TextRun({
                   text: ` ${inTextCitation}`,
+                  color: '0000FF',
                   font: formatting.font,
                   size: formatting.fontSize * 2
                 })
@@ -526,86 +599,7 @@ router.post('/unified-word', async (req, res) => {
           );
         }
 
-        // MeSH Terms
-        if (article.meshTerms && Array.isArray(article.meshTerms) && article.meshTerms.length > 0) {
-          const meshText = article.meshTerms.join('; ');
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'MeSH Terms: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: meshText,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-
-        // Keywords (if available)
-        if (article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0) {
-          const keywordsText = article.keywords.join('; ');
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Keywords: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: keywordsText,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-
-        // Relevance Score
-        if (article.relevanceScore !== undefined) {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Relevance Score: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: article.relevanceScore.toString(),
-                  font: formatting.font,
-                  size: formatting.fontSize * 2,
-                  color: article.relevanceScore >= 30 ? '10b981' : article.relevanceScore >= 15 ? 'f59e0b' : '6b7280'
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
+        // MeSH Terms, Keywords, Relevance Score, and Matched Keywords removed as per user request
 
         // URL
         if (article.url) {
@@ -613,7 +607,7 @@ router.post('/unified-word', async (req, res) => {
             new Paragraph({
               children: [
                 new TextRun({
-                  text: 'URL: ',
+                  text: 'Link: ',
                   bold: true,
                   font: formatting.font,
                   size: formatting.fontSize * 2
@@ -633,71 +627,6 @@ router.post('/unified-word', async (req, res) => {
               }
             })
           );
-        }
-
-        // DOI (if available)
-        if (article.doi) {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'DOI: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: article.doi,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-
-        // Matched Keywords (if available)
-        if (article.matches) {
-          let matchesText = [];
-          if (article.matches.meshMatches && article.matches.meshMatches.length > 0) {
-            matchesText.push(`MeSH: ${article.matches.meshMatches.join(', ')}`);
-          }
-          if (article.matches.titleMatches && article.matches.titleMatches.length > 0) {
-            matchesText.push(`Title: ${article.matches.titleMatches.join(', ')}`);
-          }
-          if (article.matches.abstractMatches && article.matches.abstractMatches.length > 0) {
-            matchesText.push(`Abstract: ${article.matches.abstractMatches.join(', ')}`);
-          }
-          
-          if (matchesText.length > 0) {
-            sections.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'Matched Keywords: ',
-                    bold: true,
-                    font: formatting.font,
-                    size: formatting.fontSize * 2
-                  }),
-                  new TextRun({
-                    text: matchesText.join(' | '),
-                    font: formatting.font,
-                    size: formatting.fontSize * 2
-                  })
-                ],
-                alignment,
-                spacing: {
-                  after: convertInchesToTwip(formatting.spacingAfter / 72),
-                  line: Math.round(formatting.lineSpacing * 240)
-                }
-              })
-            );
-          }
         }
 
         // Add spacing between articles
@@ -911,96 +840,13 @@ router.post('/word', async (req, res) => {
         })
       );
 
-      // PMID
-      if (article.pmid) {
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'PMID: ',
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }),
-              new TextRun({
-                text: article.pmid.toString(),
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })
-            ],
-            alignment,
-            spacing: {
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
-          })
-        );
-      }
+      // PMID, Authors, and Journal sections removed as per user request
 
-      // Authors
-      if (article.authors && Array.isArray(article.authors) && article.authors.length > 0) {
-        const authorsText = article.authors.join(', ');
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Authors: ',
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }),
-              new TextRun({
-                text: authorsText,
-                italics: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })
-            ],
-            alignment,
-            spacing: {
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
-          })
-        );
-      }
-
-      // Journal and date
-      if (article.journal || article.publicationDate) {
-        const journalText = [
-          article.journal,
-          article.publicationDate
-        ].filter(Boolean).join(', ');
-
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Publication: ',
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }),
-              new TextRun({
-                text: journalText,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })
-            ],
-            alignment,
-            spacing: {
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
-          })
-        );
-      }
-
-      // Abstract (with text cleaning, restructuring, and italicization)
+      // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)y, and blue for citations)
       if (article.abstract) {
         let processedAbstract = cleanText(article.abstract);
         processedAbstract = restructureAbstract(processedAbstract);
-        const abstractParts = addItalicFormatting(processedAbstract);
+        const abstractParts = addCombinedFormatting(processedAbstract);
         
         // Generate in-text citation
         const inTextCitation = generateInTextCitation(article);
@@ -1026,11 +872,13 @@ router.post('/word', async (req, res) => {
               ...abstractParts.map(part => new TextRun({
                 text: part.text,
                 italics: part.italics,
+                color: part.color || undefined,
                 font: formatting.font,
                 size: formatting.fontSize * 2
               })),
               new TextRun({
                 text: ` ${inTextCitation}`,
+                color: '0000FF',
                 font: formatting.font,
                 size: formatting.fontSize * 2
               })
@@ -1125,13 +973,15 @@ router.post('/word', async (req, res) => {
         );
       }
 
+      // MeSH Terms, Keywords, and Relevance Score removed as per user request
+
       // URL
       if (article.url) {
         sections.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: 'URL: ',
+                text: 'Link: ',
                 bold: true,
                 font: formatting.font,
                 size: formatting.fontSize * 2
@@ -1153,70 +1003,7 @@ router.post('/word', async (req, res) => {
         );
       }
 
-      // DOI
-      if (article.doi) {
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'DOI: ',
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }),
-              new TextRun({
-                text: article.doi,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              })
-            ],
-            alignment,
-            spacing: {
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
-          })
-        );
-      }
-
-      // Matched Keywords
-      if (article.matches) {
-        let matchesText = [];
-        if (article.matches.meshMatches && article.matches.meshMatches.length > 0) {
-          matchesText.push(`MeSH: ${article.matches.meshMatches.join(', ')}`);
-        }
-        if (article.matches.titleMatches && article.matches.titleMatches.length > 0) {
-          matchesText.push(`Title: ${article.matches.titleMatches.join(', ')}`);
-        }
-        if (article.matches.abstractMatches && article.matches.abstractMatches.length > 0) {
-          matchesText.push(`Abstract: ${article.matches.abstractMatches.join(', ')}`);
-        }
-        
-        if (matchesText.length > 0) {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Matched Keywords: ',
-                  bold: true,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                }),
-                new TextRun({
-                  text: matchesText.join(' | '),
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })
-              ],
-              alignment,
-              spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
-                line: Math.round(formatting.lineSpacing * 240)
-              }
-            })
-          );
-        }
-      }
+      // DOI, Matched Keywords removed as per user request
 
       // Add separator between articles (except after last one)
       if (index < articles.length - 1) {
