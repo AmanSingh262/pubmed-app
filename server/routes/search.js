@@ -25,6 +25,7 @@ router.post('/', async (req, res) => {
       query,
       studyType = 'animal',
       categoryPath,
+      customKeywords = null,
       maxResults = 200,
       topN = 30,
       yearFrom = null,
@@ -64,7 +65,16 @@ router.post('/', async (req, res) => {
     const headingKeyword = filterService.getHeadingKeyword(studyType, categoryPaths[0]);
     
     // Get primary search keywords for enhanced search
-    const primaryKeywords = filterService.getPrimarySearchKeywords(studyType, categoryPaths[0]);
+    let primaryKeywords = filterService.getPrimarySearchKeywords(studyType, categoryPaths[0]);
+    
+    // If custom keywords are provided, use them instead of default keywords
+    if (customKeywords) {
+      const customKeywordArray = customKeywords.split(',').map(k => k.trim()).filter(k => k);
+      if (customKeywordArray.length > 0) {
+        primaryKeywords = customKeywordArray;
+        console.log(`Using custom keywords: ${customKeywordArray.join(', ')}`);
+      }
+    }
 
     console.log(`Searching PubMed for: ${query}`);
     console.log(`Heading keyword: ${headingKeyword}`);

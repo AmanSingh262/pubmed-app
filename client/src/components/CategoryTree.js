@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import './CategoryTree.css';
-import { FaChevronDown, FaChevronRight, FaCheck } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight, FaCheck, FaPlus } from 'react-icons/fa';
 
 function CategoryTree({ studyType, categories, selectedCategories, onToggleCategory, disabled }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [expandedSubcategories, setExpandedSubcategories] = useState({});
+  const [customKeywords, setCustomKeywords] = useState({});
+  const [showCustomInput, setShowCustomInput] = useState({});
 
   const studyData = studyType === 'animal' ? categories.animalStudies : categories.humanStudies;
 
@@ -36,6 +38,34 @@ function CategoryTree({ studyType, categories, selectedCategories, onToggleCateg
     return selectedCategories.some(cat => cat.path === path);
   };
 
+  const handleCustomKeywordChange = (categoryKey, value) => {
+    setCustomKeywords(prev => ({
+      ...prev,
+      [categoryKey]: value
+    }));
+  };
+
+  const handleAddCustomKeyword = (category) => {
+    const keywords = customKeywords[category.key];
+    if (keywords && keywords.trim()) {
+      // Add category with custom keywords
+      onToggleCategory({
+        ...category,
+        customKeywords: keywords.trim()
+      });
+      // Clear input and hide
+      setCustomKeywords(prev => ({ ...prev, [category.key]: '' }));
+      setShowCustomInput(prev => ({ ...prev, [category.key]: false }));
+    }
+  };
+
+  const toggleCustomInput = (categoryKey) => {
+    setShowCustomInput(prev => ({
+      ...prev,
+      [categoryKey]: !prev[categoryKey]
+    }));
+  };
+
   return (
     <div className={`category-tree ${studyType === 'animal' ? 'study-animal' : 'study-human'}`}>
       {studyData.categories.map((category) => (
@@ -63,7 +93,44 @@ function CategoryTree({ studyType, categories, selectedCategories, onToggleCateg
             >
               {isSelected(category.key) && <FaCheck className="check-icon" />}
             </div>
+
+            {/* Add custom keyword button for Pharmacodynamics */}
+            {category.key === 'pharmacodynamics' && (
+              <div
+                className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
+                onClick={() => !disabled && toggleCustomInput(category.key)}
+                title="Add custom keywords"
+              >
+                <FaPlus />
+              </div>
+            )}
           </div>
+
+          {/* Custom keyword input for Pharmacodynamics */}
+          {category.key === 'pharmacodynamics' && showCustomInput[category.key] && (
+            <div className="custom-keyword-input-wrapper">
+              <input
+                type="text"
+                className="custom-keyword-input"
+                placeholder="Enter custom keywords (e.g., efficacy, potency)"
+                value={customKeywords[category.key] || ''}
+                onChange={(e) => handleCustomKeywordChange(category.key, e.target.value)}
+                disabled={disabled}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddCustomKeyword(category);
+                  }
+                }}
+              />
+              <button
+                className="custom-keyword-done-btn"
+                onClick={() => handleAddCustomKeyword(category)}
+                disabled={disabled || !customKeywords[category.key]?.trim()}
+              >
+                Done
+              </button>
+            </div>
+          )}
 
           {expandedCategories[category.key] && category.subcategories && (
             <div className="subcategory-list">

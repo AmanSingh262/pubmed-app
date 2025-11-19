@@ -125,6 +125,28 @@
   transition: all 0.3s ease;
 }
 
+.category-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.category-name {
+  font-weight: 600;
+}
+
+.custom-keywords-badge {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.95;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: inline-block;
+  max-width: fit-content;
+}
+
 /* Animal Theme - Green */
 .selected-category-item.animal-theme {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -163,6 +185,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .btn-remove-category:hover:not(:disabled) {

@@ -63,10 +63,17 @@ function App() {
       // Combine all selected category paths
       const categoryPaths = selectedCategories.map(cat => cat.path);
       
+      // Extract custom keywords from selected categories
+      const customKeywords = selectedCategories
+        .filter(cat => cat.customKeywords)
+        .map(cat => cat.customKeywords)
+        .join(', ');
+      
       const data = await api.searchArticles({
         query: query.trim(),
         studyType,
         categoryPath: categoryPaths.join(','), // Send comma-separated paths
+        customKeywords: customKeywords || undefined, // Send custom keywords if any
         maxResults: 200,
         topN: 30,
         ...searchFilters // Include all search filters
@@ -194,7 +201,14 @@ function App() {
                   <div className="selected-categories-list">
                     {selectedCategories.map((cat, idx) => (
                       <div key={idx} className={`selected-category-item ${studyType === 'animal' ? 'animal-theme' : 'human-theme'}`}>
-                        <span>{cat.name}</span>
+                        <div className="category-item-content">
+                          <span className="category-name">{cat.name}</span>
+                          {cat.customKeywords && (
+                            <span className="custom-keywords-badge">
+                              + Custom: "{cat.customKeywords}"
+                            </span>
+                          )}
+                        </div>
                         <button 
                           className="btn-remove-category"
                           onClick={() => handleToggleCategory(cat)}
