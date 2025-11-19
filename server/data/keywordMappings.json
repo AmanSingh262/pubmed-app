@@ -72,10 +72,31 @@
                   "Non-Specific Drug Effects",
                   "Side Effects",
                   "Downstream Signaling",
-                  "Pharmacological Profiling"
+                  "Pharmacological Profiling",
+                  "Secondary PD studies",
+                  "Pharmacodynamic safety studies animal models",
+                  "In vivo pharmacology animal studies",
+                  "Safety pharmacology",
+                  "Dose-response effects nonclinical",
+                  "Receptor binding off-target",
+                  "Secondary pharmacology endpoints",
+                  "safety pharmacology studies",
+                  "Dose-Response Relationship",
+                  "Off-target pharmacological effects",
+                  "Animal safety pharmacology data",
+                  "Pharmacodynamics",
+                  "Pharmacodynamic effects",
+                  "Toxicodynamics",
+                  "Therapeutic other effects",
+                  "Therapeutic effects",
+                  "Animals"
                 ],
                 "meshTerms": [
-                  "Adverse Drug Reaction[MeSH]"
+                  "Adverse Drug Reaction[MeSH]",
+                  "Animals[MeSH]",
+                  "Dose-Response Relationship, Drug[MeSH]",
+                  "Pharmacodynamics[MeSH]",
+                  "Toxicodynamics[MeSH]"
                 ],
                 "textKeywords": [
                   "Secondary Pharmacological Actions[tiab]",
@@ -83,7 +104,18 @@
                   "Non-Specific Drug Effects[tiab]",
                   "Side Effects[tiab]",
                   "Downstream Signaling[tiab]",
-                  "Pharmacological Profiling[tiab]"
+                  "Pharmacological Profiling[tiab]",
+                  "Secondary PD studies[tiab]",
+                  "Pharmacodynamic safety studies[tiab]",
+                  "In vivo pharmacology[tiab]",
+                  "Safety pharmacology[tiab]",
+                  "Dose-response effects nonclinical[tiab]",
+                  "Receptor binding off-target[tiab]",
+                  "Secondary pharmacology endpoints[tiab]",
+                  "Off-target pharmacological effects[tiab]",
+                  "Animal safety pharmacology data[tiab]",
+                  "Pharmacodynamic effects[tiab]",
+                  "Therapeutic effects[tiab]"
                 ]
               },
               "interaction": {
@@ -115,6 +147,44 @@
       },
       "safetyPharmacology": {
         "name": "Safety Pharmacology",
+        "keywords": [
+          "Safety",
+          "Adverse effects",
+          "Adverse reactions",
+          "Adverse",
+          "Adverse effect",
+          "Toxic effects",
+          "Safety Pharmacology",
+          "Animals",
+          "Drug-Related Side Effects and Adverse Reactions",
+          "Toxicodynamics",
+          "Cardiovascular Diseases / chemically induced",
+          "Central Nervous System Diseases / chemically induced",
+          "Respiratory Tract Diseases / chemically induced",
+          "Risk Assessment",
+          "Cardiovascular, CNS, respiratory safety pharmacology"
+        ],
+        "meshTerms": [
+          "Safety[MeSH]",
+          "Drug-Related Side Effects and Adverse Reactions[MeSH]",
+          "Animals[MeSH]",
+          "Toxicodynamics[MeSH]",
+          "Cardiovascular Diseases[MeSH]",
+          "Central Nervous System Diseases[MeSH]",
+          "Respiratory Tract Diseases[MeSH]",
+          "Risk Assessment[MeSH]"
+        ],
+        "textKeywords": [
+          "Safety[tiab]",
+          "Adverse effects[tiab]",
+          "Adverse reactions[tiab]",
+          "Toxic effects[tiab]",
+          "Safety Pharmacology[tiab]",
+          "Toxicodynamics[tiab]",
+          "Cardiovascular safety pharmacology[tiab]",
+          "CNS safety pharmacology[tiab]",
+          "respiratory safety pharmacology[tiab]"
+        ],
         "subcategories": {
           "cns": {
             "name": "Effect on Central Nervous System (CNS)",
@@ -127,7 +197,18 @@
               "Locomotor Activity",
               "Cognitive Dysfunction",
               "Neurotransmitter Release",
-              "Motor Coordination"
+              "Motor Coordination",
+              "Safety",
+              "Adverse effects",
+              "Adverse reactions",
+              "Adverse",
+              "Adverse effect",
+              "Animals",
+              "Cns",
+              "Brain",
+              "Motor Activity",
+              "Neurotoxicity Syndromes",
+              "Drug abuse and dependence liability"
             ],
             "meshTerms": [
               "Central Nervous System[MeSH]",
@@ -136,11 +217,20 @@
               "Neuropharmacology[MeSH]",
               "Seizures[MeSH]",
               "Locomotor Activity[MeSH]",
-              "Cognitive Dysfunction[MeSH]"
+              "Cognitive Dysfunction[MeSH]",
+              "Animals[MeSH]",
+              "Brain[MeSH]",
+              "Motor Activity[MeSH]",
+              "Neurotoxicity Syndromes[MeSH]"
             ],
             "textKeywords": [
               "Neurotransmitter Release[tiab]",
-              "Motor Coordination[tiab]"
+              "Motor Coordination[tiab]",
+              "Safety[tiab]",
+              "Adverse effects[tiab]",
+              "CNS[tiab]",
+              "Neurotoxicity Syndromes[tiab]",
+              "Drug abuse and dependence liability[tiab]"
             ]
           },
           "cvs": {
@@ -154,7 +244,21 @@
               "Arrhythmia",
               "Hemodynamics",
               "Blood Pressure",
-              "Heart Rate"
+              "Heart Rate",
+              "Adverse effects",
+              "Adverse reactions",
+              "Adverse",
+              "Adverse effect",
+              "Safety",
+              "Safety pharmacology",
+              "Animals",
+              "Cardiovascular Diseases",
+              "Cvs",
+              "Heart",
+              "EKG",
+              "QT interval prolongation",
+              "ERG channel assay",
+              "Purkinje fiber assay"
             ],
             "meshTerms": [
               "Cardiovascular System[MeSH]",
@@ -164,10 +268,20 @@
               "Arrhythmia[MeSH]",
               "Hemodynamics[MeSH]",
               "Blood Pressure[MeSH]",
-              "Heart Rate[MeSH]"
+              "Heart Rate[MeSH]",
+              "Animals[MeSH]",
+              "Cardiovascular Diseases[MeSH]",
+              "Heart[MeSH]"
             ],
             "textKeywords": [
-              "hERG Channel[tiab]"
+              "hERG Channel[tiab]",
+              "Safety[tiab]",
+              "Adverse effects[tiab]",
+              "CVS[tiab]",
+              "EKG[tiab]",
+              "QT interval prolongation[tiab]",
+              "ERG channel assay[tiab]",
+              "Purkinje fiber assay[tiab]"
             ]
           },
           "other": {
@@ -181,7 +295,33 @@
               "Genotoxicity",
               "Immunotoxicity",
               "Toxicity Testing",
-              "Animal Welfare"
+              "Animal Welfare",
+              "Respiratory Tract Diseases / chemically induced",
+              "Respiratory Rate",
+              "Tidal Volume",
+              "Gastrointestinal Motility",
+              "Salivation / drug effects",
+              "Body Temperature regulation",
+              "Autonomic Nervous System Effects",
+              "Gastrointestinal safety pharmacology",
+              "GI motility effects",
+              "Nausea and vomiting drug-induced",
+              "Diarrhea adverse effects",
+              "Constipation drug effects",
+              "Gastric secretion modulation",
+              "Gastric emptying rate impact",
+              "Dyspepsia drug-related",
+              "Abdominal pain drug-induced",
+              "Enteric nervous system effects",
+              "Secretory function gastrointestinal",
+              "GI tract toxicity",
+              "Gastrointestinal adverse event risk",
+              "GI inflammation pharmacology",
+              "GI receptor modulation",
+              "Gastrointestinal transit time",
+              "Safety pharmacology enteric effects",
+              "GI barrier function",
+              "Abdominal Pain"
             ],
             "meshTerms": [
               "Respiratory System[MeSH]",
@@ -192,9 +332,34 @@
               "Genotoxicity[MeSH]",
               "Immunotoxicity[MeSH]",
               "Toxicity Testing[MeSH]",
-              "Animal Welfare[MeSH]"
+              "Animal Welfare[MeSH]",
+              "Respiratory Tract Diseases[MeSH]",
+              "Gastrointestinal Motility[MeSH]",
+              "Salivation[MeSH]",
+              "Body Temperature Regulation[MeSH]",
+              "Autonomic Nervous System[MeSH]",
+              "Abdominal Pain[MeSH]"
             ],
-            "textKeywords": []
+            "textKeywords": [
+              "Respiratory Rate[tiab]",
+              "Tidal Volume[tiab]",
+              "GI motility effects[tiab]",
+              "Nausea and vomiting drug-induced[tiab]",
+              "Diarrhea adverse effects[tiab]",
+              "Constipation drug effects[tiab]",
+              "Gastric secretion modulation[tiab]",
+              "Gastric emptying rate impact[tiab]",
+              "Dyspepsia drug-related[tiab]",
+              "Abdominal pain drug-induced[tiab]",
+              "Enteric nervous system effects[tiab]",
+              "GI tract toxicity[tiab]",
+              "Gastrointestinal adverse event risk[tiab]",
+              "GI inflammation pharmacology[tiab]",
+              "GI receptor modulation[tiab]",
+              "Gastrointestinal transit time[tiab]",
+              "Safety pharmacology enteric effects[tiab]",
+              "GI barrier function[tiab]"
+            ]
           }
         }
       },
@@ -474,6 +639,46 @@
       },
       "toxicology": {
         "name": "Toxicology",
+        "keywords": [
+          "Adverse effect",
+          "Toxic",
+          "Toxicity",
+          "Adverse reaction",
+          "Acute toxicity",
+          "Repeated dose toxicity",
+          "Chronic toxicity",
+          "Genotoxicity",
+          "Carcinogenicity",
+          "Reproductive toxicity",
+          "Toxicokinetics",
+          "NOAEL (No Observed Adverse Effect Level)",
+          "Target organs",
+          "Onset, severity, and duration of toxic effects",
+          "Immunotoxicity",
+          "Phototoxicity"
+        ],
+        "meshTerms": [
+          "Toxicity[MeSH]",
+          "Acute Toxicity[MeSH]",
+          "Chronic Toxicity[MeSH]",
+          "Genotoxicity[MeSH]",
+          "Carcinogenicity[MeSH]",
+          "Reproductive Toxicity[MeSH]",
+          "Toxicokinetics[MeSH]",
+          "Immunotoxicity[MeSH]",
+          "Phototoxicity[MeSH]"
+        ],
+        "textKeywords": [
+          "Adverse effect[tiab]",
+          "Toxic[tiab]",
+          "Toxicity[tiab]",
+          "Adverse reaction[tiab]",
+          "Repeated dose toxicity[tiab]",
+          "NOAEL[tiab]",
+          "No Observed Adverse Effect Level[tiab]",
+          "Target organs[tiab]",
+          "toxic effects[tiab]"
+        ],
         "subcategories": {
           "singleDose": {
             "name": "Single Dose Toxicity",
@@ -481,15 +686,52 @@
               "Acute Toxicity",
               "Single Dose Toxicity",
               "Dose Escalation",
-              "Toxicological Evaluation"
+              "Toxicological Evaluation",
+              "Single-Dose Toxicity",
+              "Toxicity",
+              "Safety",
+              "Adverse events",
+              "Adverse effects",
+              "Adverse",
+              "Safe",
+              "Species (order by species)",
+              "Route of administration",
+              "Maximum non-lethal dose",
+              "Approximate lethal dose (LD50)",
+              "Dose(s) tested",
+              "Vehicle/formulation",
+              "Number of animals/group",
+              "Gender/strain/age of animals",
+              "Toxic signs",
+              "Onset, severity, duration of toxic effects",
+              "Dose dependency",
+              "Reversibility of effects (reversible/irreversible)",
+              "Pathologic findings",
+              "Causes of death",
+              "Study methodology brief summary",
+              "GLP compliance status",
+              "Special features of study (e.g., infusion rate, duration)",
+              "Toxicokinetics"
             ],
             "meshTerms": [
-              "Acute Toxicity[MeSH]"
+              "Acute Toxicity[MeSH]",
+              "Toxicity[MeSH]",
+              "Safety[MeSH]",
+              "Lethal Dose 50[MeSH]",
+              "Toxicokinetics[MeSH]"
             ],
             "textKeywords": [
               "Single Dose Toxicity[tiab]",
               "Dose Escalation[tiab]",
-              "Toxicological Evaluation[tiab]"
+              "Toxicological Evaluation[tiab]",
+              "Single-Dose Toxicity[tiab]",
+              "Maximum non-lethal dose[tiab]",
+              "Approximate lethal dose[tiab]",
+              "LD50[tiab]",
+              "Dose dependency[tiab]",
+              "Reversibility of effects[tiab]",
+              "Pathologic findings[tiab]",
+              "GLP compliance[tiab]"
             ]
           },
           "repeatDose": {
@@ -499,16 +741,58 @@
               "Chronic Toxicity",
               "Repeat Dose Toxicity",
               "Toxicity Studies",
-              "Dose-Response Relationship, Drug"
+              "Dose-Response Relationship, Drug",
+              "Repeat Dose Toxicity",
+              "Multiple Dose toxicity",
+              "Toxicity",
+              "Toxic",
+              "Adverse effect",
+              "Adverse events",
+              "Adverse",
+              "Safe",
+              "Repeat dose",
+              "Special study features (e.g., nutritional support, vehicle control)",
+              "Safety margins relative to human exposure",
+              "Dose-response relationships",
+              "Study design summary (animals per group, gender, strain, age)",
+              "Target organs of toxicity",
+              "Histopathology findings",
+              "Clinical signs and symptoms observed",
+              "Nature and severity of toxic effects",
+              "Reversibility of toxic changes",
+              "Systemic exposure (e.g., blood levels, AUC, Cmax)",
+              "Toxicokinetics evaluation",
+              "Species (rodent and non-rodent)",
+              "Route of administration",
+              "Duration of dosing (e.g., 28-day, 90-day, sub-chronic, chronic)",
+              "Dose levels (low, mid, high)",
+              "Maximum tolerated dose (MTD)",
+              "No Observed Adverse Effect Level (NOAEL)"
             ],
             "meshTerms": [
               "Subchronic Toxicity[MeSH]",
               "Chronic Toxicity[MeSH]",
-              "Dose-Response Relationship, Drug[MeSH]"
+              "Dose-Response Relationship, Drug[MeSH]",
+              "Toxicity[MeSH]",
+              "Toxicokinetics[MeSH]",
+              "Maximum Tolerated Dose[MeSH]"
             ],
             "textKeywords": [
               "Repeat Dose Toxicity[tiab]",
-              "Toxicity Studies[tiab]"
+              "Toxicity Studies[tiab]",
+              "Multiple Dose toxicity[tiab]",
+              "Repeat dose[tiab]",
+              "Safety margins[tiab]",
+              "Target organs of toxicity[tiab]",
+              "Histopathology findings[tiab]",
+              "Clinical signs and symptoms[tiab]",
+              "Reversibility of toxic changes[tiab]",
+              "Systemic exposure[tiab]",
+              "Toxicokinetics evaluation[tiab]",
+              "Duration of dosing[tiab]",
+              "Maximum tolerated dose[tiab]",
+              "MTD[tiab]",
+              "NOAEL[tiab]"
             ]
           },
           "genotoxicity": {
@@ -518,16 +802,63 @@
               "Mutagenicity Tests",
               "DNA Damage",
               "Chromosome Aberrations",
-              "Ames Test"
+              "Ames Test",
+              "Genotoxicity",
+              "Genotoxic",
+              "Toxic",
+              "Toxicity",
+              "Adverse effects",
+              "Adverse",
+              "Adverse events",
+              "Mutagenicity",
+              "In vitro tests",
+              "In vivo tests",
+              "Gene mutation assays (e.g., Ames test, HPRT, TK gene mutation)",
+              "Chromosomal aberration assay",
+              "Micronucleus assay",
+              "Clastogenicity",
+              "Aneuploidy",
+              "DNA damage/repair assays",
+              "Somatic cell assays",
+              "Germ cell assays",
+              "DNA adduct formation",
+              "Mode of action",
+              "Dose-response relationship",
+              "Threshold concept for mutagenicity",
+              "Regulatory guidelines (e.g., OECD, ICH S2)",
+              "Interpretation of positive/negative results",
+              "Risk assessment",
+              "Study methodology summary",
+              "Test substance characterization",
+              "Compliance with GLP"
             ],
             "meshTerms": [
               "Genotoxicity Tests[MeSH]",
               "Mutagenicity Tests[MeSH]",
               "DNA Damage[MeSH]",
-              "Chromosome Aberrations[MeSH]"
+              "Chromosome Aberrations[MeSH]",
+              "Mutagenicity[MeSH]",
+              "Micronucleus Tests[MeSH]",
+              "Risk Assessment[MeSH]"
             ],
             "textKeywords": [
-              "Ames Test[tiab]"
+              "Ames Test[tiab]",
+              "Genotoxicity[tiab]",
+              "Genotoxic[tiab]",
+              "Mutagenicity[tiab]",
+              "In vitro tests[tiab]",
+              "In vivo tests[tiab]",
+              "Gene mutation assays[tiab]",
+              "Chromosomal aberration assay[tiab]",
+              "Micronucleus assay[tiab]",
+              "Clastogenicity[tiab]",
+              "Aneuploidy[tiab]",
+              "DNA damage/repair assays[tiab]",
+              "DNA adduct formation[tiab]",
+              "Mode of action[tiab]",
+              "Threshold concept for mutagenicity[tiab]",
+              "OECD guidelines[tiab]",
+              "ICH S2[tiab]"
             ]
           },
           "carcinogenicity": {
@@ -536,57 +867,259 @@
               "Carcinogenicity",
               "Neoplasms, Experimental",
               "Tumor Promotion",
-              "Oncogenesis"
+              "Oncogenesis",
+              "Carcinogenecity",
+              "Carcinogene",
+              "Toxicity",
+              "Adverse effects",
+              "Adverse events",
+              "Safe",
+              "Safety",
+              "Carcinogenic risk assessment",
+              "Tumor incidence",
+              "TD50 value (tumorigenic dose 50)",
+              "Dose-response relationship",
+              "2-year rodent bioassay",
+              "Tumor type and site",
+              "Histopathology findings",
+              "Onset, severity, duration of tumor development",
+              "Mode of action (MOA)",
+              "Genotoxicity and mutagenicity relationship",
+              "Species and sex differences",
+              "Exposure levels (AUC, Cmax)",
+              "Epidemiologic data (if available)",
+              "Weight of Evidence (WoE) approach",
+              "Off-target effects",
+              "Regulatory guidelines (e.g., ICH S1A, S1B)",
+              "GLP compliance",
+              "Secondary pharmacology related to carcinogenesis",
+              "Negative vs. positive carcinogenic findings",
+              "Tumor latency period",
+              "Risk to humans prediction",
+              "Molecular markers of carcinogenesis"
             ],
             "meshTerms": [
               "Carcinogenicity[MeSH]",
               "Neoplasms, Experimental[MeSH]",
-              "Oncogenesis[MeSH]"
+              "Oncogenesis[MeSH]",
+              "Toxicity[MeSH]",
+              "Safety[MeSH]",
+              "Risk Assessment[MeSH]",
+              "Genotoxicity[MeSH]"
             ],
             "textKeywords": [
-              "Tumor Promotion[tiab]"
+              "Tumor Promotion[tiab]",
+              "Carcinogenecity[tiab]",
+              "Carcinogene[tiab]",
+              "Carcinogenic risk assessment[tiab]",
+              "Tumor incidence[tiab]",
+              "TD50[tiab]",
+              "tumorigenic dose 50[tiab]",
+              "2-year rodent bioassay[tiab]",
+              "Tumor type and site[tiab]",
+              "Mode of action[tiab]",
+              "MOA[tiab]",
+              "Species and sex differences[tiab]",
+              "Weight of Evidence[tiab]",
+              "WoE approach[tiab]",
+              "ICH S1A[tiab]",
+              "ICH S1B[tiab]",
+              "Tumor latency period[tiab]",
+              "Molecular markers of carcinogenesis[tiab]"
             ]
           },
           "reproductiveToxicity": {
             "name": "Reproductive and Developmental Toxicity",
+            "keywords": [
+              "Reproductive Toxicity",
+              "Developmental Toxicity",
+              "Fertility (male and female)",
+              "Embryo-fetal development",
+              "Prenatal development",
+              "Postnatal development",
+              "Teratogenicity (structural abnormalities)",
+              "Functional impairments",
+              "Embryotoxicity",
+              "Growth retardation",
+              "Neurodevelopmental effects",
+              "Parturition and lactation effects",
+              "Gametogenesis disruption",
+              "Hormonal/endocrine disruption",
+              "Maternal toxicity",
+              "Dose-response relationship",
+              "No Observed Adverse Effect Level (NOAEL)",
+              "Study species and strain",
+              "Exposure timing and duration",
+              "Histopathology of reproductive organs",
+              "Fetal malformations",
+              "Prenatal mortality",
+              "Developmental delay",
+              "Multigenerational study design",
+              "ICH S5(R3) guideline compliance",
+              "GLP compliance status",
+              "Adverse effects",
+              "Adverse events",
+              "Safe",
+              "Safety",
+              "Toxicity"
+            ],
+            "meshTerms": [
+              "Reproductive Toxicity[MeSH]",
+              "Developmental Toxicity[MeSH]",
+              "Fertility[MeSH]",
+              "Teratogenicity[MeSH]",
+              "Embryotoxicity[MeSH]",
+              "Maternal Toxicity[MeSH]",
+              "Dose-Response Relationship, Drug[MeSH]",
+              "Safety[MeSH]"
+            ],
+            "textKeywords": [
+              "Developmental Toxicity[tiab]",
+              "Embryo-fetal development[tiab]",
+              "Prenatal development[tiab]",
+              "Postnatal development[tiab]",
+              "Teratogenicity[tiab]",
+              "Embryotoxicity[tiab]",
+              "Growth retardation[tiab]",
+              "Neurodevelopmental effects[tiab]",
+              "Gametogenesis disruption[tiab]",
+              "Hormonal/endocrine disruption[tiab]",
+              "Maternal toxicity[tiab]",
+              "NOAEL[tiab]",
+              "Fetal malformations[tiab]",
+              "Prenatal mortality[tiab]",
+              "Multigenerational study[tiab]",
+              "ICH S5(R3)[tiab]"
+            ],
             "types": {
               "fertility": {
                 "name": "Fertility and Early Embryonic Development",
                 "keywords": [
                   "Fertility Regulation",
-                  "Early Embryonic Development"
+                  "Early Embryonic Development",
+                  "Fertility and Early Embryonic Development (FEED)",
+                  "Fertility assessment",
+                  "Gametogenesis",
+                  "Implantation",
+                  "Early embryonic loss",
+                  "Pre-implantation development",
+                  "Ovarian/testicular histopathology",
+                  "Reproductive organ weights",
+                  "Mating performance",
+                  "Pregnancy rate",
+                  "Sperm parameters (count, motility, morphology)",
+                  "Hormonal changes",
+                  "Embryotoxicity",
+                  "NOAEL (No Observed Adverse Effect Level)",
+                  "Maternal toxicity",
+                  "Dose-response relationships"
                 ],
                 "meshTerms": [
-                  "Fertility Regulation[MeSH]"
+                  "Fertility Regulation[MeSH]",
+                  "Fertility[MeSH]",
+                  "Gametogenesis[MeSH]",
+                  "Implantation[MeSH]",
+                  "Embryotoxicity[MeSH]",
+                  "Maternal Toxicity[MeSH]"
                 ],
                 "textKeywords": [
-                  "Early Embryonic Development[tiab]"
+                  "Early Embryonic Development[tiab]",
+                  "FEED[tiab]",
+                  "Fertility assessment[tiab]",
+                  "Early embryonic loss[tiab]",
+                  "Pre-implantation development[tiab]",
+                  "Ovarian/testicular histopathology[tiab]",
+                  "Reproductive organ weights[tiab]",
+                  "Mating performance[tiab]",
+                  "Pregnancy rate[tiab]",
+                  "Sperm parameters[tiab]",
+                  "Hormonal changes[tiab]",
+                  "NOAEL[tiab]"
                 ]
               },
               "embryoFetal": {
                 "name": "Embryo Foetal Development",
                 "keywords": [
                   "Embryo-Fetal Toxicity",
-                  "Foetal Development"
+                  "Foetal Development",
+                  "Embryo-Fetal Development (EFD)",
+                  "Embryo-fetal toxicity",
+                  "Teratogenicity",
+                  "Fetal malformations",
+                  "Growth retardation",
+                  "Embryofetal lethality",
+                  "Skeletal variations",
+                  "Soft tissue malformations",
+                  "Maternal toxicity",
+                  "Dose levels and exposure",
+                  "Timing of exposure",
+                  "Histopathological examination",
+                  "Species (rodents and rabbits typically)",
+                  "NOAEL for developmental effects",
+                  "Study design (gestation days exposure)"
                 ],
                 "meshTerms": [
-                  "Foetal Development[MeSH]"
+                  "Foetal Development[MeSH]",
+                  "Embryotoxicity[MeSH]",
+                  "Teratogenicity[MeSH]",
+                  "Fetal Malformations[MeSH]",
+                  "Maternal Toxicity[MeSH]"
                 ],
                 "textKeywords": [
-                  "Embryo-Fetal Toxicity[tiab]"
+                  "Embryo-Fetal Toxicity[tiab]",
+                  "EFD[tiab]",
+                  "Embryo-fetal toxicity[tiab]",
+                  "Fetal malformations[tiab]",
+                  "Growth retardation[tiab]",
+                  "Embryofetal lethality[tiab]",
+                  "Skeletal variations[tiab]",
+                  "Soft tissue malformations[tiab]",
+                  "Timing of exposure[tiab]",
+                  "NOAEL for developmental effects[tiab]",
+                  "gestation days exposure[tiab]"
                 ]
               },
               "prenatalPostnatal": {
                 "name": "Prenatal and Postnatal Development",
                 "keywords": [
                   "Prenatal Exposure Delayed Effects",
-                  "Postnatal Development"
+                  "Postnatal Development",
+                  "Prenatal and Postnatal Development (PPND)",
+                  "Pre- and postnatal toxicity",
+                  "Toxicity",
+                  "Adverse effects",
+                  "Adverse events",
+                  "Safe",
+                  "Safety",
+                  "Offspring survival and growth",
+                  "Neurobehavioral development",
+                  "Organ maturation",
+                  "Lactational effects",
+                  "Developmental milestones",
+                  "Functional impairments",
+                  "Multigenerational studies",
+                  "Maternal toxicity assessment",
+                  "Dose-response relationship"
                 ],
                 "meshTerms": [
-                  "Prenatal Exposure Delayed Effects[MeSH]"
+                  "Prenatal Exposure Delayed Effects[MeSH]",
+                  "Postnatal Development[MeSH]",
+                  "Toxicity[MeSH]",
+                  "Safety[MeSH]",
+                  "Maternal Toxicity[MeSH]"
                 ],
                 "textKeywords": [
-                  "Postnatal Development[tiab]"
+                  "Postnatal Development[tiab]",
+                  "PPND[tiab]",
+                  "Pre- and postnatal toxicity[tiab]",
+                  "Offspring survival and growth[tiab]",
+                  "Neurobehavioral development[tiab]",
+                  "Organ maturation[tiab]",
+                  "Lactational effects[tiab]",
+                  "Developmental milestones[tiab]",
+                  "Functional impairments[tiab]",
+                  "Multigenerational studies[tiab]",
+                  "Maternal toxicity assessment[tiab]"
                 ]
               }
             }
@@ -597,15 +1130,38 @@
               "Local Toxicity",
               "Irritation Tests",
               "Sensitization",
-              "Dermal Toxicity"
+              "Dermal Toxicity",
+              "Local Tolerance",
+              "Injection site reactions",
+              "Irritation and inflammation",
+              "Tissue necrosis or fibrosis",
+              "Histopathology of local tissues",
+              "Reversibility of lesions",
+              "Route-specific tolerance (IM, SC, IV, topical)",
+              "Clinical observations",
+              "Toxicity",
+              "Adverse effects",
+              "Adverse events",
+              "Safe",
+              "Safety"
             ],
             "meshTerms": [
               "Irritation Tests[MeSH]",
               "Sensitization[MeSH]",
-              "Dermal Toxicity[MeSH]"
+              "Dermal Toxicity[MeSH]",
+              "Toxicity[MeSH]",
+              "Safety[MeSH]"
             ],
             "textKeywords": [
-              "Local Toxicity[tiab]"
+              "Local Toxicity[tiab]",
+              "Local Tolerance[tiab]",
+              "Injection site reactions[tiab]",
+              "Irritation and inflammation[tiab]",
+              "Tissue necrosis or fibrosis[tiab]",
+              "Histopathology of local tissues[tiab]",
+              "Reversibility of lesions[tiab]",
+              "Route-specific tolerance[tiab]",
+              "Clinical observations[tiab]"
             ]
           },
           "otherToxicity": {
@@ -616,17 +1172,44 @@
               "Hepatotoxicity",
               "Neurotoxicity",
               "Toxicokinetics",
-              "Organ Toxicity"
+              "Organ Toxicity",
+              "Other Toxicity Studies",
+              "Juvenile toxicity",
+              "Phototoxicity",
+              "Toxicokinetics and toxicodynamics",
+              "Carcinogenicity",
+              "Toxicity",
+              "Adverse effects",
+              "Adverse events",
+              "Safe",
+              "Safety",
+              "Genotoxicity",
+              "Safety pharmacology",
+              "Special toxicity studies (e.g., extractables, leachables)",
+              "Species and strain information",
+              "GLP compliance"
             ],
             "meshTerms": [
               "Immunotoxicity[MeSH]",
               "Nephrotoxicity[MeSH]",
               "Hepatotoxicity[MeSH]",
               "Neurotoxicity[MeSH]",
-              "Toxicokinetics[MeSH]"
+              "Toxicokinetics[MeSH]",
+              "Phototoxicity[MeSH]",
+              "Carcinogenicity[MeSH]",
+              "Genotoxicity[MeSH]",
+              "Safety[MeSH]"
             ],
             "textKeywords": [
-              "Organ Toxicity[tiab]"
+              "Organ Toxicity[tiab]",
+              "Other Toxicity Studies[tiab]",
+              "Juvenile toxicity[tiab]",
+              "Toxicokinetics and toxicodynamics[tiab]",
+              "Special toxicity studies[tiab]",
+              "extractables[tiab]",
+              "leachables[tiab]",
+              "Species and strain information[tiab]",
+              "GLP compliance[tiab]"
             ]
           }
         }
@@ -905,18 +1488,30 @@
               "Absolute Risk Reduction",
               "ARR",
               "Number Needed to Treat",
-              "NNT"
+              "NNT",
+              "Placebos",
+              "Placebo Effect",
+              "Double-Blind Method",
+              "Efficacy",
+              "Treatment Outcome",
+              "Therapeutic Equivalence",
+              "Dose-Response Relationship"
             ],
             "meshTerms": [
               "Randomized Controlled Trial[Publication Type]",
               "Placebos[MeSH]",
               "Double-Blind Method[MeSH]",
-              "Treatment Outcome[MeSH]"
+              "Treatment Outcome[MeSH]",
+              "Therapeutic Equivalency[MeSH]",
+              "Dose-Response Relationship, Drug[MeSH]"
             ],
             "textKeywords": [
               "Placebo-Controlled[tiab]",
               "Number Needed to Treat[tiab]",
-              "Intention-to-Treat[tiab]"
+              "Intention-to-Treat[tiab]",
+              "Efficacy[tiab]",
+              "Double-Blind[tiab]",
+              "Treatment Outcome[tiab]"
             ]
           },
           "activeControlled": {
@@ -930,17 +1525,26 @@
               "Dose Comparison",
               "Efficacy Endpoint",
               "Comparative Effectiveness",
-              "Treatment Arms"
+              "Treatment Arms",
+              "Therapeutic Equivalence",
+              "Efficacy",
+              "Active control",
+              "Clinical Trial"
             ],
             "meshTerms": [
               "Comparative Effectiveness Research[MeSH]",
-              "Equivalence Trial[Publication Type]"
+              "Equivalence Trial[Publication Type]",
+              "Therapeutic Equivalency[MeSH]",
+              "Clinical Trial[Publication Type]"
             ],
             "textKeywords": [
               "Active Comparator[tiab]",
               "Non-Inferiority[tiab]",
               "Head-to-Head[tiab]",
-              "Superiority Trial[tiab]"
+              "Superiority Trial[tiab]",
+              "Efficacy[tiab]",
+              "Active control[tiab]",
+              "Clinical Trial[tiab]"
             ]
           },
           "uncontrolled": {
@@ -952,17 +1556,65 @@
               "Case Series",
               "Pilot Study",
               "Exploratory Study",
-              "Historical Controls"
+              "Historical Controls",
+              "Therapeutic Use",
+              "Treatment Outcome",
+              "Non-Randomized Controlled Trials",
+              "Pilot Projects",
+              "Efficacy"
             ],
             "meshTerms": [
               "Observational Study[Publication Type]",
-              "Pilot Projects[MeSH]"
+              "Pilot Projects[MeSH]",
+              "Treatment Outcome[MeSH]"
             ],
             "textKeywords": [
               "Open-Label[tiab]",
               "Single-Arm[tiab]",
               "Case Series[tiab]",
-              "Historical Controls[tiab]"
+              "Historical Controls[tiab]",
+              "Open-Label Study[tiab]",
+              "Therapeutic Use[tiab]",
+              "Non-Randomized Controlled Trials[tiab]",
+              "Efficacy[tiab]"
+            ]
+          },
+          "metaAnalysis": {
+            "name": "Meta Analysis",
+            "keywords": [
+              "Meta-Analysis",
+              "MetaAnalysis",
+              "Systematic Reviews",
+              "Treatment Outcome",
+              "Randomized Controlled Trials",
+              "Review Literature",
+              "Evidence-Based Practice",
+              "Network Meta-Analysis",
+              "Drug Therapy",
+              "drug efficacy",
+              "treatment effectiveness",
+              "comparative efficacy",
+              "evidence synthesis",
+              "Efficacy"
+            ],
+            "meshTerms": [
+              "Meta-Analysis[Publication Type]",
+              "Systematic Review[Publication Type]",
+              "Treatment Outcome[MeSH]",
+              "Randomized Controlled Trial[Publication Type]",
+              "Evidence-Based Practice[MeSH]",
+              "Drug Therapy[MeSH]"
+            ],
+            "textKeywords": [
+              "Meta-Analysis[tiab]",
+              "MetaAnalysis[tiab]",
+              "Systematic Reviews[tiab]",
+              "Network Meta-Analysis[tiab]",
+              "drug efficacy[tiab]",
+              "treatment effectiveness[tiab]",
+              "comparative efficacy[tiab]",
+              "evidence synthesis[tiab]",
+              "Efficacy[tiab]"
             ]
           },
           "paediatrics": {
@@ -975,19 +1627,47 @@
               "Pediatric Dose Adjustment",
               "Growth and Maturation",
               "Pediatric Clinical Trials",
-              "Safety and Efficacy in Children"
+              "Safety and Efficacy in Children",
+              "Efficacy",
+              "Paediatrics",
+              "efficacy in paediatrics",
+              "Child",
+              "Infant",
+              "Adolescent",
+              "Treatment Outcome",
+              "Dose-Response Relationship Drug",
+              "Drug Therapy",
+              "Therapeutic Equivalence",
+              "Clinical Trials",
+              "Randomized Controlled Trials",
+              "Safety",
+              "Pediatric drug efficacy",
+              "Pediatric clinical trial endpoints",
+              "Therapeutic outcomes in children",
+              "Pediatric dose-response",
+              "Pediatric safety and efficacy",
+              "Therapeutic effects"
             ],
             "meshTerms": [
               "Child[MeSH]",
               "Pediatrics[MeSH]",
               "Adolescent[MeSH]",
-              "Infant[MeSH]"
+              "Infant[MeSH]",
+              "Treatment Outcome[MeSH]",
+              "Dose-Response Relationship, Drug[MeSH]",
+              "Drug Therapy[MeSH]",
+              "Clinical Trial[Publication Type]"
             ],
             "textKeywords": [
               "Pediatric[tiab]",
               "Paediatric[tiab]",
               "Children[tiab]",
-              "Developmental Pharmacology[tiab]"
+              "Developmental Pharmacology[tiab]",
+              "Efficacy[tiab]",
+              "efficacy in paediatrics[tiab]",
+              "Pediatric drug efficacy[tiab]",
+              "Therapeutic outcomes in children[tiab]",
+              "Pediatric safety and efficacy[tiab]"
             ]
           },
           "dosage": {
@@ -1001,17 +1681,56 @@
               "Dose Optimization",
               "Dosing Regimen",
               "Steady-State Concentration",
-              "Pharmacodynamics Correlation"
+              "Pharmacodynamics Correlation",
+              "Dosage",
+              "Dose-Response Relationship, Drug",
+              "Dosage Forms",
+              "Drug Administration Schedule",
+              "Drug Dosage",
+              "Therapeutic Equivalence",
+              "Drug Therapy",
+              "Dose finding",
+              "Dose optimization",
+              "Dose-ranging study",
+              "Dose adjustment",
+              "Dose titration",
+              "Maximum tolerated dose (MTD)",
+              "Minimum effective dose (MED)",
+              "Dose-response curve",
+              "Fixed dose",
+              "Loading dose",
+              "Maintenance dose",
+              "Dose frequency",
+              "Route of administration",
+              "Efficacy",
+              "Therapeutic effects"
             ],
             "meshTerms": [
               "Dose-Response Relationship, Drug[MeSH]",
-              "Maximum Tolerated Dose[MeSH]"
+              "Maximum Tolerated Dose[MeSH]",
+              "Dosage Forms[MeSH]",
+              "Drug Administration Schedule[MeSH]",
+              "Therapeutic Equivalency[MeSH]",
+              "Drug Therapy[MeSH]"
             ],
             "textKeywords": [
               "Dose Escalation[tiab]",
               "Dose Optimization[tiab]",
               "Dosing Regimen[tiab]",
-              "Steady-State[tiab]"
+              "Steady-State[tiab]",
+              "Dosage[tiab]",
+              "Drug Dosage[tiab]",
+              "Dose finding[tiab]",
+              "Dose-ranging study[tiab]",
+              "Dose adjustment[tiab]",
+              "Dose titration[tiab]",
+              "Maximum tolerated dose[tiab]",
+              "Minimum effective dose[tiab]",
+              "Fixed dose[tiab]",
+              "Loading dose[tiab]",
+              "Maintenance dose[tiab]",
+              "Efficacy[tiab]",
+              "Therapeutic effects[tiab]"
             ]
           }
         }
@@ -1033,18 +1752,52 @@
               "Causality Assessment",
               "Pharmacovigilance",
               "Risk Management",
-              "Safety Signal Detection"
+              "Safety Signal Detection",
+              "Safety",
+              "Adverse reactions",
+              "Adverse reaction",
+              "adverse effect",
+              "Adverse effects",
+              "Adverse Drug Reaction Reporting Systems",
+              "Drug-Related Side Effects Adverse Reactions",
+              "Drug Toxicity",
+              "Drug Hypersensitivity",
+              "Poisoning",
+              "Anaphylaxis",
+              "Dose-Response Relationship",
+              "Serious adverse events",
+              "Drug safety monitoring",
+              "Toxicity profile",
+              "Drug-induced toxicity",
+              "Off-target effects",
+              "Safety study",
+              "Risk management in drug safety"
             ],
             "meshTerms": [
               "Adverse Drug Reaction Reporting Systems[MeSH]",
               "Drug-Related Side Effects and Adverse Reactions[MeSH]",
-              "Pharmacovigilance[MeSH]"
+              "Pharmacovigilance[MeSH]",
+              "Drug Toxicity[MeSH]",
+              "Drug Hypersensitivity[MeSH]",
+              "Poisoning[MeSH]",
+              "Anaphylaxis[MeSH]",
+              "Dose-Response Relationship, Drug[MeSH]"
             ],
             "textKeywords": [
               "Adverse Event[tiab]",
               "Side Effect[tiab]",
               "Safety Signal[tiab]",
-              "Idiosyncratic[tiab]"
+              "Idiosyncratic[tiab]",
+              "Safety[tiab]",
+              "Adverse reactions[tiab]",
+              "Adverse reaction[tiab]",
+              "adverse effect[tiab]",
+              "Serious adverse events[tiab]",
+              "Drug safety monitoring[tiab]",
+              "Toxicity profile[tiab]",
+              "Drug-induced toxicity[tiab]",
+              "Off-target effects[tiab]",
+              "Safety signal detection[tiab]"
             ]
           },
           "warningsAndPrecautions": {
@@ -1057,17 +1810,42 @@
               "Drug Safety Alerts",
               "Precautionary Statements",
               "Warning Labels",
-              "Risk-Benefit Analysis"
+              "Risk-Benefit Analysis",
+              "Warnings and Precautions",
+              "Risk Management",
+              "Safety",
+              "Drug Toxicity",
+              "Adverse Drug Reaction",
+              "Adverse effects",
+              "Adverse reaction",
+              "Patient Safety",
+              "Serious Adverse Events",
+              "Special population risk",
+              "Use precautions",
+              "Precaution",
+              "Warning",
+              "Safety-related labelling",
+              "Drug interaction warnings",
+              "Early detection of adverse effects"
             ],
             "meshTerms": [
               "Contraindications[MeSH]",
-              "Risk Assessment[MeSH]"
+              "Risk Assessment[MeSH]",
+              "Risk Management[MeSH]",
+              "Drug Toxicity[MeSH]",
+              "Patient Safety[MeSH]"
             ],
             "textKeywords": [
               "Black Box Warning[tiab]",
               "Precautions[tiab]",
               "Risk-Benefit[tiab]",
-              "Safety Alert[tiab]"
+              "Safety Alert[tiab]",
+              "Warnings and Precautions[tiab]",
+              "Safety[tiab]",
+              "Special population risk[tiab]",
+              "Use precautions[tiab]",
+              "Drug interaction warnings[tiab]",
+              "Early detection of adverse effects[tiab]"
             ]
           },
           "pregnancy": {
@@ -1081,19 +1859,62 @@
               "PLLR",
               "Gestational Timing of Exposure",
               "Maternal-Fetal Drug Transfer",
-              "Reproductive Toxicology"
+              "Reproductive Toxicology",
+              "Pregnancy",
+              "Pregnant",
+              "Lactation",
+              "Milk",
+              "Breast Feeding",
+              "Fetal Development",
+              "Safety",
+              "Adverse effects",
+              "Adverse reaction",
+              "Drug Toxicity",
+              "Pregnancy safety",
+              "Drug use in pregnancy",
+              "Lactation safety",
+              "Breast milk drug excretion",
+              "Maternal-fetal safety",
+              "Perinatal outcomes",
+              "Pregnancy risk and benefits",
+              "Exposure during pregnancy",
+              "Neonatal effects",
+              "Effects on breastfeeding child",
+              "Birth defects risk",
+              "Embryo-fetal development risk",
+              "Lactation risk assessment",
+              "Fetal/neonatal adverse effects",
+              "Drug safety in pregnancy",
+              "Pregnancy adverse drug reactions",
+              "Pregnant women",
+              "toxic effects",
+              "adverse"
             ],
             "meshTerms": [
               "Pregnancy[MeSH]",
               "Teratogens[MeSH]",
               "Abnormalities, Drug-Induced[MeSH]",
-              "Maternal-Fetal Exchange[MeSH]"
+              "Maternal-Fetal Exchange[MeSH]",
+              "Lactation[MeSH]",
+              "Breast Feeding[MeSH]",
+              "Fetal Development[MeSH]",
+              "Drug Toxicity[MeSH]"
             ],
             "textKeywords": [
               "Pregnancy[tiab]",
               "Teratogenicity[tiab]",
               "Fetal Risk[tiab]",
-              "Gestational[tiab]"
+              "Gestational[tiab]",
+              "Pregnancy safety[tiab]",
+              "Drug use in pregnancy[tiab]",
+              "Lactation safety[tiab]",
+              "Breast milk drug excretion[tiab]",
+              "Maternal-fetal safety[tiab]",
+              "Perinatal outcomes[tiab]",
+              "Exposure during pregnancy[tiab]",
+              "Neonatal effects[tiab]",
+              "Birth defects risk[tiab]",
+              "Pregnancy adverse drug reactions[tiab]"
             ]
           },
           "breastfeeding": {
@@ -1104,18 +1925,42 @@
               "Infant Exposure",
               "Lactation Risk Assessment",
               "Neonatal Toxicity",
-              "Breastfeeding Safety"
+              "Breastfeeding Safety",
+              "Drug excretion in breast milk",
+              "Breast milk drug transfer",
+              "Milk-to-plasma drug concentration ratio",
+              "Infant drug exposure via breast milk",
+              "Drug safety during breastfeeding",
+              "Safety",
+              "Breast feeding",
+              "Lactation pharmacology",
+              "Drug accumulation in breastfed infants",
+              "Breast milk:plasma concentration ratio",
+              "Transport mechanisms in breast milk",
+              "Dose-dependent drug excretion into milk",
+              "adverse effects",
+              "Adverse reaction",
+              "Adverse",
+              "toxic effects"
             ],
             "meshTerms": [
               "Breast Feeding[MeSH]",
               "Milk, Human[MeSH]",
-              "Lactation[MeSH]"
+              "Lactation[MeSH]",
+              "Drug Toxicity[MeSH]"
             ],
             "textKeywords": [
               "Breast Milk[tiab]",
               "Milk-to-Plasma[tiab]",
               "Lactation[tiab]",
-              "Breastfeeding[tiab]"
+              "Breastfeeding[tiab]",
+              "Drug excretion in breast milk[tiab]",
+              "Breast milk drug transfer[tiab]",
+              "Infant drug exposure via breast milk[tiab]",
+              "Drug safety during breastfeeding[tiab]",
+              "Lactation pharmacology[tiab]",
+              "Drug accumulation in breastfed infants[tiab]",
+              "Transport mechanisms in breast milk[tiab]"
             ]
           },
           "fertility": {
@@ -1124,17 +1969,40 @@
               "Reproductive Toxicity",
               "Infertility Risk",
               "Gametotoxicity",
-              "Fertility Studies"
+              "Fertility Studies",
+              "Fertility safety",
+              "Fertility",
+              "safety",
+              "adverse effects",
+              "Adverse reaction",
+              "Adverse",
+              "toxic effects",
+              "Fertility preservation safety",
+              "Drug safety in fertility treatment",
+              "Infertility treatment adverse effects",
+              "Controlled ovarian hyperstimulation toxicity",
+              "Ovarian stimulation safety",
+              "Fertility drug adverse reactions",
+              "Drug Therapy",
+              "Infertility"
             ],
             "meshTerms": [
               "Fertility[MeSH]",
               "Reproductive Toxicity[MeSH]",
-              "Infertility[MeSH]"
+              "Infertility[MeSH]",
+              "Drug Therapy[MeSH]"
             ],
             "textKeywords": [
               "Fertility[tiab]",
               "Gametotoxicity[tiab]",
-              "Reproductive Function[tiab]"
+              "Reproductive Function[tiab]",
+              "Fertility safety[tiab]",
+              "Fertility preservation safety[tiab]",
+              "Drug safety in fertility treatment[tiab]",
+              "Infertility treatment adverse effects[tiab]",
+              "Controlled ovarian hyperstimulation toxicity[tiab]",
+              "Ovarian stimulation safety[tiab]",
+              "Fertility drug adverse reactions[tiab]"
             ]
           },
           "overdose": {
@@ -1146,17 +2014,48 @@
               "Overdosage Management",
               "Antidote",
               "Supportive Care",
-              "Dose-Limiting Toxicity"
+              "Dose-Limiting Toxicity",
+              "Overdose",
+              "Safety",
+              "adverse effects",
+              "Adverse reaction",
+              "Adverse",
+              "toxic effects",
+              "Overdose safety",
+              "Toxicity of overdose",
+              "Overdose management",
+              "Overdose adverse effects",
+              "Toxic doses",
+              "Overdose prevention",
+              "Overdose pharmacovigilance",
+              "Overdose risk assessment",
+              "Overdose toxicity studies",
+              "Overdose treatment protocols",
+              "Reversal agents for overdose",
+              "Overdose symptoms and management",
+              "Overdose safety profile",
+              "Overdose in clinical trials",
+              "Overdose and reversibility"
             ],
             "meshTerms": [
               "Drug Overdose[MeSH]",
               "Poisoning[MeSH]",
-              "Antidotes[MeSH]"
+              "Antidotes[MeSH]",
+              "Acute Toxicity[MeSH]"
             ],
             "textKeywords": [
               "Overdose[tiab]",
               "Toxic Dose[tiab]",
-              "Overdosage[tiab]"
+              "Overdosage[tiab]",
+              "Overdose safety[tiab]",
+              "Toxicity of overdose[tiab]",
+              "Overdose management[tiab]",
+              "Overdose adverse effects[tiab]",
+              "Overdose prevention[tiab]",
+              "Overdose pharmacovigilance[tiab]",
+              "Overdose risk assessment[tiab]",
+              "Overdose treatment protocols[tiab]",
+              "Reversal agents for overdose[tiab]"
             ]
           },
           "postMarketing": {
@@ -1171,18 +2070,49 @@
               "Real-World Evidence",
               "Safety Monitoring",
               "Post-Authorization Safety Studies",
-              "PASS"
+              "PASS",
+              "Post-marketing surveillance",
+              "Post-marketing safety monitoring",
+              "Pharmacovigilance post-approval",
+              "Post-authorization safety studies (PASS)",
+              "Periodic Safety Update Reports (PSUR)",
+              "Risk management plans post marketing",
+              "Adverse drug reaction monitoring post marketing",
+              "Postmarketing safety reports",
+              "Real-world safety data",
+              "Drug safety surveillance",
+              "Risk-benefit assessment post marketing",
+              "Spontaneous adverse event reporting",
+              "Safety follow-up studies",
+              "Health authority reporting requirements",
+              "Post-authorization efficacy and safety",
+              "Post marketing",
+              "Safety",
+              "adverse effects",
+              "Adverse reaction",
+              "Adverse",
+              "toxic effects"
             ],
             "meshTerms": [
               "Pharmacovigilance[MeSH]",
               "Product Surveillance, Postmarketing[MeSH]",
-              "Adverse Drug Reaction Reporting Systems[MeSH]"
+              "Adverse Drug Reaction Reporting Systems[MeSH]",
+              "Risk Assessment[MeSH]"
             ],
             "textKeywords": [
               "Post-marketing[tiab]",
               "REMS[tiab]",
               "Real-World Evidence[tiab]",
-              "Signal Detection[tiab]"
+              "Signal Detection[tiab]",
+              "Post-marketing surveillance[tiab]",
+              "Post-marketing safety monitoring[tiab]",
+              "Pharmacovigilance post-approval[tiab]",
+              "Periodic Safety Update Reports[tiab]",
+              "Risk management plans post marketing[tiab]",
+              "Postmarketing safety reports[tiab]",
+              "Real-world safety data[tiab]",
+              "Drug safety surveillance[tiab]",
+              "Safety follow-up studies[tiab]"
             ]
           }
         }

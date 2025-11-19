@@ -155,7 +155,44 @@ function CategoryTree({ studyType, categories, selectedCategories, onToggleCateg
                     >
                       {isSelected(subcategory.path) && <FaCheck className="check-icon" />}
                     </div>
+
+                    {/* Add custom keyword button for Primary Pharmacodynamics in Animal Studies */}
+                    {studyType === 'animal' && category.key === 'pharmacodynamics' && subcategory.key === 'primary' && (
+                      <div
+                        className={`custom-keyword-btn ${disabled ? 'disabled' : ''}`}
+                        onClick={() => !disabled && toggleCustomInput(subcategory.path)}
+                        title="Add custom keywords"
+                      >
+                        <FaPlus />
+                      </div>
+                    )}
                   </div>
+
+                  {/* Custom keyword input for Primary Pharmacodynamics in Animal Studies */}
+                  {studyType === 'animal' && category.key === 'pharmacodynamics' && subcategory.key === 'primary' && showCustomInput[subcategory.path] && (
+                    <div className="custom-keyword-input-wrapper">
+                      <input
+                        type="text"
+                        className="custom-keyword-input"
+                        placeholder="Enter custom keywords (e.g., efficacy, therapeutic effect, treatment outcome)"
+                        value={customKeywords[subcategory.path] || ''}
+                        onChange={(e) => handleCustomKeywordChange(subcategory.path, e.target.value)}
+                        disabled={disabled}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddCustomKeyword(subcategory);
+                          }
+                        }}
+                      />
+                      <button
+                        className="custom-keyword-done-btn"
+                        onClick={() => handleAddCustomKeyword(subcategory)}
+                        disabled={disabled || !customKeywords[subcategory.path]?.trim()}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
 
                   {expandedSubcategories[subcategory.path] && (
                     <div className="type-list">
