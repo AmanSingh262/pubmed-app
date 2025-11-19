@@ -298,6 +298,180 @@ router.post('/unified-word', async (req, res) => {
           );
         }
 
+        // MeSH Terms
+        if (article.meshTerms && Array.isArray(article.meshTerms) && article.meshTerms.length > 0) {
+          const meshText = article.meshTerms.join('; ');
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'MeSH Terms: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: meshText,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Keywords (if available)
+        if (article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0) {
+          const keywordsText = article.keywords.join('; ');
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Keywords: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: keywordsText,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Relevance Score
+        if (article.relevanceScore !== undefined) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Relevance Score: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: article.relevanceScore.toString(),
+                  font: formatting.font,
+                  size: formatting.fontSize * 2,
+                  color: article.relevanceScore >= 30 ? '10b981' : article.relevanceScore >= 15 ? 'f59e0b' : '6b7280'
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // URL
+        if (article.url) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'URL: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: article.url,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2,
+                  color: '0000FF',
+                  underline: {}
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // DOI (if available)
+        if (article.doi) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'DOI: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: article.doi,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
+
+        // Matched Keywords (if available)
+        if (article.matches) {
+          let matchesText = [];
+          if (article.matches.meshMatches && article.matches.meshMatches.length > 0) {
+            matchesText.push(`MeSH: ${article.matches.meshMatches.join(', ')}`);
+          }
+          if (article.matches.titleMatches && article.matches.titleMatches.length > 0) {
+            matchesText.push(`Title: ${article.matches.titleMatches.join(', ')}`);
+          }
+          if (article.matches.abstractMatches && article.matches.abstractMatches.length > 0) {
+            matchesText.push(`Abstract: ${article.matches.abstractMatches.join(', ')}`);
+          }
+          
+          if (matchesText.length > 0) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Matched Keywords: ',
+                    bold: true,
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  }),
+                  new TextRun({
+                    text: matchesText.join(' | '),
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  })
+                ],
+                alignment,
+                spacing: {
+                  after: convertInchesToTwip(formatting.spacingAfter / 72),
+                  line: Math.round(formatting.lineSpacing * 240)
+                }
+              })
+            );
+          }
+        }
+
         // Add spacing between articles
         if (articleIndex < articles.length - 1) {
           sections.push(new Paragraph({ text: '' }));
@@ -579,6 +753,87 @@ router.post('/word', async (req, res) => {
         );
       }
 
+      // MeSH Terms
+      if (article.meshTerms && Array.isArray(article.meshTerms) && article.meshTerms.length > 0) {
+        const meshText = article.meshTerms.join('; ');
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: 'MeSH Terms: ',
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: meshText,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
+            alignment,
+            spacing: {
+              after: convertInchesToTwip(formatting.spacingAfter / 72),
+              line: Math.round(formatting.lineSpacing * 240)
+            }
+          })
+        );
+      }
+
+      // Keywords
+      if (article.keywords && Array.isArray(article.keywords) && article.keywords.length > 0) {
+        const keywordsText = article.keywords.join('; ');
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: 'Keywords: ',
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: keywordsText,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
+            alignment,
+            spacing: {
+              after: convertInchesToTwip(formatting.spacingAfter / 72),
+              line: Math.round(formatting.lineSpacing * 240)
+            }
+          })
+        );
+      }
+
+      // Relevance Score
+      if (article.relevanceScore !== undefined) {
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: 'Relevance Score: ',
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: article.relevanceScore.toString(),
+                font: formatting.font,
+                size: formatting.fontSize * 2,
+                color: article.relevanceScore >= 30 ? '10b981' : article.relevanceScore >= 15 ? 'f59e0b' : '6b7280'
+              })
+            ],
+            alignment,
+            spacing: {
+              after: convertInchesToTwip(formatting.spacingAfter / 72),
+              line: Math.round(formatting.lineSpacing * 240)
+            }
+          })
+        );
+      }
+
       // URL
       if (article.url) {
         sections.push(
@@ -605,6 +860,71 @@ router.post('/word', async (req, res) => {
             }
           })
         );
+      }
+
+      // DOI
+      if (article.doi) {
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: 'DOI: ',
+                bold: true,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              }),
+              new TextRun({
+                text: article.doi,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })
+            ],
+            alignment,
+            spacing: {
+              after: convertInchesToTwip(formatting.spacingAfter / 72),
+              line: Math.round(formatting.lineSpacing * 240)
+            }
+          })
+        );
+      }
+
+      // Matched Keywords
+      if (article.matches) {
+        let matchesText = [];
+        if (article.matches.meshMatches && article.matches.meshMatches.length > 0) {
+          matchesText.push(`MeSH: ${article.matches.meshMatches.join(', ')}`);
+        }
+        if (article.matches.titleMatches && article.matches.titleMatches.length > 0) {
+          matchesText.push(`Title: ${article.matches.titleMatches.join(', ')}`);
+        }
+        if (article.matches.abstractMatches && article.matches.abstractMatches.length > 0) {
+          matchesText.push(`Abstract: ${article.matches.abstractMatches.join(', ')}`);
+        }
+        
+        if (matchesText.length > 0) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: 'Matched Keywords: ',
+                  bold: true,
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                }),
+                new TextRun({
+                  text: matchesText.join(' | '),
+                  font: formatting.font,
+                  size: formatting.fontSize * 2
+                })
+              ],
+              alignment,
+              spacing: {
+                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                line: Math.round(formatting.lineSpacing * 240)
+              }
+            })
+          );
+        }
       }
 
       // Add separator between articles (except after last one)

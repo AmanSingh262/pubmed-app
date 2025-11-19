@@ -20,6 +20,27 @@
   position: sticky;
   top: 20px;
   align-self: start;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .card {
@@ -346,10 +367,10 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -359,7 +380,7 @@
 
 .cart-toggle-btn:hover {
   transform: scale(1.1) translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 6px 16px rgba(251, 191, 36, 0.5);
 }
 
 .cart-toggle-btn:active {
