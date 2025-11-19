@@ -170,10 +170,36 @@ function AppContent() {
     });
   };
 
-  const handleAddReferenceToCart = (article, category) => {
-    // Add article to cart with category information
-    addToCart(article, category, 'reference');
-    toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
+  const handleAddReferenceToCart = async (article, category) => {
+    try {
+      // Fetch abstract if not already present
+      if (!article.abstract) {
+        const response = await fetch('/api/reference-doc/fetch-abstracts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ pmids: [article.pmid] }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const abstractData = data.abstracts[article.pmid];
+          if (abstractData) {
+            article.abstract = abstractData;
+          }
+        }
+      }
+
+      // Add article to cart with category information
+      addToCart(article, category, 'reference');
+      toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      // Still add to cart even if abstract fetch fails
+      addToCart(article, category, 'reference');
+      toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
+    }
   };
 
   const handleExportReferenceDoc = async (format) => {

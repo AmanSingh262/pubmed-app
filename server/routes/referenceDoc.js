@@ -262,11 +262,36 @@ router.post('/fetch-abstracts', async (req, res) => {
         const abstractTexts = article.MedlineCitation?.[0]?.Article?.[0]?.Abstract?.[0]?.AbstractText || [];
         
         if (pmid && abstractTexts.length > 0) {
-          abstracts[pmid] = abstractTexts.map(text => {
-            if (typeof text === 'string') return text;
-            if (text._) return text._;
-            return '';
-          }).join(' ');
+          // Check if abstract has structured sections (with labels)
+          const structuredAbstract = [];
+          let hasStructure = false;
+          
+          abstractTexts.forEach(text => {
+            if (typeof text === 'object' && text.$ && text.$.Label) {
+              hasStructure = true;
+              const label = text.$.Label;
+              const content = text._ || '';
+              structuredAbstract.push({ label, content });
+            } else if (typeof text === 'string') {
+              structuredAbstract.push({ label: null, content: text });
+            } else if (text._) {
+              structuredAbstract.push({ label: null, content: text._ });
+            }
+          });
+          
+          if (hasStructure) {
+            // Store structured abstract
+            abstracts[pmid] = {
+              structured: true,
+              sections: structuredAbstract
+            };
+          } else {
+            // Store plain abstract
+            abstracts[pmid] = {
+              structured: false,
+              text: structuredAbstract.map(s => s.content).join(' ')
+            };
+          }
         }
       });
     }

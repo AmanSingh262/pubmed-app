@@ -7,7 +7,12 @@ const {
   TextRun,
   AlignmentType,
   HeadingLevel,
-  convertInchesToTwip
+  convertInchesToTwip,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle
 } = require('docx');
 
 /**
@@ -678,44 +683,153 @@ router.post('/unified-word', async (req, res) => {
 
         // PMID, Authors, and Journal sections removed as per user request
 
-        // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
-        // Abstract heading removed as per user request - showing only the paragraph
-        if (article.abstract) {
-          let processedAbstract = cleanText(article.abstract);
-          processedAbstract = restructureAbstract(processedAbstract);
-          
-          // Apply abbreviation replacements (first use: "Full Term (ABBR)", subsequent: "ABBR")
-          processedAbstract = replaceWithAbbreviations(processedAbstract, STANDARD_ABBREVIATIONS);
-          
-          const abstractParts = addCombinedFormatting(processedAbstract);
-          
-          // Generate in-text citation
-          const inTextCitation = generateInTextCitation(article);
-          
+        // Show relevance score for reference documents
+        if (article.relevanceScore && studyType === 'reference') {
           sections.push(
             new Paragraph({
               children: [
-                ...abstractParts.map(part => new TextRun({
-                  text: part.text,
-                  italics: part.italics,
-                  color: part.color || undefined,
-                  font: formatting.font,
-                  size: formatting.fontSize * 2
-                })),
                 new TextRun({
-                  text: ` ${inTextCitation}`,
-                  color: '0000FF',
+                  text: `Relevance Score: ${article.relevanceScore}%`,
+                  bold: true,
                   font: formatting.font,
-                  size: formatting.fontSize * 2
+                  size: formatting.fontSize * 2,
+                  color: '9333ea'
                 })
               ],
               alignment,
               spacing: {
-                after: convertInchesToTwip(formatting.spacingAfter / 72),
+                after: convertInchesToTwip(0.1),
                 line: Math.round(formatting.lineSpacing * 240)
               }
             })
           );
+        }
+
+        // Abstract (with text cleaning, restructuring, italics for biology, and blue for citations)
+        if (article.abstract) {
+          // Check if abstract is structured (object with sections) or plain text (string)
+          const isStructured = typeof article.abstract === 'object' && article.abstract.structured;
+          
+          if (isStructured && article.abstract.sections) {
+            // Handle structured abstract with labeled sections
+            sections.push(
+              new Paragraph({
+                text: 'Abstract',
+                bold: true,
+                font: formatting.font,
+                size: (formatting.fontSize + 2) * 2,
+                alignment,
+                spacing: {
+                  before: convertInchesToTwip(0.1),
+                  after: convertInchesToTwip(0.1)
+                }
+              })
+            );
+            
+            article.abstract.sections.forEach(section => {
+              if (section.label) {
+                // Add section heading (e.g., "Importance:", "Objective:", etc.)
+                sections.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: `${section.label}: `,
+                        bold: true,
+                        font: formatting.font,
+                        size: formatting.fontSize * 2
+                      })
+                    ],
+                    alignment,
+                    spacing: {
+                      before: convertInchesToTwip(0.05),
+                      after: convertInchesToTwip(0.05)
+                    }
+                  })
+                );
+              }
+              
+              // Process section content
+              let processedContent = cleanText(section.content);
+              processedContent = restructureAbstract(processedContent);
+              processedContent = replaceWithAbbreviations(processedContent, STANDARD_ABBREVIATIONS);
+              const contentParts = addCombinedFormatting(processedContent);
+              
+              sections.push(
+                new Paragraph({
+                  children: contentParts.map(part => new TextRun({
+                    text: part.text,
+                    italics: part.italics,
+                    color: part.color || undefined,
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  })),
+                  alignment,
+                  spacing: {
+                    after: convertInchesToTwip(0.08),
+                    line: Math.round(formatting.lineSpacing * 240)
+                  }
+                })
+              );
+            });
+            
+            // Add in-text citation after structured abstract
+            const inTextCitation = generateInTextCitation(article);
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: inTextCitation,
+                    color: '0000FF',
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  })
+                ],
+                alignment,
+                spacing: {
+                  after: convertInchesToTwip(formatting.spacingAfter / 72),
+                  line: Math.round(formatting.lineSpacing * 240)
+                }
+              })
+            );
+          } else {
+            // Handle plain text abstract (original behavior)
+            const abstractText = typeof article.abstract === 'string' ? article.abstract : article.abstract.text;
+            let processedAbstract = cleanText(abstractText);
+            processedAbstract = restructureAbstract(processedAbstract);
+            
+            // Apply abbreviation replacements (first use: "Full Term (ABBR)", subsequent: "ABBR")
+            processedAbstract = replaceWithAbbreviations(processedAbstract, STANDARD_ABBREVIATIONS);
+            
+            const abstractParts = addCombinedFormatting(processedAbstract);
+            
+            // Generate in-text citation
+            const inTextCitation = generateInTextCitation(article);
+            
+            sections.push(
+              new Paragraph({
+                children: [
+                  ...abstractParts.map(part => new TextRun({
+                    text: part.text,
+                    italics: part.italics,
+                    color: part.color || undefined,
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  })),
+                  new TextRun({
+                    text: ` ${inTextCitation}`,
+                    color: '0000FF',
+                    font: formatting.font,
+                    size: formatting.fontSize * 2
+                  })
+                ],
+                alignment,
+                spacing: {
+                  after: convertInchesToTwip(formatting.spacingAfter / 72),
+                  line: Math.round(formatting.lineSpacing * 240)
+                }
+              })
+            );
+          }
         }
 
         // MeSH Terms, Keywords, Relevance Score, and Matched Keywords removed as per user request
@@ -797,31 +911,104 @@ router.post('/unified-word', async (req, res) => {
         new Paragraph({ text: '' })
       );
       
-      // Add each abbreviation with Times New Roman 10pt
+      // Create abbreviations table
+      const tableRows = [];
+      
+      // Add header row
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'Abbreviation',
+                      bold: true,
+                      font: 'Times New Roman',
+                      size: 20
+                    })
+                  ],
+                  alignment: AlignmentType.CENTER
+                })
+              ],
+              shading: { fill: 'E5E7EB' },
+              width: { size: 30, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'Definition',
+                      bold: true,
+                      font: 'Times New Roman',
+                      size: 20
+                    })
+                  ],
+                  alignment: AlignmentType.CENTER
+                })
+              ],
+              shading: { fill: 'E5E7EB' },
+              width: { size: 70, type: WidthType.PERCENTAGE }
+            })
+          ]
+        })
+      );
+      
+      // Add abbreviation rows
       allAbbreviations.forEach(({ abbr, fullTerm }) => {
-        sections.push(
-          new Paragraph({
+        tableRows.push(
+          new TableRow({
             children: [
-              new TextRun({
-                text: `${abbr}`,
-                bold: true,
-                font: 'Times New Roman',
-                size: 20 // 10pt = 20 half-points
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: abbr,
+                        bold: true,
+                        font: 'Times New Roman',
+                        size: 20
+                      })
+                    ],
+                    alignment: AlignmentType.LEFT
+                  })
+                ],
+                width: { size: 30, type: WidthType.PERCENTAGE }
               }),
-              new TextRun({
-                text: `\t${fullTerm}`,
-                font: 'Times New Roman',
-                size: 20 // 10pt = 20 half-points
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: fullTerm,
+                        font: 'Times New Roman',
+                        size: 20
+                      })
+                    ],
+                    alignment: AlignmentType.LEFT
+                  })
+                ],
+                width: { size: 70, type: WidthType.PERCENTAGE }
               })
-            ],
-            alignment: AlignmentType.LEFT,
-            spacing: {
-              after: convertInchesToTwip(0.05),
-              line: Math.round(formatting.lineSpacing * 240)
-            }
+            ]
           })
         );
       });
+      
+      // Add the table to sections
+      sections.push(
+        new Table({
+          rows: tableRows,
+          width: {
+            size: 100,
+            type: WidthType.PERCENTAGE
+          }
+        })
+      );
+      
+      sections.push(new Paragraph({ text: '' }));
     }
 
     // Add References section
