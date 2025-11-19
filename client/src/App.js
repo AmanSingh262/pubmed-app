@@ -33,7 +33,7 @@ function AppContent() {
   const [showResults, setShowResults] = useState(false);
 
   // Get cart context
-  const { cartItems, isCartOpen, openCart } = useCart();
+  const { cartItems, openCart } = useCart();
 
   // Load categories on mount
   useEffect(() => {
