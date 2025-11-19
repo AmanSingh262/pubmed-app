@@ -373,7 +373,7 @@ class FilterService {
    * @param {number} topN - Number of top results to return
    * @returns {Array} Filtered and ranked articles
    */
-  filterAndRankArticles(articles, studyType, categoryPath, topN = 20) {
+  filterAndRankArticles(articles, studyType, categoryPath, topN = 30) {
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
     if (filterKeywords.keywords.length === 0) {

@@ -68,7 +68,7 @@ function App() {
         studyType,
         categoryPath: categoryPaths.join(','), // Send comma-separated paths
         maxResults: 200,
-        topN: 20,
+        topN: 30,
         ...searchFilters // Include all search filters
       });
 

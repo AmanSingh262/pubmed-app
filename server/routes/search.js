@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
       studyType = 'animal',
       categoryPath,
       maxResults = 200,
-      topN = 20,
+      topN = 30,
       yearFrom = null,
       yearTo = null,
       hasAbstract = false,
@@ -206,7 +206,7 @@ router.post('/batch', async (req, res) => {
       studyType = 'animal',
       categoryPaths = [],
       maxResults = 200,
-      topN = 20
+      topN = 30
     } = req.body;
 
     if (!query) {
