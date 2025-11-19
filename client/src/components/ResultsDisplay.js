@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './ResultsDisplay.css';
 import ArticleCard from './ArticleCard';
-import { FaInfoCircle, FaChartBar } from 'react-icons/fa';
+import { FaInfoCircle, FaChartBar, FaFileWord, FaCheckCircle } from 'react-icons/fa';
+import ExportModal from './ExportModal';
 
 function ResultsDisplay({ results, query, studyType, categoryPath }) {
+  const [selectedArticles, setSelectedArticles] = useState([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+
   if (!results || !results.articles) {
     return null;
   }
@@ -13,6 +17,32 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
   const reductionPercentage = totalArticles > 0
     ? Math.round(((totalArticles - filteredArticles) / totalArticles) * 100)
     : 0;
+
+  const handleToggleSelect = (article) => {
+    setSelectedArticles(prev => {
+      const isAlreadySelected = prev.some(a => a.pmid === article.pmid);
+      if (isAlreadySelected) {
+        return prev.filter(a => a.pmid !== article.pmid);
+      } else {
+        return [...prev, article];
+      }
+    });
+  };
+
+  const handleDone = () => {
+    if (selectedArticles.length > 0) {
+      setShowExportModal(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowExportModal(false);
+  };
+
+  const handleExportComplete = () => {
+    setShowExportModal(false);
+    setSelectedArticles([]);
+  };
 
   return (
     <div className="results-display">
@@ -68,11 +98,40 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
             </span>
           </div>
 
+          {selectedArticles.length > 0 && (
+            <div className="selection-banner">
+              <div className="selection-info">
+                <FaCheckCircle className="selection-icon" />
+                <span><strong>{selectedArticles.length}</strong> article{selectedArticles.length !== 1 ? 's' : ''} selected</span>
+              </div>
+              <button className="export-btn" onClick={handleDone}>
+                <FaFileWord />
+                Export to Word
+              </button>
+            </div>
+          )}
+
           <div className="articles-list">
             {articles.map((article, index) => (
-              <ArticleCard key={article.pmid || index} article={article} rank={index + 1} />
+              <ArticleCard 
+                key={article.pmid || index} 
+                article={article} 
+                rank={index + 1}
+                isSelectable={true}
+                isSelected={selectedArticles.some(a => a.pmid === article.pmid)}
+                onToggleSelect={handleToggleSelect}
+              />
             ))}
           </div>
+
+          {showExportModal && (
+            <ExportModal
+              articles={selectedArticles}
+              categoryPath={categoryPath}
+              onClose={handleCloseModal}
+              onExportComplete={handleExportComplete}
+            />
+          )}
         </>
       )}
     </div>

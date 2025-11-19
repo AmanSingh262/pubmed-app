@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import './ArticleCard.css';
-import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar } from 'react-icons/fa';
+import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar, FaCheckCircle, FaCircle } from 'react-icons/fa';
 
-function ArticleCard({ article, rank }) {
+function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect }) {
   const [expanded, setExpanded] = useState(false);
 
   const {
@@ -61,8 +61,21 @@ function ArticleCard({ article, rank }) {
   };
 
   return (
-    <div className="article-card">
+    <div className={`article-card ${isSelected ? 'selected' : ''}`}>
       <div className="article-header">
+        {isSelectable && (
+          <div 
+            className="article-select-checkbox" 
+            onClick={() => onToggleSelect(article)}
+            title={isSelected ? "Remove from selection" : "Mark as useful"}
+          >
+            {isSelected ? (
+              <FaCheckCircle className="select-icon selected" />
+            ) : (
+              <FaCircle className="select-icon" />
+            )}
+          </div>
+        )}
         <div className="article-rank">#{rank}</div>
         <div className="article-title-section">
           <h3 className="article-title">

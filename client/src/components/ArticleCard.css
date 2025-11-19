@@ -7,10 +7,19 @@
   border-left: 4px solid transparent;
 }
 
+.article-card.selected {
+  border-left-color: #10b981;
+  background: #f0fdf4;
+}
+
 .article-card:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
   border-left-color: #667eea;
+}
+
+.article-card.selected:hover {
+  border-left-color: #10b981;
 }
 
 .article-header {
@@ -18,6 +27,28 @@
   gap: 20px;
   align-items: flex-start;
   margin-bottom: 16px;
+}
+
+.article-select-checkbox {
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.article-select-checkbox .select-icon {
+  font-size: 28px;
+  color: #d1d5db;
+  transition: all 0.3s ease;
+}
+
+.article-select-checkbox .select-icon.selected {
+  color: #10b981;
+  transform: scale(1.1);
+}
+
+.article-select-checkbox:hover .select-icon {
+  color: #10b981;
+  transform: scale(1.15);
 }
 
 .article-rank {
