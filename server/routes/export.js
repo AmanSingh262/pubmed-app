@@ -11,6 +11,103 @@ const {
 } = require('docx');
 
 /**
+ * Helper function to clean and format text according to UK scientific standards
+ */
+function cleanText(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  let cleaned = text;
+  
+  // Convert US to UK spelling
+  cleaned = cleaned.replace(/\bfavor\b/gi, 'favour');
+  cleaned = cleaned.replace(/\bfavored\b/gi, 'favoured');
+  cleaned = cleaned.replace(/\bfavoring\b/gi, 'favouring');
+  cleaned = cleaned.replace(/\bcolor\b/gi, 'colour');
+  cleaned = cleaned.replace(/\banalyze\b/gi, 'analyse');
+  cleaned = cleaned.replace(/\banalyzed\b/gi, 'analysed');
+  cleaned = cleaned.replace(/\banalyzing\b/gi, 'analysing');
+  
+  // Fix abbreviations
+  cleaned = cleaned.replace(/\bml\b/g, 'mL');
+  cleaned = cleaned.replace(/\bMl\b/g, 'mL');
+  cleaned = cleaned.replace(/\bmcg\b/gi, 'µg');
+  cleaned = cleaned.replace(/\bmmol\b/g, 'mM');
+  cleaned = cleaned.replace(/\bMmol\b/g, 'mM');
+  cleaned = cleaned.replace(/\b(\d+)\s*l\b/g, '$1 L');
+  cleaned = cleaned.replace(/\b(\d+)\s*h\b/g, '$1 hours');
+  
+  // Standardize pharmacokinetic terms
+  cleaned = cleaned.replace(/\bcmax\b/gi, 'Cmax');
+  cleaned = cleaned.replace(/\btmax\b/gi, 'Tmax');
+  cleaned = cleaned.replace(/\bauc\b/gi, 'AUC');
+  
+  // Standardize P-value notation
+  cleaned = cleaned.replace(/\bp\s*</gi, 'P<');
+  cleaned = cleaned.replace(/\bp\s*>/gi, 'P>');
+  cleaned = cleaned.replace(/\bp\s*=/gi, 'P=');
+  
+  return cleaned;
+}
+
+/**
+ * Helper function to add italic formatting to biological and scientific terms
+ */
+function addItalicFormatting(text) {
+  if (!text || typeof text !== 'string') return [];
+  
+  const parts = [];
+  let remaining = text;
+  
+  // Scientific terms that should be italicized
+  const italicTerms = [
+    /\bin vitro\b/gi,
+    /\bin vivo\b/gi,
+    /\bex vivo\b/gi,
+    /\bEscherichia coli\b/gi,
+    /\bStaphylococcus aureus\b/gi,
+    /\bPseudomonas aeruginosa\b/gi,
+    /\bCandida albicans\b/gi,
+    // Add common biological genus/species patterns
+    /\b[A-Z][a-z]+ [a-z]+\b/g // Matches "Genus species" pattern
+  ];
+  
+  let lastIndex = 0;
+  const matches = [];
+  
+  // Find all matches
+  italicTerms.forEach(pattern => {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      matches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0]
+      });
+    }
+  });
+  
+  // Sort matches by position
+  matches.sort((a, b) => a.start - b.start);
+  
+  // Build parts array with proper formatting
+  matches.forEach(match => {
+    if (match.start > lastIndex) {
+      parts.push({ text: text.substring(lastIndex, match.start), italics: false });
+    }
+    parts.push({ text: match.text, italics: true });
+    lastIndex = match.end;
+  });
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ text: text.substring(lastIndex), italics: false });
+  }
+  
+  return parts.length > 0 ? parts : [{ text, italics: false }];
+}
+
+/**
  * Helper function to format citations
  */
 function formatCitation(article, style) {
@@ -118,9 +215,10 @@ router.post('/unified-word', async (req, res) => {
       const { studyType, categoryPath, articles } = group;
       
       // Add category heading
+      const studyTypeText = studyType === 'animal' ? 'Animal Studies' : 'Human Studies';
       sections.push(
         new Paragraph({
-          text: `${studyType} - ${categoryPath}`,
+          text: `${studyTypeText} - ${categoryPath}`,
           heading: HeadingLevel.HEADING_2,
           alignment: AlignmentType.LEFT,
           spacing: {
@@ -155,7 +253,10 @@ router.post('/unified-word', async (req, res) => {
         allArticles.push(article);
         const globalIndex = allArticles.length;
 
-        // Article number and title
+        // Article number and title (with text cleaning)
+        const cleanedTitle = cleanText(article.title || 'No title available');
+        const titleParts = addItalicFormatting(cleanedTitle);
+        
         sections.push(
           new Paragraph({
             children: [
@@ -165,12 +266,13 @@ router.post('/unified-word', async (req, res) => {
                 font: formatting.font,
                 size: formatting.fontSize * 2
               }),
-              new TextRun({
-                text: article.title || 'No title available',
+              ...titleParts.map(part => new TextRun({
+                text: part.text,
                 bold: true,
+                italics: part.italics,
                 font: formatting.font,
                 size: formatting.fontSize * 2
-              })
+              }))
             ],
             alignment,
             spacing: {
@@ -267,8 +369,11 @@ router.post('/unified-word', async (req, res) => {
           );
         }
 
-        // Abstract
+        // Abstract (with text cleaning and italicization)
         if (article.abstract) {
+          const cleanedAbstract = cleanText(article.abstract);
+          const abstractParts = addItalicFormatting(cleanedAbstract);
+          
           sections.push(
             new Paragraph({
               children: [
@@ -286,14 +391,17 @@ router.post('/unified-word', async (req, res) => {
               }
             }),
             new Paragraph({
-              text: article.abstract,
+              children: abstractParts.map(part => new TextRun({
+                text: part.text,
+                italics: part.italics,
+                font: formatting.font,
+                size: formatting.fontSize * 2
+              })),
               alignment,
               spacing: {
                 after: convertInchesToTwip(formatting.spacingAfter / 72),
                 line: Math.round(formatting.lineSpacing * 240)
-              },
-              font: formatting.font,
-              size: formatting.fontSize * 2
+              }
             })
           );
         }
@@ -610,7 +718,10 @@ router.post('/word', async (req, res) => {
 
     // Add each article
     articles.forEach((article, index) => {
-      // Article number and title
+      // Article number and title (with text cleaning)
+      const cleanedTitle = cleanText(article.title || 'No title available');
+      const titleParts = addItalicFormatting(cleanedTitle);
+      
       sections.push(
         new Paragraph({
           children: [
@@ -620,12 +731,13 @@ router.post('/word', async (req, res) => {
               font: formatting.font,
               size: formatting.fontSize * 2
             }),
-            new TextRun({
-              text: article.title || 'No title available',
+            ...titleParts.map(part => new TextRun({
+              text: part.text,
               bold: true,
+              italics: part.italics,
               font: formatting.font,
               size: formatting.fontSize * 2
-            })
+            }))
           ],
           alignment,
           spacing: {
@@ -722,8 +834,11 @@ router.post('/word', async (req, res) => {
         );
       }
 
-      // Abstract
+      // Abstract (with text cleaning and italicization)
       if (article.abstract) {
+        const cleanedAbstract = cleanText(article.abstract);
+        const abstractParts = addItalicFormatting(cleanedAbstract);
+        
         sections.push(
           new Paragraph({
             children: [
@@ -741,14 +856,17 @@ router.post('/word', async (req, res) => {
             }
           }),
           new Paragraph({
-            text: article.abstract,
+            children: abstractParts.map(part => new TextRun({
+              text: part.text,
+              italics: part.italics,
+              font: formatting.font,
+              size: formatting.fontSize * 2
+            })),
             alignment,
             spacing: {
               after: convertInchesToTwip(formatting.spacingAfter / 72),
               line: Math.round(formatting.lineSpacing * 240)
-            },
-            font: formatting.font,
-            size: formatting.fontSize * 2
+            }
           })
         );
       }
