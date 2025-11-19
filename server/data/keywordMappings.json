@@ -200,108 +200,254 @@
       },
       "pharmacokinetics": {
         "name": "Pharmacokinetics",
+        "keywords": [
+          "Pharmacokinetic",
+          "Pharmacokinetics",
+          "Pharmaco-kinetic",
+          "Pharma-cokinetic",
+          "PK",
+          "kinetic",
+          "kinetics",
+          "ADME"
+        ],
+        "meshTerms": [
+          "Pharmacokinetics[MeSH]"
+        ],
+        "textKeywords": [
+          "Pharmacokinetic[tiab]",
+          "Pharmacokinetics[tiab]",
+          "Pharmaco-kinetic[tiab]",
+          "Pharma-cokinetic[tiab]",
+          "PK[tiab]",
+          "kinetic[tiab]",
+          "kinetics[tiab]",
+          "ADME[tiab]"
+        ],
         "subcategories": {
           "methodOfAnalysis": {
             "name": "Method of Analysis",
             "keywords": [
-              "Pharmacokinetics",
+              "Pharmacokinetic and HPLC",
+              "Pharmacokinetic and High-performance liquid chromatography",
+              "Pharmacokinetic and LC-MS",
+              "Pharmacokinetic and LCMS",
+              "Pharmacokinetic and Liquid chromatography-mass spectrometry",
+              "Pharmacokinetic and Liquid chromatography mass spectrometry",
               "Bioanalytical Techniques",
-              "Liquid Chromatography-Mass Spectrometry",
-              "Quantitative Assay",
-              "Bioanalytical Method Validation",
-              "Analytical Method Development",
-              "Sample Preparation"
+              "Quantitative Assay"
             ],
             "meshTerms": [
               "Pharmacokinetics[MeSH]",
               "Bioanalytical Techniques[MeSH]",
               "Liquid Chromatography-Mass Spectrometry[MeSH]",
-              "Quantitative Assay[MeSH]"
+              "Chromatography, High Pressure Liquid[MeSH]"
             ],
             "textKeywords": [
-              "Bioanalytical Method Validation[tiab]",
-              "Analytical Method Development[tiab]",
-              "Sample Preparation[tiab]"
+              "HPLC[tiab]",
+              "LC-MS[tiab]",
+              "LCMS[tiab]",
+              "High-performance liquid chromatography[tiab]",
+              "Liquid chromatography-mass spectrometry[tiab]",
+              "Bioanalytical Method[tiab]",
+              "Analytical Method[tiab]"
             ]
           },
           "absorption": {
             "name": "Absorption",
             "keywords": [
+              "Pharmacokinetic and bioavailability",
+              "Pharmacokinetic and bio-availability",
+              "Pharmacokinetic and absorption",
+              "Pharmacokinetic and absorbed",
+              "Pharmacokinetic and Cmax",
+              "Pharmacokinetic and tmax",
+              "Pharmacokinetic and AUC",
+              "Pharmacokinetic and maximum drug concentration",
+              "Pharmacokinetic and area under the curve",
+              "Pharmacokinetic and area-under the curve",
               "Drug Absorption",
-              "Bioavailability",
-              "First-Pass Effect",
-              "Gastrointestinal Absorption",
-              "Drug Solubility",
-              "Permeability"
+              "First-Pass Effect"
             ],
             "meshTerms": [
-              "Drug Absorption[MeSH]",
-              "Bioavailability[MeSH]",
-              "First-Pass Effect[MeSH]"
+              "Biological Availability[MeSH]",
+              "Intestinal Absorption[MeSH]",
+              "Area Under Curve[MeSH]"
             ],
             "textKeywords": [
-              "Gastrointestinal Absorption[tiab]",
-              "Drug Solubility[tiab]",
-              "Permeability[tiab]"
+              "bioavailability[tiab]",
+              "bio-availability[tiab]",
+              "absorption[tiab]",
+              "absorbed[tiab]",
+              "Cmax[tiab]",
+              "tmax[tiab]",
+              "AUC[tiab]",
+              "maximum drug concentration[tiab]",
+              "area under the curve[tiab]",
+              "area-under the curve[tiab]"
             ]
           },
           "distribution": {
             "name": "Distribution",
             "keywords": [
-              "Drug Distribution",
-              "Volume of Distribution",
-              "Plasma Protein Binding",
+              "Pharmacokinetic and Volume of distribution",
+              "Pharmacokinetic and distribution",
+              "Pharmacokinetic and protein binding",
+              "Pharmacokinetic and cytochrome",
+              "Pharmacokinetic and Vd",
               "Tissue Distribution",
               "Blood-Brain Barrier"
             ],
             "meshTerms": [
-              "Drug Distribution[MeSH]",
-              "Plasma Protein Binding[MeSH]",
+              "Tissue Distribution[MeSH]",
+              "Protein Binding[MeSH]",
               "Blood-Brain Barrier[MeSH]"
             ],
             "textKeywords": [
-              "Volume of Distribution[tiab]",
-              "Tissue Distribution[tiab]"
+              "Volume of distribution[tiab]",
+              "distribution[tiab]",
+              "protein binding[tiab]",
+              "cytochrome[tiab]",
+              "Vd[tiab]"
             ]
           },
           "metabolism": {
             "name": "Metabolism",
             "keywords": [
-              "Drug Metabolism",
+              "Pharmacokinetic and metabolism",
+              "Pharmacokinetic and metabolizm",
+              "Pharmacokinetic and cytochrome",
+              "Pharmacokinetic and metabolite",
+              "Pharmacokinetic and biotransformation",
+              "Pharmacokinetic and bio-transformation",
+              "Pharmacokinetic and CYP",
               "Cytochrome P450 Enzymes",
               "Phase I Metabolism",
-              "Phase II Metabolism",
-              "Enzyme Induction",
-              "Metabolite Profiling"
+              "Phase II Metabolism"
             ],
             "meshTerms": [
-              "Drug Metabolism[MeSH]",
-              "Cytochrome P450 Enzymes[MeSH]",
-              "Enzyme Induction[MeSH]"
+              "Metabolic Clearance Rate[MeSH]",
+              "Cytochrome P-450 Enzyme System[MeSH]",
+              "Biotransformation[MeSH]"
             ],
             "textKeywords": [
-              "Phase I Metabolism[tiab]",
-              "Phase II Metabolism[tiab]",
-              "Metabolite Profiling[tiab]"
+              "metabolism[tiab]",
+              "metabolizm[tiab]",
+              "cytochrome[tiab]",
+              "metabolite[tiab]",
+              "biotransformation[tiab]",
+              "bio-transformation[tiab]",
+              "CYP[tiab]"
             ]
           },
           "excretion": {
             "name": "Excretion",
             "keywords": [
-              "Drug Excretion",
+              "Pharmacokinetic and Excretion",
+              "Pharmacokinetic and elimination",
+              "Pharmacokinetic and clearance",
+              "Pharmacokinetic and half life",
+              "Pharmacokinetic and half-life",
+              "Pharmacokinetic and t1/2",
               "Renal Clearance",
-              "Biliary Excretion",
-              "Glomerular Filtration Rate",
-              "Excretion Rate"
+              "Biliary Excretion"
             ],
             "meshTerms": [
-              "Drug Excretion[MeSH]",
-              "Renal Clearance[MeSH]",
-              "Glomerular Filtration Rate[MeSH]"
+              "Kidney[MeSH]",
+              "Metabolic Clearance Rate[MeSH]",
+              "Half-Life[MeSH]"
             ],
             "textKeywords": [
-              "Biliary Excretion[tiab]",
-              "Excretion Rate[tiab]"
+              "Excretion[tiab]",
+              "elimination[tiab]",
+              "clearance[tiab]",
+              "half life[tiab]",
+              "half-life[tiab]",
+              "t1/2[tiab]"
+            ]
+          },
+          "specialPopulations": {
+            "name": "Pharmacokinetics in Special Populations",
+            "keywords": [
+              "Pharmacokinetic in renal impairment",
+              "Pharmacokinetic and kidney impairment",
+              "Pharmacokinetic and renal impairment",
+              "Pharmacokinetic and end stage renal disease",
+              "Pharmacokinetic and renal disease",
+              "Pharmacokinetic and kidney disease",
+              "Pharmacokinetic and kidney dysfunction",
+              "Pharmacokinetic and renal dysfunction",
+              "Pharmacokinetic in hepatic impairment",
+              "Pharmacokinetic and liver impairment",
+              "Pharmacokinetic and hepatic impairment",
+              "Pharmacokinetic and hepatic cirrhosis",
+              "Pharmacokinetic and liver cirrhosis",
+              "Pharmacokinetic and liver disease",
+              "Pharmacokinetic and liver dysfunction",
+              "Pharmacokinetic and hepatic dysfunction",
+              "Pharmacokinetic and elderly",
+              "Pharmacokinetic and paediatrics",
+              "Pharmacokinetic and adolescent",
+              "Pharmacokinetic and adolescents",
+              "Pharmacokinetic and older",
+              "Pharmacokinetic and pediatrics",
+              "Pharmacokinetic and pediatric",
+              "Pharmacokinetic and paediatric",
+              "Pharmacokinetic and pregnancy",
+              "Pharmacokinetic and race"
+            ],
+            "meshTerms": [
+              "Renal Insufficiency[MeSH]",
+              "Liver Cirrhosis[MeSH]",
+              "Aged[MeSH]",
+              "Child[MeSH]",
+              "Adolescent[MeSH]",
+              "Pregnancy[MeSH]"
+            ],
+            "textKeywords": [
+              "renal impairment[tiab]",
+              "kidney impairment[tiab]",
+              "end stage renal disease[tiab]",
+              "renal disease[tiab]",
+              "kidney disease[tiab]",
+              "kidney dysfunction[tiab]",
+              "renal dysfunction[tiab]",
+              "hepatic impairment[tiab]",
+              "liver impairment[tiab]",
+              "hepatic cirrhosis[tiab]",
+              "liver cirrhosis[tiab]",
+              "liver disease[tiab]",
+              "liver dysfunction[tiab]",
+              "hepatic dysfunction[tiab]",
+              "elderly[tiab]",
+              "paediatrics[tiab]",
+              "adolescent[tiab]",
+              "adolescents[tiab]",
+              "pediatrics[tiab]",
+              "pediatric[tiab]",
+              "paediatric[tiab]",
+              "pregnancy[tiab]",
+              "race[tiab]",
+              "gender[tiab]",
+              "age[tiab]"
+            ]
+          },
+          "drugInteraction": {
+            "name": "Pharmacokinetics Drug Interaction",
+            "keywords": [
+              "Pharmacokinetic drug interaction",
+              "Pharmacokinetic and interaction",
+              "Pharmacokinetic and drug interaction",
+              "Pharmacokinetic and population pharmacokinetics",
+              "Pharmacokinetic and population pharmacokinetic"
+            ],
+            "meshTerms": [
+              "Drug Interactions[MeSH]"
+            ],
+            "textKeywords": [
+              "drug interaction[tiab]",
+              "interaction[tiab]",
+              "population pharmacokinetics[tiab]",
+              "population pharmacokinetic[tiab]"
             ]
           },
           "other": {
@@ -314,13 +460,14 @@
               "Therapeutic Drug Monitoring"
             ],
             "meshTerms": [
-              "Pharmacokinetic Variability[MeSH]",
-              "Therapeutic Drug Monitoring[MeSH]"
+              "Models, Biological[MeSH]",
+              "Drug Monitoring[MeSH]"
             ],
             "textKeywords": [
               "Dose Proportionality[tiab]",
               "Pharmacokinetic Modeling[tiab]",
-              "Non-Compartmental Analysis[tiab]"
+              "Non-Compartmental Analysis[tiab]",
+              "population pharmacokinetics[tiab]"
             ]
           }
         }
