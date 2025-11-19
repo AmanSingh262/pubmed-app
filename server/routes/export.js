@@ -516,36 +516,7 @@ router.post('/unified-word', async (req, res) => {
         allArticles.push(article);
         const globalIndex = allArticles.length;
 
-        // Article number and title (with text cleaning)
-        const cleanedTitle = cleanText(article.title || 'No title available');
-        const titleParts = addItalicFormatting(cleanedTitle);
-        
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${globalIndex}. `,
-                bold: true,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }),
-              ...titleParts.map(part => new TextRun({
-                text: part.text,
-                bold: true,
-                italics: part.italics,
-                font: formatting.font,
-                size: formatting.fontSize * 2
-              }))
-            ],
-            alignment,
-            spacing: {
-              before: convertInchesToTwip(formatting.spacingBefore / 72),
-              after: convertInchesToTwip(formatting.spacingAfter / 72),
-              line: Math.round(formatting.lineSpacing * 240),
-              lineRule: 'auto'
-            }
-          })
-        );
+        // Article number and title removed as per user request
 
         // PMID, Authors, and Journal sections removed as per user request
 
@@ -795,36 +766,7 @@ router.post('/word', async (req, res) => {
 
     // Add each article
     articles.forEach((article, index) => {
-      // Article number and title (with text cleaning)
-      const cleanedTitle = cleanText(article.title || 'No title available');
-      const titleParts = addItalicFormatting(cleanedTitle);
-      
-      sections.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${index + 1}. `,
-              bold: true,
-              font: formatting.font,
-              size: formatting.fontSize * 2
-            }),
-            ...titleParts.map(part => new TextRun({
-              text: part.text,
-              bold: true,
-              italics: part.italics,
-              font: formatting.font,
-              size: formatting.fontSize * 2
-            }))
-          ],
-          alignment,
-          spacing: {
-            before: convertInchesToTwip(formatting.spacingBefore / 72),
-            after: convertInchesToTwip(formatting.spacingAfter / 72),
-            line: Math.round(formatting.lineSpacing * 240),
-            lineRule: 'auto'
-          }
-        })
-      );
+      // Article number and title removed as per user request
 
       // PMID, Authors, and Journal sections removed as per user request
 
