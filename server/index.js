@@ -13,6 +13,7 @@ const searchRoutes = require('./routes/search');
 const categoryRoutes = require('./routes/categories');
 const exportRoutes = require('./routes/export');
 const referenceDocRoutes = require('./routes/referenceDoc');
+const templateRoutes = require('./routes/template');
 
 // Initialize Express app
 const app = express();
@@ -70,6 +71,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/reference-doc', referenceDocRoutes);
+app.use('/api/template', templateRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

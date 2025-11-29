@@ -61,6 +61,53 @@ const api = {
   clearCache: async () => {
     const response = await axios.delete(`${API_BASE_URL}/search/cache`);
     return response.data;
+  },
+
+  // Template Document features
+  uploadTemplate: async (file) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    const response = await axios.post(`${API_BASE_URL}/template/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  previewTemplate: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template/preview`, {
+      templatePath,
+      article
+    });
+    return response.data;
+  },
+
+  generateTemplateDoc: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template/generate`, {
+      templatePath,
+      article
+    }, {
+      responseType: 'blob'
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const filename = `Template_${article.pmid || 'Article'}_${Date.now()}.docx`;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  deleteTemplate: async (templateId) => {
+    const response = await axios.delete(`${API_BASE_URL}/template/${templateId}`);
+    return response.data;
   }
 };
 
