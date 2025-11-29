@@ -49,64 +49,74 @@ const upload = multer({
 });
 
 /**
- * Parse template document to extract headings and subheadings structure
+ * Parse template document to extract ALL content including headings, text, and structure
+ * This preserves the complete document structure
  */
 async function parseTemplateStructure(filePath) {
   try {
     const fileBuffer = await fs.readFile(filePath);
     
-    // Extract raw text with styles
-    const result = await mammoth.convertToHtml(fileBuffer, {
+    // Extract document with complete structure
+    const result = await mammoth.extractRawText(fileBuffer);
+    const rawText = result.value;
+    
+    // Also get HTML version with styles for better parsing
+    const htmlResult = await mammoth.convertToHtml(fileBuffer, {
       styleMap: [
-        "p[style-name='Heading 1'] => h1:fresh",
-        "p[style-name='Heading 2'] => h2:fresh",
-        "p[style-name='Heading 3'] => h3:fresh",
-        "p[style-name='Heading 4'] => h4:fresh",
-        "p[style-name='Heading 5'] => h5:fresh",
-        "p[style-name='Heading 6'] => h6:fresh"
-      ]
+        "p[style-name='Heading 1'] => h1.heading1:fresh",
+        "p[style-name='Heading 2'] => h2.heading2:fresh",
+        "p[style-name='Heading 3'] => h3.heading3:fresh",
+        "p[style-name='Heading 4'] => h4.heading4:fresh",
+        "p[style-name='Heading 5'] => h5.heading5:fresh",
+        "p[style-name='Heading 6'] => h6.heading6:fresh",
+        "p => p.normal"
+      ],
+      includeDefaultStyleMap: true
     });
 
-    const html = result.value;
+    const html = htmlResult.value;
     
-    // Parse HTML to extract headings
-    const headingRegex = /<h([1-6])>(.*?)<\/h\1>/g;
-    const structure = [];
+    // Parse HTML to extract complete structure
+    const elementRegex = /<(h[1-6]|p)(?:\s+class="([^"]*)")?>(.*?)<\/\1>/g;
+    const elements = [];
     let match;
-    let currentH1 = null;
-    let currentH2 = null;
 
-    while ((match = headingRegex.exec(html)) !== null) {
-      const level = parseInt(match[1]);
-      const text = match[2].trim();
+    while ((match = elementRegex.exec(html)) !== null) {
+      const tag = match[1];
+      const className = match[2] || '';
+      const text = match[3].replace(/<[^>]*>/g, '').trim();
       
       if (!text) continue;
 
-      const heading = {
-        level,
-        text,
-        children: [],
-        content: '' // Will be filled with article content
-      };
-
-      if (level === 1) {
-        structure.push(heading);
-        currentH1 = heading;
-        currentH2 = null;
-      } else if (level === 2 && currentH1) {
-        currentH1.children.push(heading);
-        currentH2 = heading;
-      } else if (level === 3 && currentH2) {
-        currentH2.children.push(heading);
-      } else if (level === 3 && currentH1) {
-        currentH1.children.push(heading);
+      if (tag.startsWith('h')) {
+        const level = parseInt(tag[1]);
+        elements.push({
+          type: 'heading',
+          level,
+          text,
+          originalText: text,
+          content: '',
+          isPlaceholder: false
+        });
+      } else if (tag === 'p' && text) {
+        // Store existing paragraph text as template content
+        elements.push({
+          type: 'paragraph',
+          text,
+          isTemplateText: true
+        });
       }
     }
 
+    // Build hierarchical structure
+    const structure = buildHierarchy(elements);
+
     return {
       structure,
+      elements,
       success: true,
-      headingsCount: structure.length
+      headingsCount: elements.filter(e => e.type === 'heading').length,
+      totalElements: elements.length
     };
   } catch (error) {
     console.error('Error parsing template:', error);
@@ -115,66 +125,193 @@ async function parseTemplateStructure(filePath) {
 }
 
 /**
+ * Build hierarchical structure from flat elements
+ */
+function buildHierarchy(elements) {
+  const structure = [];
+  const stack = []; // Stack to track current hierarchy
+
+  elements.forEach(element => {
+    if (element.type !== 'heading') return;
+
+    const heading = {
+      ...element,
+      children: [],
+      paragraphs: [] // Store paragraphs under this heading
+    };
+
+    // Pop stack until we find a parent with lower level
+    while (stack.length > 0 && stack[stack.length - 1].level >= heading.level) {
+      stack.pop();
+    }
+
+    if (stack.length === 0) {
+      // Top level heading
+      structure.push(heading);
+    } else {
+      // Add as child to parent
+      stack[stack.length - 1].children.push(heading);
+    }
+
+    stack.push(heading);
+  });
+
+  return structure;
+}
+
+/**
  * Intelligent mapping of article content to template headings
- * Uses semantic matching to map article sections to template structure
+ * Enhanced to handle Nonclinical Overview and complex document structures
  */
 function mapArticleToTemplate(article, templateStructure) {
-  // Common heading mappings (case-insensitive matching)
+  // Expanded heading mappings for pharmaceutical/nonclinical documents
   const headingMappings = {
-    // Title/Introduction
-    'title': ['title', 'article title', 'study title', 'name', 'heading'],
-    'introduction': ['introduction', 'background', 'context', 'overview', 'summary'],
+    // Basic metadata
+    'title': ['title', 'article title', 'study title', 'name', 'heading', 'drug name', 'compound'],
+    'introduction': ['introduction', 'background', 'context', 'overview', 'summary', 'general information'],
     
     // Abstract sections
-    'abstract': ['abstract', 'summary', 'overview'],
-    'importance': ['importance', 'significance', 'rationale', 'why'],
+    'abstract': ['abstract', 'summary', 'overview', 'synopsis'],
+    'importance': ['importance', 'significance', 'rationale', 'why', 'relevance'],
     'objective': ['objective', 'objectives', 'aim', 'aims', 'purpose', 'goal', 'goals'],
-    'design': ['design', 'study design', 'methodology', 'approach'],
-    'setting': ['setting', 'location', 'site', 'place'],
-    'participants': ['participants', 'subjects', 'population', 'sample', 'patients'],
-    'intervention': ['intervention', 'interventions', 'treatment', 'exposure'],
-    'main_outcomes': ['main outcomes', 'outcomes', 'results', 'findings', 'measurements'],
-    'results': ['results', 'findings', 'outcomes', 'data'],
-    'conclusions': ['conclusions', 'conclusion', 'implications', 'summary', 'takeaway'],
+    'design': ['design', 'study design', 'methodology', 'approach', 'study type'],
+    'setting': ['setting', 'location', 'site', 'place', 'study location'],
+    'participants': ['participants', 'subjects', 'population', 'sample', 'patients', 'animals', 'test subjects'],
+    'intervention': ['intervention', 'interventions', 'treatment', 'exposure', 'dosing', 'administration'],
+    'main_outcomes': ['main outcomes', 'outcomes', 'results', 'findings', 'measurements', 'endpoints'],
+    'results': ['results', 'findings', 'outcomes', 'data', 'observations'],
+    'conclusions': ['conclusions', 'conclusion', 'implications', 'summary', 'takeaway', 'interpretation'],
+    
+    // Pharmacology sections (4.2)
+    'pharmacology': ['pharmacology', 'pharmacodynamics', 'pharmacological', 'mechanism', 'mode of action'],
+    'primary_pharmacodynamics': ['primary pharmacodynamics', 'pharmacodynamic', 'pd', 'mechanism of action', 'moa'],
+    'secondary_pharmacodynamics': ['secondary pharmacodynamics', 'secondary effects', 'off-target'],
+    'safety_pharmacology': ['safety pharmacology', 'safety', 'cardiovascular', 'respiratory', 'cns effects'],
+    'pharmacodynamic_interactions': ['pharmacodynamic interactions', 'drug interactions', 'pd interactions'],
+    
+    // Pharmacokinetics sections (4.3)
+    'pharmacokinetics': ['pharmacokinetics', 'pk', 'absorption', 'distribution', 'metabolism', 'excretion', 'adme'],
+    'absorption': ['absorption', 'bioavailability', 'oral absorption'],
+    'distribution': ['distribution', 'tissue distribution', 'protein binding', 'volume of distribution'],
+    'metabolism': ['metabolism', 'metabolic', 'biotransformation', 'metabolites'],
+    'excretion': ['excretion', 'elimination', 'clearance', 'renal excretion'],
+    'pk_interactions': ['pharmacokinetic interactions', 'pk interactions', 'drug-drug interactions', 'ddi'],
+    
+    // Toxicology sections (4.4)
+    'toxicology': ['toxicology', 'toxicity', 'toxic', 'safety', 'preclinical safety'],
+    'single_dose': ['single dose toxicity', 'acute toxicity', 'single administration'],
+    'repeat_dose': ['repeat dose toxicity', 'repeated dose', 'chronic toxicity', 'subchronic'],
+    'genotoxicity': ['genotoxicity', 'genetic toxicology', 'mutagenicity', 'ames test'],
+    'carcinogenicity': ['carcinogenicity', 'carcinogenic', 'tumorigenicity', 'oncogenicity'],
+    'reproductive_toxicity': ['reproductive toxicity', 'reproduction', 'fertility', 'developmental toxicity'],
+    'developmental_toxicity': ['developmental toxicity', 'teratogenicity', 'embryo', 'fetal'],
+    'juvenile_toxicity': ['juvenile toxicity', 'pediatric', 'juvenile animals'],
+    'local_tolerance': ['local tolerance', 'local irritation', 'tissue irritation'],
+    'immunotoxicity': ['immunotoxicity', 'immune', 'immunological'],
+    'phototoxicity': ['phototoxicity', 'photosafety', 'light exposure'],
+    
+    // Other sections
+    'special_toxicology': ['special toxicology', 'special studies', 'other toxicity'],
+    'antigenicity': ['antigenicity', 'immunogenicity', 'antigenic'],
+    'dependence': ['dependence', 'abuse potential', 'withdrawal'],
+    'metabolites': ['metabolites', 'impurities', 'degradation products'],
     
     // Metadata
-    'authors': ['authors', 'author', 'researchers', 'investigators'],
+    'authors': ['authors', 'author', 'researchers', 'investigators', 'scientists'],
     'journal': ['journal', 'publication', 'source', 'published in'],
     'publication_date': ['publication date', 'date', 'published', 'year'],
     'pmid': ['pmid', 'pubmed id', 'id', 'identifier'],
     'doi': ['doi', 'digital object identifier'],
-    'url': ['url', 'link', 'reference', 'source link']
+    'url': ['url', 'link', 'reference', 'source link'],
+    
+    // Methods
+    'methods': ['methods', 'methodology', 'materials and methods', 'experimental'],
+    'materials': ['materials', 'reagents', 'test article', 'test system'],
+    'animals': ['animals', 'test animals', 'species', 'animal model'],
+    'dose': ['dose', 'dosage', 'dose levels', 'dose selection'],
+    'statistics': ['statistics', 'statistical analysis', 'data analysis']
   };
 
   /**
    * Find best match for a heading text
+   * Enhanced to handle numbered sections like "4.2 Pharmacology" or "4.2.1.1 Mechanism of action"
    */
   function findBestMatch(headingText) {
-    const normalized = headingText.toLowerCase().trim();
+    // Remove numbering (e.g., "4.2.1.1" or "4.2") and get clean text
+    const cleanText = headingText.replace(/^[\d\.]+\s*/, '').toLowerCase().trim();
     
-    // Direct matches
+    if (!cleanText) return null;
+    
+    // Try exact match first
     for (const [key, variations] of Object.entries(headingMappings)) {
-      if (variations.some(v => normalized.includes(v) || v.includes(normalized))) {
-        return key;
+      for (const variation of variations) {
+        if (cleanText === variation.toLowerCase()) {
+          return key;
+        }
       }
     }
     
-    // Partial matches
-    if (normalized.includes('author')) return 'authors';
-    if (normalized.includes('date') || normalized.includes('year')) return 'publication_date';
-    if (normalized.includes('journal') || normalized.includes('publication')) return 'journal';
-    if (normalized.includes('abstract') || normalized.includes('summary')) return 'abstract';
-    if (normalized.includes('result') || normalized.includes('finding')) return 'results';
-    if (normalized.includes('method') || normalized.includes('design')) return 'design';
-    if (normalized.includes('conclusion') || normalized.includes('implication')) return 'conclusions';
-    if (normalized.includes('objective') || normalized.includes('aim') || normalized.includes('purpose')) return 'objective';
-    if (normalized.includes('background') || normalized.includes('introduction')) return 'introduction';
+    // Try partial match
+    for (const [key, variations] of Object.entries(headingMappings)) {
+      for (const variation of variations) {
+        if (cleanText.includes(variation.toLowerCase()) || variation.toLowerCase().includes(cleanText)) {
+          return key;
+        }
+      }
+    }
+    
+    // Additional smart matching for common patterns
+    if (cleanText.includes('pharmacology') || cleanText.includes('pharmacodynamic')) {
+      if (cleanText.includes('primary')) return 'primary_pharmacodynamics';
+      if (cleanText.includes('secondary')) return 'secondary_pharmacodynamics';
+      if (cleanText.includes('safety')) return 'safety_pharmacology';
+      if (cleanText.includes('interaction')) return 'pharmacodynamic_interactions';
+      return 'pharmacology';
+    }
+    
+    if (cleanText.includes('pharmacokinetic') || cleanText.includes('pk')) {
+      if (cleanText.includes('absorption')) return 'absorption';
+      if (cleanText.includes('distribution')) return 'distribution';
+      if (cleanText.includes('metabolism') || cleanText.includes('metaboli')) return 'metabolism';
+      if (cleanText.includes('excretion') || cleanText.includes('elimination')) return 'excretion';
+      if (cleanText.includes('interaction')) return 'pk_interactions';
+      return 'pharmacokinetics';
+    }
+    
+    if (cleanText.includes('toxic') || cleanText.includes('safety')) {
+      if (cleanText.includes('single') || cleanText.includes('acute')) return 'single_dose';
+      if (cleanText.includes('repeat') || cleanText.includes('chronic') || cleanText.includes('subchronic')) return 'repeat_dose';
+      if (cleanText.includes('geno') || cleanText.includes('genetic') || cleanText.includes('mutagen')) return 'genotoxicity';
+      if (cleanText.includes('carcino') || cleanText.includes('tumor') || cleanText.includes('oncogen')) return 'carcinogenicity';
+      if (cleanText.includes('reproductive') || cleanText.includes('fertility')) return 'reproductive_toxicity';
+      if (cleanText.includes('developmental') || cleanText.includes('teratogen') || cleanText.includes('embryo')) return 'developmental_toxicity';
+      if (cleanText.includes('juvenile') || cleanText.includes('pediatric')) return 'juvenile_toxicity';
+      if (cleanText.includes('local') || cleanText.includes('irritation')) return 'local_tolerance';
+      if (cleanText.includes('immuno')) return 'immunotoxicity';
+      if (cleanText.includes('photo')) return 'phototoxicity';
+      return 'toxicology';
+    }
+    
+    if (cleanText.includes('method')) return 'methods';
+    if (cleanText.includes('material')) return 'materials';
+    if (cleanText.includes('animal')) return 'animals';
+    if (cleanText.includes('dose') || cleanText.includes('dosage')) return 'dose';
+    if (cleanText.includes('statistic')) return 'statistics';
+    if (cleanText.includes('author')) return 'authors';
+    if (cleanText.includes('journal') || cleanText.includes('publication')) return 'journal';
+    if (cleanText.includes('date') || cleanText.includes('year')) return 'publication_date';
+    if (cleanText.includes('abstract') || cleanText.includes('summary')) return 'abstract';
+    if (cleanText.includes('result') || cleanText.includes('finding')) return 'results';
+    if (cleanText.includes('conclusion') || cleanText.includes('implication')) return 'conclusions';
+    if (cleanText.includes('objective') || cleanText.includes('aim') || cleanText.includes('purpose')) return 'objective';
+    if (cleanText.includes('background') || cleanText.includes('introduction')) return 'introduction';
     
     return null;
   }
 
   /**
    * Get content for a matched section
+   * Enhanced to extract more detailed information from articles
    */
   function getContentForSection(sectionKey, article) {
     switch (sectionKey) {
@@ -182,7 +319,10 @@ function mapArticleToTemplate(article, templateStructure) {
         return article.title || '';
       
       case 'authors':
-        return article.authors ? article.authors.join(', ') : '';
+        if (article.authors && Array.isArray(article.authors)) {
+          return article.authors.join(', ');
+        }
+        return '';
       
       case 'journal':
         return article.journal || '';
@@ -191,10 +331,10 @@ function mapArticleToTemplate(article, templateStructure) {
         return article.publicationDate || '';
       
       case 'pmid':
-        return article.pmid || '';
+        return `PubMed ID: ${article.pmid || 'N/A'}`;
       
       case 'doi':
-        return article.doi || '';
+        return article.doi ? `DOI: ${article.doi}` : '';
       
       case 'url':
         return article.url || `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`;
@@ -202,7 +342,6 @@ function mapArticleToTemplate(article, templateStructure) {
       case 'abstract':
         if (article.abstract) {
           if (article.abstract.structured && article.abstract.sections) {
-            // Return full structured abstract
             return article.abstract.sections
               .map(s => `${s.label}: ${s.content}`)
               .join('\n\n');
@@ -233,7 +372,6 @@ function mapArticleToTemplate(article, templateStructure) {
         return '';
       
       case 'introduction':
-        // If abstract has background, use it
         if (article.abstract && article.abstract.structured && article.abstract.sections) {
           const intro = article.abstract.sections.find(s => 
             s.label.toLowerCase().includes('background') || 
@@ -241,12 +379,114 @@ function mapArticleToTemplate(article, templateStructure) {
           );
           if (intro) return intro.content;
         }
-        // Otherwise use title + first part of abstract
         return article.title || '';
+      
+      // Pharmacology sections
+      case 'pharmacology':
+      case 'primary_pharmacodynamics':
+      case 'secondary_pharmacodynamics':
+      case 'safety_pharmacology':
+      case 'pharmacodynamic_interactions':
+        return extractSectionFromAbstract(article, [
+          'pharmacology', 'pharmacodynamics', 'mechanism', 'mode of action',
+          'activity', 'target', 'receptor', 'pathway'
+        ]);
+      
+      // Pharmacokinetics sections
+      case 'pharmacokinetics':
+      case 'absorption':
+      case 'distribution':
+      case 'metabolism':
+      case 'excretion':
+      case 'pk_interactions':
+        return extractSectionFromAbstract(article, [
+          'pharmacokinetics', 'pk', 'absorption', 'distribution', 
+          'metabolism', 'excretion', 'adme', 'bioavailability',
+          'clearance', 'half-life', 'auc', 'cmax'
+        ]);
+      
+      // Toxicology sections
+      case 'toxicology':
+      case 'single_dose':
+      case 'repeat_dose':
+      case 'genotoxicity':
+      case 'carcinogenicity':
+      case 'reproductive_toxicity':
+      case 'developmental_toxicity':
+      case 'juvenile_toxicity':
+      case 'local_tolerance':
+      case 'immunotoxicity':
+      case 'phototoxicity':
+      case 'special_toxicology':
+      case 'antigenicity':
+      case 'dependence':
+        return extractSectionFromAbstract(article, [
+          'toxicity', 'toxic', 'safety', 'adverse', 'side effect',
+          'tolerat', 'dose', 'noael', 'noel', 'ld50'
+        ]);
+      
+      // Methods and materials
+      case 'methods':
+      case 'materials':
+      case 'animals':
+      case 'dose':
+      case 'statistics':
+        if (article.abstract && article.abstract.structured && article.abstract.sections) {
+          const methods = article.abstract.sections.find(s => 
+            s.label.toLowerCase().includes('method') ||
+            s.label.toLowerCase().includes('design') ||
+            s.label.toLowerCase().includes('material')
+          );
+          return methods ? methods.content : '';
+        }
+        return '';
+      
+      case 'metabolites':
+        return extractSectionFromAbstract(article, [
+          'metabolite', 'metabolism', 'biotransformation'
+        ]);
       
       default:
         return '';
     }
+  }
+  
+  /**
+   * Helper function to extract relevant content from abstract based on keywords
+   */
+  function extractSectionFromAbstract(article, keywords) {
+    let abstractText = '';
+    
+    // Get full abstract text
+    if (article.abstract) {
+      if (article.abstract.structured && article.abstract.sections) {
+        abstractText = article.abstract.sections
+          .map(s => s.content)
+          .join(' ');
+      } else if (article.abstract.text) {
+        abstractText = article.abstract.text;
+      } else if (typeof article.abstract === 'string') {
+        abstractText = article.abstract;
+      }
+    }
+    
+    if (!abstractText) return '';
+    
+    // Split into sentences
+    const sentences = abstractText.split(/[.!?]+/).filter(s => s.trim());
+    
+    // Find sentences containing relevant keywords
+    const relevantSentences = sentences.filter(sentence => {
+      const lowerSentence = sentence.toLowerCase();
+      return keywords.some(keyword => lowerSentence.includes(keyword.toLowerCase()));
+    });
+    
+    if (relevantSentences.length > 0) {
+      return relevantSentences.join('. ') + '.';
+    }
+    
+    // If no specific match, return the abstract or a portion of it
+    return abstractText.substring(0, 500) + (abstractText.length > 500 ? '...' : '');
   }
 
   /**
@@ -273,6 +513,7 @@ function mapArticleToTemplate(article, templateStructure) {
 
 /**
  * Generate Word document from filled template structure
+ * Enhanced to preserve template formatting and numbering
  */
 async function generateFilledDocument(filledStructure, article) {
   const sections = [];
@@ -294,13 +535,14 @@ async function generateFilledDocument(filledStructure, article) {
 
   /**
    * Recursively process structure to create paragraphs
+   * Preserves original heading text including numbering
    */
-  function processStructure(headings) {
+  function processStructure(headings, depth = 0) {
     headings.forEach(heading => {
-      // Add heading
+      // Add heading with original text (preserving numbering like "4.2 Pharmacology")
       sections.push(
         new Paragraph({
-          text: heading.text,
+          text: heading.originalText || heading.text,
           heading: getHeadingLevel(heading.level),
           spacing: {
             before: 240,
@@ -311,23 +553,56 @@ async function generateFilledDocument(filledStructure, article) {
 
       // Add content if available
       if (heading.content && heading.content.trim()) {
-        // Split content by paragraphs
-        const paragraphs = heading.content.split('\n\n');
+        // Split content by double newlines (paragraphs)
+        const paragraphs = heading.content.split('\n\n').filter(p => p.trim());
+        
         paragraphs.forEach(para => {
-          if (para.trim()) {
+          // Handle labeled sections (e.g., "OBJECTIVE: text")
+          const labelMatch = para.match(/^([A-Z\s]+):\s*(.+)/s);
+          
+          if (labelMatch) {
+            // Render label in bold, content in normal
+            const label = labelMatch[1];
+            const content = labelMatch[2];
+            
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `${label}: `,
+                    font: 'Times New Roman',
+                    size: 22,
+                    bold: true
+                  }),
+                  new TextRun({
+                    text: content.trim(),
+                    font: 'Times New Roman',
+                    size: 22
+                  })
+                ],
+                spacing: {
+                  before: 120,
+                  after: 120,
+                  line: 276
+                },
+                alignment: AlignmentType.JUSTIFIED
+              })
+            );
+          } else {
+            // Normal paragraph
             sections.push(
               new Paragraph({
                 children: [
                   new TextRun({
                     text: para.trim(),
                     font: 'Times New Roman',
-                    size: 22 // 11pt
+                    size: 22
                   })
                 ],
                 spacing: {
                   before: 120,
                   after: 120,
-                  line: 276 // 1.15 line spacing
+                  line: 276
                 },
                 alignment: AlignmentType.JUSTIFIED
               })
@@ -335,14 +610,14 @@ async function generateFilledDocument(filledStructure, article) {
           }
         });
       } else {
-        // Add placeholder if no content
+        // Add placeholder with lighter styling
         sections.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: '[Content not available]',
+                text: '[No relevant content found in the article]',
                 font: 'Times New Roman',
-                size: 22,
+                size: 20,
                 italics: true,
                 color: '999999'
               })
@@ -350,21 +625,66 @@ async function generateFilledDocument(filledStructure, article) {
             spacing: {
               before: 120,
               after: 120
-            }
+            },
+            alignment: AlignmentType.LEFT
           })
         );
       }
 
       // Process children recursively
       if (heading.children && heading.children.length > 0) {
-        processStructure(heading.children);
+        processStructure(heading.children, depth + 1);
       }
     });
   }
 
+  // Add document title
+  if (article.title) {
+    sections.unshift(
+      new Paragraph({
+        text: 'NONCLINICAL OVERVIEW',
+        heading: HeadingLevel.TITLE,
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          before: 0,
+          after: 480
+        }
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `Based on: ${article.title}`,
+            font: 'Times New Roman',
+            size: 24,
+            italics: true
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          before: 0,
+          after: 240
+        }
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `PubMed ID: ${article.pmid}`,
+            font: 'Times New Roman',
+            size: 20
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          before: 0,
+          after: 480
+        }
+      })
+    );
+  }
+
   processStructure(filledStructure);
 
-  // Create document
+  // Create document with proper formatting
   const doc = new Document({
     sections: [{
       properties: {

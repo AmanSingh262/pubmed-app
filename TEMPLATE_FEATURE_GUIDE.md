@@ -1,69 +1,152 @@
-# Template Document Auto-Fill Feature
+# Template Document Auto-Fill Feature - Enhanced Version
 
 ## Overview
-The Template Document Auto-Fill feature allows users to upload a document template with predefined headings and subheadings, which are then automatically filled with content from selected PubMed articles.
+The **Template Document Auto-Fill** feature allows users to upload complex document templates (like Nonclinical Overview documents) with predefined headings, subheadings, and numbering. The system automatically maps PubMed article content to the appropriate template sections and generates a filled document.
 
-## How It Works
+## ✨ What's New - Enhanced Features
 
-### 1. **Search and Select Articles**
-- Search for articles using the search bar
-- Add desired articles to the cart using the "Add to Cart" button
+### 1. **Complex Document Structure Support**
+- ✅ Multi-level numbered sections (e.g., 4.2.1.1)
+- ✅ Preserves original numbering and formatting
+- ✅ Handles 6 levels of headings
+- ✅ Maintains section hierarchy
 
-### 2. **Open Template Doc Generator**
-- Open the cart (click cart icon in header)
-- Click the **"Template Doc"** button in the cart footer
+### 2. **Pharmaceutical/Nonclinical Document Support**
+Now supports specialized sections including:
+- **Pharmacology** (4.2)
+  - Primary Pharmacodynamics
+  - Secondary Pharmacodynamics
+  - Safety Pharmacology
+  - Pharmacodynamic Interactions
 
-### 3. **Upload Template**
-- Click "Choose Template File (.docx)"
-- Select a `.docx` file containing your template with headings/subheadings
-- Click "Upload & Parse"
-- The system will parse and display the number of headings found
+- **Pharmacokinetics** (4.3)
+  - Absorption
+  - Distribution
+  - Metabolism
+  - Excretion
+  - PK Interactions
 
-### 4. **Preview Mapping (Optional)**
-- Click "Preview Mapping" to see how article content will be mapped
-- The preview shows:
-  - ✓ = Content available for this section
-  - → = Which article section is mapped to this heading
+- **Toxicology** (4.4)
+  - Single Dose Toxicity
+  - Repeat Dose Toxicity
+  - Genotoxicity
+  - Carcinogenicity
+  - Reproductive Toxicity
+  - Developmental Toxicity
+  - Juvenile Toxicity
+  - Local Tolerance
+  - Immunotoxicity
+  - Phototoxicity
 
-### 5. **Generate Document**
-- Click "Generate Document"
-- The system will:
-  - Map article content to template sections
-  - Preserve template formatting
-  - Auto-fill all sections
-  - Download the completed document
+### 3. **Intelligent Content Extraction**
+- 🤖 Keyword-based content extraction from abstracts
+- 🤖 Sentence-level matching for relevant information
+- 🤖 Handles both structured and unstructured abstracts
+- 🤖 Smart fallback when exact matches aren't found
 
-## Template Structure Requirements
+### 4. **Better Formatting**
+- ✨ Preserves labeled sections (e.g., "OBJECTIVE: text")
+- ✨ Professional document title with article reference
+- ✨ Improved placeholder text for missing content
+- ✨ Times New Roman font, 11pt
+- ✨ Justified alignment for body text
 
-Your template document should use Word's built-in heading styles:
-- **Heading 1**: Main sections
-- **Heading 2**: Subsections
-- **Heading 3**: Sub-subsections
+## How to Use
 
-### Example Template Structure:
+### Step 1: Prepare Your Template
+
+Create a Word document (.docx) with your desired structure. For example:
+
 ```
-Heading 1: Article Information
-  Heading 2: Title
-  Heading 2: Authors
-  Heading 2: Publication Details
-    Heading 3: Journal
-    Heading 3: Publication Date
-    Heading 3: PMID
+NONCLINICAL OVERVIEW
 
-Heading 1: Abstract
-  Heading 2: Objective
-  Heading 2: Methods
-  Heading 2: Results
-  Heading 2: Conclusions
-
-Heading 1: Reference
+4. NONCLINICAL OVERVIEW
+4.1 Introduction
+4.2 Pharmacology
+  4.2.1 Primary Pharmacodynamics
+    4.2.1.1 Mechanism of action
+  4.2.2 Secondary Pharmacodynamics
+  4.2.3 Safety Pharmacology
+4.3 Pharmacokinetics
+  4.3.1 Absorption
+  4.3.2 Distribution
+  4.3.3 Metabolism
+  4.3.4 Excretion
+4.4 Toxicology
+  4.4.1 Single Dose Toxicity
+  4.4.2 Repeat Dose Toxicity
+  4.4.3 Genotoxicity
+  4.4.4 Carcinogenicity
+  4.4.5 Reproductive and Developmental Toxicity
 ```
 
-## Intelligent Content Mapping
+**Important:**
+- Use Word's built-in Heading styles (Heading 1, Heading 2, Heading 3, etc.)
+- Include numbering in your heading text if desired
+- Leave content areas blank - they will be auto-filled
 
-The system uses AI-powered semantic matching to map article content to template headings:
+### Step 2: Search and Select Articles
 
-### Supported Mappings:
+1. Search for articles using the search bar
+2. Select relevant articles
+3. Add them to your cart using "Add to Cart"
+
+### Step 3: Generate Template Document
+
+1. Open the cart (click cart icon)
+2. Click **"Template Doc"** button
+3. Upload your template file
+4. Click "Upload & Parse" - system shows how many headings found
+5. (Optional) Click "Preview Mapping" to see content mapping
+6. Click "Generate Document" to download filled document
+
+## Advanced Mapping Details
+
+### How Content is Matched
+
+The system uses a sophisticated 3-step matching process:
+
+1. **Exact Match**: Removes section numbering and looks for exact matches
+2. **Partial Match**: Searches for keywords within heading text
+3. **Smart Extraction**: Pulls relevant sentences from abstract
+
+### Supported Section Mappings
+
+**Pharmaceutical/Nonclinical Sections:**
+- Pharmacology, Primary/Secondary Pharmacodynamics, Safety Pharmacology
+- Pharmacokinetics, Absorption, Distribution, Metabolism, Excretion
+- Toxicology, Single/Repeat Dose, Genotoxicity, Carcinogenicity
+- Reproductive/Developmental Toxicity, Immunotoxicity, etc.
+
+## Troubleshooting Blank Pages
+
+If your generated document shows placeholders instead of content:
+
+1. **Verify Article Has Abstract** - Check PubMed article has detailed abstract
+2. **Match Template to Article Type** - Use pharmacology template with pharmacology studies
+3. **Use Standard Terminology** - "Pharmacology" works better than "Drug Effects"
+4. **Preview First** - Click "Preview Mapping" to see what content will be extracted
+5. **Select Better Articles** - Choose articles with structured, detailed abstracts
+
+The system extracts content from article **abstracts only**. Articles with richer abstracts produce better results.
+
+## Best Practices
+
+✅ Use Word heading styles (not just bold text)
+✅ Include numbering in heading text if desired
+✅ Match template type to article content
+✅ Preview before generating
+✅ Choose articles with detailed abstracts
+✅ Review and edit generated document
+
+## Need Help?
+
+The Template Doc feature works best when:
+- Articles have structured abstracts with labeled sections
+- Template headings use standard scientific terminology
+- Article content type matches template sections
+
+Remember: This provides a starting point. Review and enhance the generated content as needed!
 | Template Heading | Article Content |
 |-----------------|-----------------|
 | Title, Article Title, Study Title | Article title |
