@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Categories</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow: auto;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #cc0000;
+        }
+        .success {
+            background: #e6ffe6;
+            color: #006600;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Connection Test</h1>
+    <p>This page tests if the PubMed API is accessible from the browser.</p>
+    
+    <button onclick="testCategories()">Test GET /api/categories</button>
+    <button onclick="testHealth()">Test GET /api/health</button>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testCategories() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/categories');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = '✅ SUCCESS!\n\n' + JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = '❌ ERROR!\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.textContent = '❌ FETCH ERROR!\n\n' + error.message + '\n\nPossible causes:\n- Server not running\n- CORS issue\n- Network error';
+            }
+        }
+
+        async function testHealth() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = '✅ SUCCESS!\n\n' + JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = '❌ ERROR!\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.textContent = '❌ FETCH ERROR!\n\n' + error.message + '\n\nPossible causes:\n- Server not running\n- CORS issue\n- Network error';
+            }
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(testCategories, 500);
+        });
+    </script>
+</body>
+</html>

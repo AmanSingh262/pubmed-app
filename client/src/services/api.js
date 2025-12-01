@@ -1,10 +1,8 @@
 import axios from 'axios';
 
+// Use proxy in development (configured in package.json)
 // In production, API is served from same domain
-// In development, use localhost:5000
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '/api'  // Same domain in production
-  : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
+const API_BASE_URL = '/api';
 
 const api = {
   // Get all categories
@@ -107,6 +105,169 @@ const api = {
 
   deleteTemplate: async (templateId) => {
     const response = await axios.delete(`${API_BASE_URL}/template/${templateId}`);
+    return response.data;
+  },
+
+  // Template V2 - Placeholder-based (preserves full template)
+  uploadTemplateV2: async (file) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    const response = await axios.post(`${API_BASE_URL}/template-v2/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  generateTemplateDocV2: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-v2/generate`, {
+      templatePath,
+      article
+    }, {
+      responseType: 'blob'
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const filename = `Nonclinical_Overview_${article.pmid || 'Article'}_${Date.now()}.docx`;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  getAvailablePlaceholders: async () => {
+    const response = await axios.get(`${API_BASE_URL}/template-v2/placeholders`);
+    return response.data;
+  },
+
+  // Template V3 - Heading-based mapping with abbreviations list
+  uploadTemplateV3: async (file) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    const response = await axios.post(`${API_BASE_URL}/template-v3/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  generateTemplateDocV3: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-v3/generate`, {
+      templatePath,
+      article
+    }, {
+      responseType: 'blob'
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const filename = `Nonclinical_Overview_${article.pmid || 'Article'}_${Date.now()}.docx`;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  previewTemplateV3: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-v3/preview`, {
+      templatePath,
+      article
+    });
+    return response.data;
+  },
+
+  // Template V4 - Simple placeholder-based (recommended)
+  uploadTemplateV4: async (file) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    const response = await axios.post(`${API_BASE_URL}/template-v4/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  generateTemplateDocV4: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-v4/generate`, {
+      templatePath,
+      article
+    }, {
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const filename = `Nonclinical_Overview_${article.pmid || 'Article'}_${Date.now()}.docx`;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  previewTemplateV4: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-v4/preview`, {
+      templatePath,
+      article
+    });
+    return response.data;
+  },
+
+  // Template Final - Comprehensive XML-based solution (RECOMMENDED)
+  uploadTemplateFinal: async (file) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    const response = await axios.post(`${API_BASE_URL}/template-final/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  generateTemplateDocFinal: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-final/generate`, {
+      templatePath,
+      article
+    }, {
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const filename = `Nonclinical_Overview_${article.pmid || 'Article'}_${Date.now()}.docx`;
+    link.setAttribute('download', filename);
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  previewTemplateFinal: async (templatePath, article) => {
+    const response = await axios.post(`${API_BASE_URL}/template-final/preview`, {
+      templatePath,
+      article
+    });
     return response.data;
   }
 };

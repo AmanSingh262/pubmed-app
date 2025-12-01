@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import './TemplateDocModal.css';
@@ -35,9 +35,9 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
 
     setIsUploading(true);
     try {
-      const result = await api.uploadTemplate(templateFile);
+      const result = await api.uploadTemplateFinal(templateFile);
       setTemplateInfo(result);
-      toast.success(`Template parsed! Found ${result.headingsCount} headings`);
+      toast.success(`✅ Template analyzed! Found ${result.analysis?.headingsCount || 0} headings, ${result.analysis?.tablesCount || 0} tables`);
     } catch (error) {
       console.error('Template upload error:', error);
       toast.error('Failed to upload template');
@@ -58,13 +58,14 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
     }
 
     try {
-      const article = selectedArticles[0]; // Preview with first article
-      const result = await api.previewTemplate(templateInfo.templatePath, article);
+      const article = selectedArticles[0];
+      const result = await api.previewTemplateFinal(templateInfo.templatePath, article);
       setPreviewData(result);
       setShowPreview(true);
+      toast.success('Preview generated with complete content!');
     } catch (error) {
       console.error('Preview error:', error);
-      toast.error('Failed to preview template');
+      toast.error('Failed to generate preview');
     }
   };
 
@@ -81,18 +82,20 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
 
     setIsGenerating(true);
     try {
-      // Generate for first article (can be extended for batch)
       const article = selectedArticles[0];
-      await api.generateTemplateDoc(templateInfo.templatePath, article);
-      toast.success('Template document generated successfully!');
+      await api.generateTemplateDocFinal(templateInfo.templatePath, article);
+      toast.success('✅ Complete document generated with ALL sections filled! Check downloads.');
       
-      // Reset and close
       setTimeout(() => {
         handleClose();
       }, 1500);
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error('Failed to generate document');
+      if (error.response?.data?.error?.includes('placeholder')) {
+        toast.error('⚠️ Template needs placeholders! Add {pharmacology}, {toxicology}, {abbreviations_list}');
+      } else {
+        toast.error('Failed to generate document');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -106,30 +109,7 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
     onClose();
   };
 
-  const renderStructureTree = (headings, level = 0) => {
-    return (
-      <ul className="template-structure-tree" style={{ marginLeft: level * 20 }}>
-        {headings.map((heading, index) => (
-          <li key={index} className="template-heading-item">
-            <div className={`heading-level-${heading.level}`}>
-              <span className="heading-text">{heading.text}</span>
-              {heading.matchedSection && (
-                <span className="matched-section">
-                  → {heading.matchedSection}
-                </span>
-              )}
-              {heading.content && (
-                <span className="content-available">✓</span>
-              )}
-            </div>
-            {heading.children && heading.children.length > 0 && 
-              renderStructureTree(heading.children, level + 1)
-            }
-          </li>
-        ))}
-      </ul>
-    );
-  };
+
 
   return (
     <div className="template-modal-overlay" onClick={handleClose}>
@@ -142,11 +122,25 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
         <div className="template-modal-body">
           {/* Step 1: Upload Template */}
           <div className="template-section">
-            <h3>Step 1: Upload Template Document</h3>
-            <p className="template-hint">
-              Upload a .docx file with headings and subheadings. The system will automatically
-              map article content to matching sections.
-            </p>
+            <h3>Step 1: Prepare & Upload Template</h3>
+            
+            <div style={{ backgroundColor: '#fff3e0', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '2px solid #ff9800' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#e65100' }}>⚠️ IMPORTANT: Add Placeholders to Your Template First!</h4>
+              <p style={{ margin: '5px 0' }}>Your Word template must contain placeholders where you want content:</p>
+              <div style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.9em', marginTop: '10px' }}>
+                <strong>Example placeholders:</strong><br/>
+                • <code>{'{abstract}'}</code> - Full abstract text<br/>
+                • <code>{'{pharmacology}'}</code> - Pharmacology section<br/>
+                • <code>{'{pharmacokinetics}'}</code> - PK section<br/>
+                • <code>{'{absorption}'}</code> - Absorption data<br/>
+                • <code>{'{distribution}'}</code> - Distribution data<br/>
+                • <code>{'{metabolism}'}</code> - Metabolism data<br/>
+                • <code>{'{excretion}'}</code> - Excretion data<br/>
+                • <code>{'{toxicology}'}</code> - Toxicology section<br/>
+                • <code>{'{genotoxicity}'}</code> - Genotoxicity data<br/>
+                • <code>{'{abbreviations_list}'}</code> - Abbreviations table<br/>
+              </div>
+            </div>
             
             <div className="file-upload-area">
               <input
@@ -168,7 +162,7 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
                     onClick={handleUploadTemplate}
                     disabled={isUploading}
                   >
-                    {isUploading ? 'Uploading...' : 'Upload & Parse'}
+                    {isUploading ? 'Uploading...' : 'Upload Template'}
                   </button>
                 </div>
               )}
@@ -176,14 +170,8 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
 
             {templateInfo && (
               <div className="template-info-box">
-                <div className="info-item">
-                  <strong>Template:</strong> {templateFile.name}
-                </div>
-                <div className="info-item">
-                  <strong>Headings Found:</strong> {templateInfo.headingsCount}
-                </div>
                 <div className="info-item success">
-                  ✓ Template parsed successfully
+                  ✓ Template uploaded! The system will fill all placeholders with content from the article.
                 </div>
               </div>
             )}
@@ -192,9 +180,9 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
           {/* Step 2: Preview */}
           {templateInfo && (
             <div className="template-section">
-              <h3>Step 2: Preview Mapping</h3>
+              <h3>Step 2: Preview Content (Optional)</h3>
               <p className="template-hint">
-                See how your article content will be mapped to template sections.
+                See what content will be extracted from the article.
               </p>
               
               <button
@@ -202,67 +190,111 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
                 onClick={handlePreview}
                 disabled={selectedArticles.length === 0}
               >
-                Preview Mapping
+                👁️ Preview Extracted Content
               </button>
 
               {showPreview && previewData && (
-                <div className="preview-container">
-                  <h4>Preview for: {previewData.article.title}</h4>
-                  {renderStructureTree(previewData.structure)}
+                <div className="preview-container" style={{ 
+                  maxHeight: '400px', 
+                  overflow: 'auto', 
+                  backgroundColor: '#f5f5f5', 
+                  padding: '15px',
+                  borderRadius: '8px',
+                  marginTop: '15px'
+                }}>
+                  <h4>Preview for PMID: {previewData.articleInfo?.pmid}</h4>
                   
-                  <div className="preview-legend">
-                    <div className="legend-item">
-                      <span className="content-available">✓</span> Content available
-                    </div>
-                    <div className="legend-item">
-                      <span className="matched-section">→ section</span> Mapped to article section
-                    </div>
+                  <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
+                    <strong>Drug Name:</strong> {previewData.articleInfo?.drugName}<br/>
+                    <strong>Title:</strong> {previewData.articleInfo?.title?.substring(0, 80)}...
                   </div>
+
+                  <h5>Content Availability:</h5>
+                  <div style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px' }}>
+                    {Object.entries(previewData.extractedData || {}).map(([key, value]) => (
+                      <div key={key} style={{ 
+                        marginBottom: '8px',
+                        padding: '6px',
+                        backgroundColor: value === 'Available' ? '#e8f5e9' : '#fff3e0',
+                        borderLeft: `3px solid ${value === 'Available' ? '#4caf50' : '#ff9800'}`,
+                        borderRadius: '4px'
+                      }}>
+                        <strong>{key}:</strong> {value}
+                        {value === 'Available' && <span style={{ color: '#4caf50', marginLeft: '8px' }}>✓</span>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {previewData.abbreviations && previewData.abbreviations.length > 0 && (
+                    <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#fff', borderRadius: '4px' }}>
+                      <h5>Abbreviations ({previewData.abbreviations.length}):</h5>
+                      <div style={{ fontSize: '0.9em', maxHeight: '150px', overflow: 'auto' }}>
+                        {previewData.abbreviations.map((abbr, idx) => (
+                          <div key={idx} style={{ marginBottom: '4px' }}>
+                            <strong>{abbr.abbr}</strong> - {abbr.fullTerm}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {previewData.message && (
+                    <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#fff3e0', borderRadius: '4px', fontSize: '0.9em' }}>
+                      💡 {previewData.message}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {/* Step 3: Generate */}
-          {templateInfo && (
-            <div className="template-section">
-              <h3>Step 3: Generate Document</h3>
-              <p className="template-hint">
-                Selected Articles: <strong>{selectedArticles.length}</strong>
-              </p>
-              
-              <div className="selected-articles-preview">
-                {selectedArticles.slice(0, 3).map((article, index) => (
-                  <div key={index} className="article-preview-item">
-                    <span className="pmid-badge">PMID: {article.pmid}</span>
-                    <span className="article-title-short">
-                      {article.title.substring(0, 60)}...
-                    </span>
-                  </div>
-                ))}
-                {selectedArticles.length > 3 && (
-                  <div className="more-articles">
-                    +{selectedArticles.length - 3} more articles
-                  </div>
-                )}
-              </div>
-
-              <button
-                className="btn-generate"
-                onClick={handleGenerate}
-                disabled={isGenerating || selectedArticles.length === 0}
-              >
-                {isGenerating ? '⏳ Generating...' : '📥 Generate Document'}
-              </button>
-
-              {selectedArticles.length > 1 && (
-                <p className="note">
-                  Note: Currently generating for the first selected article.
-                  Batch generation coming soon!
-                </p>
+          <div className="template-section">
+            <h3>Step 3: Generate Document</h3>
+            <p className="template-hint">
+              Selected Articles: <strong>{selectedArticles.length}</strong>
+            </p>
+            
+            <div className="selected-articles-preview">
+              {selectedArticles.slice(0, 3).map((article, index) => (
+                <div key={index} className="article-preview-item">
+                  <span className="pmid-badge">PMID: {article.pmid}</span>
+                  <span className="article-title-short">
+                    {article.title.substring(0, 60)}...
+                  </span>
+                </div>
+              ))}
+              {selectedArticles.length > 3 && (
+                <div className="more-articles">
+                  +{selectedArticles.length - 3} more articles
+                </div>
               )}
             </div>
-          )}
+
+            <button
+              className="btn-generate"
+              onClick={handleGenerate}
+              disabled={!templateInfo || isGenerating || selectedArticles.length === 0}
+            >
+              {isGenerating ? '⏳ Generating...' : '📥 Generate Document with All Content'}
+            </button>
+
+            {selectedArticles.length > 1 && (
+              <p className="note">
+                Note: Generating for the first selected article. You can generate multiple documents by running this for each article.
+              </p>
+            )}
+            
+            <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '4px', fontSize: '0.9em' }}>
+              <strong>💡 What will be filled:</strong><br/>
+              • Abstract text<br/>
+              • Pharmacology, Pharmacokinetics, Toxicology sections<br/>
+              • ADME data (Absorption, Distribution, Metabolism, Excretion)<br/>
+              • Genotoxicity, Carcinogenicity data<br/>
+              • Auto-generated abbreviations table<br/>
+              • All placeholders you added to your template
+            </div>
+          </div>
         </div>
 
         <div className="template-modal-footer">

@@ -1,0 +1,120 @@
+═══════════════════════════════════════════════════════════════════════
+  HOW TO GET PERFECT ABBREVIATIONS TABLE (LIKE SCREENSHOT 011717)
+═══════════════════════════════════════════════════════════════════════
+
+PROBLEM:
+--------
+The system cannot reliably inject Word tables via XML. The ONLY reliable
+way is to create the table structure in your Word template.
+
+SOLUTION (5 MINUTES):
+--------------------
+
+1. OPEN YOUR TEMPLATE
+   - Open your Word template file (e.g., "Nonclinical_Template.docx")
+
+2. GO TO ABBREVIATIONS SECTION
+   - Find "LIST OF ABBREVIATIONS" or "ABBREVIATIONS" heading
+   - DELETE any existing {abbreviations_list} or {abbreviations_table} text
+
+3. INSERT TABLE
+   - Place cursor where you want the table
+   - Click: Insert → Table → 2 columns, 2 rows
+   - Click OK
+
+4. FILL HEADER ROW (Row 1):
+   - Cell A1: Type "Abbreviation" (make it BOLD - Ctrl+B)
+   - Cell B1: Type "Definition" (make it BOLD - Ctrl+B)
+   - Optional: Center align both cells
+   - Optional: Add gray background (Table Design → Shading → Light Gray)
+
+5. ADD LOOP SYNTAX:
+   
+   IMPORTANT: Loop tags go OUTSIDE the table, not inside cells!
+   
+   a) Click BEFORE Row 2 (above the row)
+   b) Type: {#abbreviations}
+   c) Press Enter to move it above the table
+   
+   d) In Row 2, Cell A2: Type {abbr}
+   e) In Row 2, Cell B2: Type {fullTerm}
+   
+   f) Click AFTER Row 2 (below the row)
+   g) Type: {/abbreviations}
+
+6. ADD BORDERS:
+   - Select the entire table
+   - Go to: Table Design → Borders → All Borders
+
+7. SAVE TEMPLATE
+   - Save the file
+
+═══════════════════════════════════════════════════════════════════════
+
+VISUAL EXAMPLE - Your template should look like this:
+────────────────────────────────────────────────────────────────────────
+
+  LIST OF ABBREVIATIONS
+  
+  {#abbreviations}
+  ┌────────────────┬─────────────────────────────┐
+  │ Abbreviation   │ Definition                  │  ← Row 1 (Header)
+  ├────────────────┼─────────────────────────────┤
+  │ {abbr}         │ {fullTerm}                  │  ← Row 2 (Data)
+  └────────────────┴─────────────────────────────┘
+  {/abbreviations}
+
+═══════════════════════════════════════════════════════════════════════
+
+RESULT - Generated document will have:
+────────────────────────────────────────────────────────────────────────
+
+  ┌────────────────┬─────────────────────────────────┐
+  │ Abbreviation   │ Definition                      │
+  ├────────────────┼─────────────────────────────────┤
+  │ a.c.           │ before food or meals            │
+  ├────────────────┼─────────────────────────────────┤
+  │ a.m.           │ before noon                     │
+  ├────────────────┼─────────────────────────────────┤
+  │ admin          │ administration                  │
+  ├────────────────┼─────────────────────────────────┤
+  │ approx.        │ approximately                   │
+  ├────────────────┼─────────────────────────────────┤
+  │ ATC            │ anatomical therapeutic chemical │
+  ├────────────────┼─────────────────────────────────┤
+  │ AUC            │ area under the curve            │
+  ├────────────────┼─────────────────────────────────┤
+  │ bid            │ twice daily                     │
+  ├────────────────┼─────────────────────────────────┤
+  │ ... (ALL 25+ abbreviations with perfect format) │
+  └────────────────┴─────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+WHY THIS WORKS:
+──────────────
+- docxtemplater loops through the {#abbreviations} array
+- For each item, it duplicates Row 2
+- {abbr} gets replaced with: "a.c.", "a.m.", "CNS", etc.
+- {fullTerm} gets replaced with: "before food or meals", etc.
+- Result: Perfect table with all abbreviations!
+
+═══════════════════════════════════════════════════════════════════════
+
+CHECKLIST:
+──────────
+□ Created 2-column table in template
+□ Row 1 has headers: "Abbreviation" | "Definition" (bold)
+□ Typed {#abbreviations} BEFORE/ABOVE the table
+□ Row 2 has: {abbr} | {fullTerm}
+□ Typed {/abbreviations} AFTER/BELOW the table
+□ Added borders to table (All Borders)
+□ Saved template
+
+═══════════════════════════════════════════════════════════════════════
+
+THIS IS THE ONLY RELIABLE WAY!
+After you update your template, generate a document and you'll get
+the perfect table like in screenshot 011717.
+
+═══════════════════════════════════════════════════════════════════════

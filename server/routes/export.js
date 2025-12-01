@@ -50,12 +50,12 @@ function replaceWithAbbreviations(text, abbreviationsMap) {
   return processedText;
 }
 
-// Standard abbreviations as per user requirements
+// Standard pharmaceutical abbreviations - comprehensive list
 const STANDARD_ABBREVIATIONS = new Map([
-  ['µg', 'microgram'],
   ['a.c.', 'before food or meals'],
   ['a.m.', 'before noon'],
   ['admin', 'administration'],
+  ['ADME', 'absorption, distribution, metabolism, excretion'],
   ['approx.', 'approximately'],
   ['ATC', 'anatomical therapeutic chemical'],
   ['AUC', 'area under the curve'],
@@ -67,16 +67,31 @@ const STANDARD_ABBREVIATIONS = new Map([
   ['Cmax', 'maximal plasma concentrations'],
   ['CNS', 'central nervous system'],
   ['CV', 'cardiovascular'],
+  ['CYP', 'cytochrome P450'],
+  ['EC50', 'half maximal effective concentration'],
+  ['ED50', 'median effective dose'],
+  ['FDA', 'Food and Drug Administration'],
   ['g', 'gram'],
+  ['GLP', 'good laboratory practice'],
   ['h', 'hours'],
+  ['IC50', 'half maximal inhibitory concentration'],
   ['im', 'intramuscular'],
   ['IV', 'intravenous'],
   ['kg', 'kilogram'],
   ['L', 'liters'],
+  ['LD50', 'lethal dose 50%'],
+  ['LOAEL', 'lowest observed adverse effect level'],
   ['mg', 'milligram'],
   ['mL', 'milliliter'],
+  ['MTD', 'maximum tolerated dose'],
+  ['NOAEL', 'no observed adverse effect level'],
+  ['OECD', 'Organisation for Economic Co-operation and Development'],
+  ['PD', 'pharmacodynamics'],
   ['PI', 'product information'],
-  ['PK', 'pharmacokinetics']
+  ['PK', 'pharmacokinetics'],
+  ['PO', 'per os (oral)'],
+  ['Tmax', 'time to maximum concentration'],
+  ['µg', 'microgram']
 ]);
 
 /**

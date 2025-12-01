@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abbreviations Table Setup Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .step {
+            background: #ecf0f1;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #3498db;
+            border-radius: 5px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #2980b9;
+        }
+        .code {
+            background: #2c3e50;
+            color: #2ecc71;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .example-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .example-table th {
+            background: #95a5a6;
+            color: white;
+            padding: 12px;
+            border: 1px solid #7f8c8d;
+            text-align: center;
+            font-weight: bold;
+        }
+        .example-table td {
+            border: 1px solid #bdc3c7;
+            padding: 10px;
+        }
+        .example-table td.placeholder {
+            background: #fff3cd;
+            color: #856404;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        ul {
+            line-height: 1.8;
+        }
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+        .checklist li:before {
+            content: "☐ ";
+            font-size: 20px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 How to Create Perfect Abbreviations Table</h1>
+        
+        <div class="error">
+            <strong>⚠️ PROBLEM:</strong> The system cannot automatically inject Word tables via XML. 
+            This approach is unreliable and creates corrupted tables (as you saw with wrong data in cells).
+        </div>
+        
+        <div class="success">
+            <strong>✅ SOLUTION:</strong> Create the table structure in your Word template using loop syntax. 
+            This is the ONLY reliable way to get perfect tables like screenshot 011717.
+        </div>
+        
+        <h2>🔧 Step-by-Step Setup (5 Minutes)</h2>
+        
+        <div class="step">
+            <h3>Step 1: Open Your Template</h3>
+            <p>Open your Word template file (e.g., <code>Nonclinical_Template.docx</code>) in Microsoft Word.</p>
+        </div>
+        
+        <div class="step">
+            <h3>Step 2: Go to Abbreviations Section</h3>
+            <p>Find the "LIST OF ABBREVIATIONS" heading in your template.</p>
+            <p><strong>Delete</strong> any existing placeholder like <code>{abbreviations_list}</code> or <code>{abbreviations_table}</code></p>
+        </div>
+        
+        <div class="step">
+            <h3>Step 3: Insert a 2-Column Table</h3>
+            <ol>
+                <li>Click where you want the abbreviations table</li>
+                <li>Go to: <strong>Insert</strong> → <strong>Table</strong></li>
+                <li>Select: <strong>2 columns</strong> and <strong>2 rows</strong></li>
+                <li>Click OK</li>
+            </ol>
+        </div>
+        
+        <div class="step">
+            <h3>Step 4: Fill the Header Row (Row 1)</h3>
+            <ul>
+                <li><strong>Cell A1:</strong> Type <code>Abbreviation</code> and make it BOLD (Ctrl+B)</li>
+                <li><strong>Cell B1:</strong> Type <code>Definition</code> and make it BOLD (Ctrl+B)</li>
+                <li><strong>Optional:</strong> Center align both cells</li>
+                <li><strong>Optional:</strong> Add gray background (Table Design → Shading → Light Gray)</li>
+            </ul>
+        </div>
+        
+        <div class="step">
+            <h3>Step 5: Add Loop Syntax (CRITICAL!)</h3>
+            
+            <div class="warning">
+                <strong>IMPORTANT:</strong> The loop tags <code>{#abbreviations}</code> and <code>{/abbreviations}</code> must be placed <strong>OUTSIDE</strong> the table, NOT inside cells!
+            </div>
+            
+            <ol>
+                <li><strong>Place cursor BEFORE Row 2</strong> (above the second row)</li>
+                <li>Type: <code>{#abbreviations}</code></li>
+                <li>Press <strong>Enter</strong> to move it above the table row</li>
+                <li><strong>In Row 2, Cell A2:</strong> Type <code>{abbr}</code></li>
+                <li><strong>In Row 2, Cell B2:</strong> Type <code>{fullTerm}</code></li>
+                <li><strong>Place cursor AFTER Row 2</strong> (below the second row)</li>
+                <li>Type: <code>{/abbreviations}</code></li>
+            </ol>
+        </div>
+        
+        <div class="step">
+            <h3>Step 6: Add Borders</h3>
+            <ol>
+                <li>Select the entire table</li>
+                <li>Go to: <strong>Table Design</strong> → <strong>Borders</strong> → <strong>All Borders</strong></li>
+            </ol>
+        </div>
+        
+        <div class="step">
+            <h3>Step 7: Save Template</h3>
+            <p>Save your template file.</p>
+        </div>
+        
+        <h2>📊 Example: How Your Template Should Look</h2>
+        
+        <div class="code">LIST OF ABBREVIATIONS
+
+{#abbreviations}</div>
+        
+        <table class="example-table">
+            <tr>
+                <th>Abbreviation</th>
+                <th>Definition</th>
+            </tr>
+            <tr>
+                <td class="placeholder">{abbr}</td>
+                <td class="placeholder">{fullTerm}</td>
+            </tr>
+        </table>
+        
+        <div class="code">{/abbreviations}</div>
+        
+        <h2>🎯 What Happens When You Generate a Document</h2>
+        
+        <p>The system provides this data:</p>
+        <div class="code">abbreviations: [
+  { abbr: "a.c.", fullTerm: "before food or meals" },
+  { abbr: "a.m.", fullTerm: "before noon" },
+  { abbr: "admin", fullTerm: "administration" },
+  { abbr: "CNS", fullTerm: "central nervous system" },
+  { abbr: "AUC", fullTerm: "area under the curve" },
+  // ... 25+ more abbreviations
+]</div>
+        
+        <p>The <code>{#abbreviations}</code> loop processes each item:</p>
+        <ol>
+            <li>Starts at <code>{#abbreviations}</code></li>
+            <li>For EACH abbreviation, Row 2 is <strong>duplicated</strong></li>
+            <li><code>{abbr}</code> is replaced with: "a.c.", "a.m.", "CNS", etc.</li>
+            <li><code>{fullTerm}</code> is replaced with: "before food or meals", "before noon", etc.</li>
+            <li>Loop ends at <code>{/abbreviations}</code></li>
+        </ol>
+        
+        <h2>✅ Expected Result in Generated Document</h2>
+        
+        <table class="example-table">
+            <tr>
+                <th>Abbreviation</th>
+                <th>Definition</th>
+            </tr>
+            <tr><td>a.c.</td><td>before food or meals</td></tr>
+            <tr><td>a.m.</td><td>before noon</td></tr>
+            <tr><td>admin</td><td>administration</td></tr>
+            <tr><td>approx.</td><td>approximately</td></tr>
+            <tr><td>ATC</td><td>anatomical therapeutic chemical</td></tr>
+            <tr><td>AUC</td><td>area under the curve</td></tr>
+            <tr><td>bid</td><td>twice daily</td></tr>
+            <tr><td>CAS</td><td>chemical abstract services</td></tr>
+            <tr><td>CL/F</td><td>oral clearance</td></tr>
+            <tr><td>CNS</td><td>central nervous system</td></tr>
+            <tr><td colspan="2" style="text-align: center; font-style: italic;">... (all 25+ abbreviations)</td></tr>
+        </table>
+        
+        <div class="success">
+            <strong>Perfect table with:</strong>
+            <ul>
+                <li>✅ All borders</li>
+                <li>✅ Correct data in every cell</li>
+                <li>✅ All 25+ abbreviations listed</li>
+                <li>✅ Proper spacing and alignment</li>
+                <li>✅ Professional formatting</li>
+            </ul>
+        </div>
+        
+        <h2>📝 Final Checklist</h2>
+        
+        <ul class="checklist">
+            <li>Created 2-column table in template (2 rows)</li>
+            <li>Row 1 has headers: "Abbreviation" | "Definition" (bold)</li>
+            <li>Typed <code>{#abbreviations}</code> BEFORE/ABOVE the table</li>
+            <li>Row 2, Cell A2 has: <code>{abbr}</code></li>
+            <li>Row 2, Cell B2 has: <code>{fullTerm}</code></li>
+            <li>Typed <code>{/abbreviations}</code> AFTER/BELOW the table</li>
+            <li>Added borders to table (All Borders)</li>
+            <li>Saved template</li>
+        </ul>
+        
+        <div class="success">
+            <h3>🚀 Ready to Test!</h3>
+            <ol>
+                <li>Save your updated template</li>
+                <li>Upload it to the system</li>
+                <li>Generate a document</li>
+                <li>Open the generated document</li>
+                <li>See the perfect table with all abbreviations!</li>
+            </ol>
+        </div>
+        
+        <div class="warning">
+            <strong>⚠️ Common Mistakes to Avoid:</strong>
+            <ul>
+                <li><strong>DON'T</strong> put loop tags inside table cells</li>
+                <li><strong>DON'T</strong> use <code>{abbreviations_list}</code> - it gives plain text, not a table</li>
+                <li><strong>DON'T</strong> expect automatic table generation - it doesn't work reliably</li>
+                <li><strong>DO</strong> create the table structure in your template</li>
+                <li><strong>DO</strong> use loop syntax: <code>{#abbreviations}...{/abbreviations}</code></li>
+            </ul>
+        </div>
+        
+        <h2>🎯 Summary</h2>
+        
+        <p><strong>This is the ONLY reliable way to get perfect abbreviations tables.</strong></p>
+        
+        <p>The XML injection approach doesn't work because Word documents are complex and modifying the XML directly creates corrupted tables. By creating the table structure in your template and using docxtemplater's loop feature, you get perfect, reliable results every time.</p>
+        
+        <div class="success" style="text-align: center; font-size: 18px; margin-top: 30px;">
+            <strong>After you update your template, you'll get tables exactly like screenshot 011717!</strong> 🎉
+        </div>
+    </div>
+</body>
+</html>

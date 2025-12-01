@@ -14,6 +14,10 @@ const categoryRoutes = require('./routes/categories');
 const exportRoutes = require('./routes/export');
 const referenceDocRoutes = require('./routes/referenceDoc');
 const templateRoutes = require('./routes/template');
+const templateV2Routes = require('./routes/templateV2');
+const templateV3Routes = require('./routes/templateV3');
+const templateV4Routes = require('./routes/templateV4');
+const templateFinalRoutes = require('./routes/templateFinal');
 
 // Initialize Express app
 const app = express();
@@ -72,6 +76,10 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/reference-doc', referenceDocRoutes);
 app.use('/api/template', templateRoutes);
+app.use('/api/template-v2', templateV2Routes);
+app.use('/api/template-v3', templateV3Routes);
+app.use('/api/template-v4', templateV4Routes);
+app.use('/api/template-final', templateFinalRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -146,12 +154,27 @@ app.use((req, res) => {
   });
 });
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection:', reason);
+});
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n🚀 PubMed Intelligent Filter API running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health\n`);
+}).on('error', (err) => {
+  logger.error('Server error:', err);
+  console.error('Server error:', err);
+  process.exit(1);
 });
 
 module.exports = app;
