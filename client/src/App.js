@@ -33,6 +33,8 @@ function AppContent() {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [referenceDocResults, setReferenceDocResults] = useState(null);
+  const [currentPage, setCurrentPage] = useState({});
+  const [articlesPerPage] = useState(20); // Show 20 articles per page
   const [showReferenceResults, setShowReferenceResults] = useState(false);
 
   // Get cart context
@@ -146,6 +148,12 @@ function AppContent() {
     setReferenceDocResults(data);
     setShowReferenceResults(true);
     setShowResults(false);
+    // Initialize pagination for each category
+    const initialPages = {};
+    Object.keys(data.categorizedArticles || {}).forEach(category => {
+      initialPages[category] = 1;
+    });
+    setCurrentPage(initialPages);
     toast.success(`Found ${data.totalArticles} similar articles organized into ${Object.keys(data.categorizedArticles).length} categories`);
   };
 
@@ -426,11 +434,33 @@ function AppContent() {
                   disabled={false}
                 />
 
-                {Object.entries(referenceDocResults.categorizedArticles).map(([category, articles]) => (
-                  <div key={category} className="category-results-section">
-                    <h3 className="category-heading">{category} ({articles.length} articles)</h3>
+                {Object.entries(referenceDocResults.categorizedArticles).map(([category, articles]) => {
+                  const currentPageNum = currentPage[category] || 1;
+                  const indexOfLastArticle = currentPageNum * articlesPerPage;
+                  const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
+                  const currentArticles = articles.slice(indexOfFirstArticle, indexOfLastArticle);
+                  const totalPages = Math.ceil(articles.length / articlesPerPage);
+
+                  const handlePageChange = (pageNumber) => {
+                    setCurrentPage(prev => ({
+                      ...prev,
+                      [category]: pageNumber
+                    }));
+                    // Scroll to category section
+                    document.getElementById(`category-${category}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  };
+
+                  return (
+                  <div key={category} className="category-results-section" id={`category-${category}`}>
+                    <div className="category-header-with-pagination">
+                      <h3 className="category-heading">{category} ({articles.length} articles)</h3>
+                      <div className="pagination-info">
+                        Showing {indexOfFirstArticle + 1}-{Math.min(indexOfLastArticle, articles.length)} of {articles.length}
+                      </div>
+                    </div>
+                    
                     <div className="articles-grid">
-                      {articles.map((article, idx) => {
+                      {currentArticles.map((article, idx) => {
                         const inCart = isInCart(article.pmid);
                         return (
                           <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
@@ -480,8 +510,58 @@ function AppContent() {
                         );
                       })}
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="pagination-controls">
+                        <button
+                          className="pagination-btn"
+                          onClick={() => handlePageChange(currentPageNum - 1)}
+                          disabled={currentPageNum === 1}
+                        >
+                          ← Previous
+                        </button>
+                        
+                        <div className="pagination-numbers">
+                          {[...Array(totalPages)].map((_, index) => {
+                            const pageNum = index + 1;
+                            // Show first page, last page, current page, and pages around current
+                            if (
+                              pageNum === 1 ||
+                              pageNum === totalPages ||
+                              (pageNum >= currentPageNum - 1 && pageNum <= currentPageNum + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={pageNum}
+                                  className={`pagination-number ${currentPageNum === pageNum ? 'active' : ''}`}
+                                  onClick={() => handlePageChange(pageNum)}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            } else if (
+                              pageNum === currentPageNum - 2 ||
+                              pageNum === currentPageNum + 2
+                            ) {
+                              return <span key={pageNum} className="pagination-ellipsis">...</span>;
+                            }
+                            return null;
+                          })}
+                        </div>
+
+                        <button
+                          className="pagination-btn"
+                          onClick={() => handlePageChange(currentPageNum + 1)}
+                          disabled={currentPageNum === totalPages}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                );
+                })}
               </div>
             )}
           </div>

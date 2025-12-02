@@ -48,29 +48,57 @@ async function extractTextFromFile(buffer, mimetype) {
 
 /**
  * Helper function to extract key medical terms and concepts from text
+ * Enhanced version with better term extraction and medical term recognition
  */
 function extractKeyTerms(text) {
   if (!text) return [];
   
-  // Remove common words and extract meaningful medical terms
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 3); // Filter out very short words
+  // Medical term patterns to boost importance
+  const medicalPatterns = [
+    /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g, // Capitalized terms (drug names, conditions)
+    /\b\d+\s*(?:mg|mcg|g|ml|%)\b/gi, // Dosages and measurements
+    /\b(?:phase|trial|study|treatment|therapy|diagnosis|prognosis)\b/gi, // Clinical terms
+  ];
   
-  // Count word frequency
+  const words = text.toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 3);
+  
+  // Enhanced stop words list
+  const stopWords = new Set([
+    'that', 'this', 'with', 'from', 'have', 'were', 'been', 'their', 'there', 
+    'which', 'these', 'would', 'about', 'into', 'than', 'more', 'other', 'such', 
+    'only', 'also', 'some', 'when', 'where', 'them', 'then', 'will', 'could', 
+    'should', 'after', 'before', 'between', 'during', 'through', 'under', 'over',
+    'very', 'using', 'used', 'found', 'showed', 'shown', 'data', 'results',
+    'methods', 'conclusions', 'background', 'objectives', 'aims', 'however',
+    'therefore', 'thus', 'although', 'since', 'while', 'whereas'
+  ]);
+  
+  // Medical keywords to prioritize
+  const medicalKeywords = new Set([
+    'pharmacokinetic', 'pharmacodynamic', 'efficacy', 'safety', 'toxicity',
+    'adverse', 'clinical', 'trial', 'randomized', 'placebo', 'dose', 'treatment',
+    'therapy', 'patient', 'disease', 'condition', 'diagnosis', 'prognosis',
+    'metabolism', 'absorption', 'distribution', 'excretion', 'clearance',
+    'bioavailability', 'protein', 'receptor', 'inhibitor', 'antagonist', 'agonist'
+  ]);
+  
+  // Count word frequency with medical term boosting
   const wordCount = {};
   words.forEach(word => {
-    wordCount[word] = (wordCount[word] || 0) + 1;
+    if (stopWords.has(word)) return;
+    
+    // Boost medical keywords
+    const boost = medicalKeywords.has(word) ? 3 : 1;
+    wordCount[word] = (wordCount[word] || 0) + boost;
   });
   
-  // Get top frequent words (excluding common stop words)
-  const stopWords = new Set(['that', 'this', 'with', 'from', 'have', 'were', 'been', 'their', 'there', 'which', 'these', 'would', 'about', 'into', 'than', 'more', 'other', 'such', 'only', 'also', 'some', 'when', 'where', 'them', 'then', 'will', 'could', 'should']);
-  
+  // Get top frequent words
   const keyTerms = Object.entries(wordCount)
-    .filter(([word]) => !stopWords.has(word))
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 20) // Top 20 terms
+    .slice(0, 30) // Top 30 terms
     .map(([word]) => word);
   
   return keyTerms;
@@ -78,96 +106,112 @@ function extractKeyTerms(text) {
 
 /**
  * Helper function to calculate similarity score between reference document and article
- * Returns a percentage score based on keyword overlap
+ * Enhanced with TF-IDF-like scoring and context matching
  */
 function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '') {
   if (!referenceKeyTerms || referenceKeyTerms.length === 0) return 0;
   
-  // Combine title and abstract for comparison
   const articleText = `${articleTitle} ${articleAbstract}`.toLowerCase();
+  const articleWords = articleText.split(/\s+/);
   
-  // Count how many reference terms appear in the article
   let matchCount = 0;
   let weightedScore = 0;
+  let titleBonus = 0;
   
   referenceKeyTerms.forEach((term, index) => {
-    // Give higher weight to more important terms (earlier in the list)
     const weight = referenceKeyTerms.length - index;
+    const termLower = term.toLowerCase();
     
-    if (articleText.includes(term)) {
+    // Check for exact term match
+    if (articleText.includes(termLower)) {
       matchCount++;
-      weightedScore += weight;
+      
+      // Count occurrences for frequency boost
+      const occurrences = (articleText.match(new RegExp(termLower, 'g')) || []).length;
+      weightedScore += weight * Math.min(occurrences, 3); // Cap at 3 to avoid over-weighting
+      
+      // Extra bonus if term appears in title
+      if (articleTitle.toLowerCase().includes(termLower)) {
+        titleBonus += weight * 2;
+      }
     }
   });
   
-  // Calculate percentage (weighted by term importance)
-  const maxPossibleScore = referenceKeyTerms.reduce((sum, _, idx) => sum + (referenceKeyTerms.length - idx), 0);
-  const similarityPercentage = (weightedScore / maxPossibleScore) * 100;
+  // Calculate base score
+  const maxPossibleScore = referenceKeyTerms.reduce((sum, _, idx) => 
+    sum + (referenceKeyTerms.length - idx), 0);
   
-  return Math.min(100, Math.round(similarityPercentage * 10) / 10); // Round to 1 decimal
+  const baseScore = (weightedScore / maxPossibleScore) * 70; // 70% weight
+  const titleScore = (titleBonus / maxPossibleScore) * 20; // 20% weight for title matches
+  const coverageScore = (matchCount / referenceKeyTerms.length) * 10; // 10% weight for term coverage
+  
+  const finalScore = baseScore + titleScore + coverageScore;
+  
+  return Math.min(100, Math.round(finalScore * 10) / 10);
 }
 
 /**
  * Helper function to categorize articles based on content
+ * Enhanced with better pattern matching and multiple category support
  */
 function categorizeArticles(articles) {
   const categorized = {
     'Pharmacokinetics': [],
     'Pharmacodynamics': [],
-    'Efficacy': [],
-    'Safety': [],
-    'Clinical Trials': [],
-    'Other': []
+    'Efficacy & Clinical Trials': [],
+    'Safety & Toxicity': []
   };
+  
+  // Limit to top 50 per category
+  const maxPerCategory = 50;
   
   articles.forEach(article => {
     const titleLower = (article.title || '').toLowerCase();
     const abstractLower = (article.abstract || '').toLowerCase();
     const combined = titleLower + ' ' + abstractLower;
     
-    let categorizedFlag = false;
+    // Track which categories this article belongs to
+    const matchedCategories = [];
     
-    // Pharmacokinetics keywords
-    if (combined.match(/pharmacokinetic|absorption|distribution|metabolism|excretion|clearance|half-life|bioavailability|cmax|tmax|auc/i)) {
-      categorized['Pharmacokinetics'].push(article);
-      categorizedFlag = true;
+    // Pharmacokinetics - enhanced patterns
+    if (combined.match(/\b(?:pharmacokinetic|pk|adme|absorption|distribution|metabolism|metabolite|excretion|clearance|half[- ]life|bioavailability|cmax|tmax|auc|volume of distribution|elimination|renal|hepatic)\b/i)) {
+      matchedCategories.push('Pharmacokinetics');
     }
     
-    // Pharmacodynamics keywords
-    if (combined.match(/pharmacodynamic|mechanism|receptor|binding|efficacy|potency|dose-response/i)) {
-      categorized['Pharmacodynamics'].push(article);
-      categorizedFlag = true;
+    // Pharmacodynamics - enhanced patterns
+    if (combined.match(/\b(?:pharmacodynamic|pd|mechanism of action|receptor|binding|affinity|agonist|antagonist|inhibitor|enzyme|protein|pathway|signal|efficacy|potency|dose[- ]response|ic50|ec50)\b/i)) {
+      matchedCategories.push('Pharmacodynamics');
     }
     
-    // Efficacy keywords
-    if (combined.match(/efficacy|effectiveness|treatment|outcome|response rate|success/i)) {
-      categorized['Efficacy'].push(article);
-      categorizedFlag = true;
+    // Efficacy & Clinical Trials - enhanced patterns
+    if (combined.match(/\b(?:efficacy|effectiveness|treatment outcome|therapeutic|clinical trial|randomized|controlled|placebo|double[- ]blind|multicenter|phase [i1234]|primary endpoint|secondary endpoint|response rate|remission|improvement|benefit)\b/i)) {
+      matchedCategories.push('Efficacy & Clinical Trials');
     }
     
-    // Safety keywords
-    if (combined.match(/safety|adverse|toxicity|side effect|tolerability|contraindication/i)) {
-      categorized['Safety'].push(article);
-      categorizedFlag = true;
+    // Safety & Toxicity - enhanced patterns
+    if (combined.match(/\b(?:safety|adverse event|side effect|toxicity|tolerability|contraindication|drug interaction|warning|precaution|mortality|morbidity|complication|risk|hazard|cardiotoxic|hepatotoxic|nephrotoxic|teratogenic)\b/i)) {
+      matchedCategories.push('Safety & Toxicity');
     }
     
-    // Clinical Trials keywords
-    if (combined.match(/clinical trial|randomized|placebo|multicenter|phase [i|ii|iii|iv]/i)) {
-      categorized['Clinical Trials'].push(article);
-      categorizedFlag = true;
-    }
-    
-    // If not categorized, add to Other
-    if (!categorizedFlag) {
-      categorized['Other'].push(article);
+    // Add article to matched categories (limit to top 50 per category)
+    if (matchedCategories.length > 0) {
+      matchedCategories.forEach(category => {
+        if (categorized[category].length < maxPerCategory) {
+          categorized[category].push({...article, primaryCategory: matchedCategories[0]});
+        }
+      });
+    } else {
+      // If no specific category, add to the first category that has space
+      const firstAvailable = Object.keys(categorized).find(cat => categorized[cat].length < maxPerCategory);
+      if (firstAvailable) {
+        categorized[firstAvailable].push({...article, primaryCategory: 'General'});
+      }
     }
   });
   
-  // Remove empty categories
-  Object.keys(categorized).forEach(key => {
-    if (categorized[key].length === 0) {
-      delete categorized[key];
-    }
+  // Sort each category by similarity score
+  Object.keys(categorized).forEach(category => {
+    categorized[category].sort((a, b) => b.similarityScore - a.similarityScore);
   });
   
   return categorized;
@@ -198,13 +242,13 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     }
     
     // Create search query from key terms
-    const searchQuery = keyTerms.slice(0, 10).join(' OR '); // Use top 10 terms
+    const searchQuery = keyTerms.slice(0, 15).join(' OR '); // Use top 15 terms for better coverage
     
     // Search PubMed using the extracted terms
     const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
     
-    // Step 1: Search for articles
-    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=50&retmode=json&sort=relevance`;
+    // Step 1: Search for articles - fetch 200 results (top 50 per category = 4 pages)
+    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=200&retmode=json&sort=relevance`;
     const searchResponse = await axios.get(searchUrl);
     const pmids = searchResponse.data.esearchresult?.idlist || [];
     
@@ -255,10 +299,20 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     res.json({
       message: 'Reference document processed successfully',
       fileName: req.file.originalname,
-      keyTerms: keyTerms.slice(0, 10),
+      keyTerms: keyTerms.slice(0, 15), // Show top 15 key terms
       searchQuery,
       categorizedArticles,
-      totalArticles: articles.length
+      totalArticles: articles.length,
+      statistics: {
+        totalFound: articles.length,
+        categoryCounts: Object.fromEntries(
+          Object.entries(categorizedArticles).map(([cat, arts]) => [cat, arts.length])
+        ),
+        averageSimilarity: articles.length > 0 
+          ? (articles.reduce((sum, a) => sum + a.similarityScore, 0) / articles.length).toFixed(1)
+          : 0,
+        topMatchScore: articles.length > 0 ? articles[0].similarityScore : 0
+      }
     });
     
   } catch (error) {

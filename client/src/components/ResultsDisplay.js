@@ -129,7 +129,7 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
                 isSelected={selectedArticles.some(a => a.pmid === article.pmid)}
                 onToggleSelect={handleToggleSelect}
                 onAddToCart={handleAddToCart}
-                isInCart={isInCart(article)}
+                isInCart={isInCart(article.pmid)}
               />
             ))}
           </div>
