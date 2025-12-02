@@ -18,6 +18,7 @@ const templateV2Routes = require('./routes/templateV2');
 const templateV3Routes = require('./routes/templateV3');
 const templateV4Routes = require('./routes/templateV4');
 const templateFinalRoutes = require('./routes/templateFinal');
+const detailDocumentRoutes = require('./routes/detailDocument');
 
 // Initialize Express app
 const app = express();
@@ -80,6 +81,7 @@ app.use('/api/template-v2', templateV2Routes);
 app.use('/api/template-v3', templateV3Routes);
 app.use('/api/template-v4', templateV4Routes);
 app.use('/api/template-final', templateFinalRoutes);
+app.use('/api', detailDocumentRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

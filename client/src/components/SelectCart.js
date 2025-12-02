@@ -1,12 +1,39 @@
 import React, { useState } from 'react';
 import './SelectCart.css';
-import { FaTimes, FaShoppingCart, FaTrash, FaFileWord, FaCheck } from 'react-icons/fa';
+import { FaTimes, FaShoppingCart, FaTrash, FaFileWord, FaCheck, FaFileAlt } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import UnifiedExportModal from './UnifiedExportModal';
+import DetailDocumentModal from './DetailDocumentModal';
+
+// Utility function to format category path for display
+const formatCategoryPath = (path) => {
+  if (!path) return '';
+  
+  // Split by dots to handle nested categories
+  const parts = path.split('.');
+  
+  // Format each part
+  const formatted = parts.map(part => {
+    // Replace underscores and camelCase with spaces
+    let formatted = part.replace(/([A-Z])/g, ' $1').trim();
+    formatted = formatted.replace(/_/g, ' ');
+    
+    // Capitalize first letter of each word
+    formatted = formatted.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+    
+    return formatted;
+  });
+  
+  // Join with " > " for hierarchical display
+  return formatted.join(' > ');
+};
 
 function SelectCart() {
   const { cartItems, cartCount, removeFromCart, clearCart, isCartOpen, closeCart } = useCart();
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showDetailDocModal, setShowDetailDocModal] = useState(false);
 
   // Group articles by category
   const groupedArticles = cartItems.reduce((acc, item) => {
@@ -25,6 +52,12 @@ function SelectCart() {
   const handleExport = () => {
     if (cartCount > 0) {
       setShowExportModal(true);
+    }
+  };
+
+  const handleDetailDocument = () => {
+    if (cartCount > 0) {
+      setShowDetailDocModal(true);
     }
   };
 
@@ -74,7 +107,7 @@ function SelectCart() {
                         <div className="category-badge">
                           {group.studyType === 'animal' ? '🐁 Animal' : '👤 Human'} Studies
                         </div>
-                        <div className="category-path">{group.categoryPath}</div>
+                        <div className="category-path">{formatCategoryPath(group.categoryPath)}</div>
                       </div>
                       
                       <div className="cart-divider"></div>
@@ -130,10 +163,16 @@ function SelectCart() {
                 <FaCheck className="footer-icon" />
                 <span><strong>{cartCount}</strong> article{cartCount !== 1 ? 's' : ''} ready to export</span>
               </div>
-              <button className="btn-export-cart" onClick={handleExport}>
-                <FaFileWord />
-                Export to Word
-              </button>
+              <div className="cart-footer-buttons">
+                <button className="btn-detail-doc" onClick={handleDetailDocument}>
+                  <FaFileAlt />
+                  Detail Document
+                </button>
+                <button className="btn-export-cart" onClick={handleExport}>
+                  <FaFileWord />
+                  Export to Word
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -145,6 +184,13 @@ function SelectCart() {
           totalCount={cartCount}
           onClose={() => setShowExportModal(false)}
           onExportComplete={handleExportComplete}
+        />
+      )}
+
+      {showDetailDocModal && (
+        <DetailDocumentModal
+          cartItems={cartItems}
+          onClose={() => setShowDetailDocModal(false)}
         />
       )}
     </>

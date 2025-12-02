@@ -5,6 +5,38 @@ import { FaInfoCircle, FaChartBar, FaFileWord, FaCheckCircle } from 'react-icons
 import ExportModal from './ExportModal';
 import { useCart } from '../context/CartContext';
 
+// Utility function to format category path for display
+const formatCategoryPath = (path) => {
+  if (!path) return '';
+  
+  // Split by comma if multiple paths, then by dots for hierarchy
+  const paths = path.split(',').map(p => p.trim());
+  
+  const formattedPaths = paths.map(singlePath => {
+    const parts = singlePath.split('.');
+    
+    // Format each part
+    const formatted = parts.map(part => {
+      // Replace underscores and camelCase with spaces
+      let formatted = part.replace(/([A-Z])/g, ' $1').trim();
+      formatted = formatted.replace(/_/g, ' ');
+      
+      // Capitalize first letter of each word
+      formatted = formatted.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+      
+      return formatted;
+    });
+    
+    // Join with " > " for hierarchical display
+    return formatted.join(' > ');
+  });
+  
+  // Join multiple paths with ", "
+  return formattedPaths.join(', ');
+};
+
 function ResultsDisplay({ results, query, studyType, categoryPath }) {
   const [selectedArticles, setSelectedArticles] = useState([]);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -62,7 +94,7 @@ function ResultsDisplay({ results, query, studyType, categoryPath }) {
             <span className="separator">•</span>
             <span>{studyType === 'animal' ? 'Animal Studies' : 'Human Studies'}</span>
             <span className="separator">•</span>
-            <span className="category-path">{categoryPath}</span>
+            <span className="category-path">{formatCategoryPath(categoryPath)}</span>
           </div>
         </div>
 
