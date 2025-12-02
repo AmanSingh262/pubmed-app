@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import './SelectCart.css';
-import { FaTimes, FaShoppingCart, FaTrash, FaFileWord, FaCheck, FaFile } from 'react-icons/fa';
+import { FaTimes, FaShoppingCart, FaTrash, FaFileWord, FaCheck } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import UnifiedExportModal from './UnifiedExportModal';
-import TemplateDocModal from './TemplateDocModal';
 
 function SelectCart() {
   const { cartItems, cartCount, removeFromCart, clearCart, isCartOpen, closeCart } = useCart();
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   // Group articles by category
   const groupedArticles = cartItems.reduce((acc, item) => {
@@ -34,12 +32,6 @@ function SelectCart() {
     setShowExportModal(false);
     clearCart();
     closeCart();
-  };
-
-  const handleTemplateDoc = () => {
-    if (cartCount > 0) {
-      setShowTemplateModal(true);
-    }
   };
 
   if (!isCartOpen) return null;
@@ -138,16 +130,10 @@ function SelectCart() {
                 <FaCheck className="footer-icon" />
                 <span><strong>{cartCount}</strong> article{cartCount !== 1 ? 's' : ''} ready to export</span>
               </div>
-              <div className="cart-footer-buttons">
-                <button className="btn-template-doc" onClick={handleTemplateDoc}>
-                  <FaFile />
-                  Template Doc
-                </button>
-                <button className="btn-export-cart" onClick={handleExport}>
-                  <FaFileWord />
-                  Export to Word
-                </button>
-              </div>
+              <button className="btn-export-cart" onClick={handleExport}>
+                <FaFileWord />
+                Export to Word
+              </button>
             </div>
           )}
         </div>
@@ -159,14 +145,6 @@ function SelectCart() {
           totalCount={cartCount}
           onClose={() => setShowExportModal(false)}
           onExportComplete={handleExportComplete}
-        />
-      )}
-
-      {showTemplateModal && (
-        <TemplateDocModal
-          isOpen={showTemplateModal}
-          onClose={() => setShowTemplateModal(false)}
-          selectedArticles={cartItems.map(item => item.article)}
         />
       )}
     </>
