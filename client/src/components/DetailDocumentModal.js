@@ -14,9 +14,11 @@ function DetailDocumentModal({ cartItems, onClose }) {
     setLoading(true);
 
     try {
+      // Use relative URL for API calls - works in both development and production
+      const apiBase = process.env.REACT_APP_API_URL || '/api';
       const endpoint = docType === 'detail' 
-        ? 'http://localhost:5000/api/generate-detail-document'
-        : 'http://localhost:5000/api/generate-short-summary';
+        ? `${apiBase}/generate-detail-document`
+        : `${apiBase}/generate-short-summary`;
         
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -30,7 +32,8 @@ function DetailDocumentModal({ cartItems, onClose }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate document');
+        const errorText = await response.text();
+        throw new Error(`Failed to generate document: ${response.status} - ${errorText}`);
       }
 
       // Get the blob from response
