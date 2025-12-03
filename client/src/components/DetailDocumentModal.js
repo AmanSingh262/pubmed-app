@@ -6,13 +6,19 @@ import { toast } from 'react-toastify';
 function DetailDocumentModal({ cartItems, onClose }) {
   const [loading, setLoading] = useState(false);
   const [selectedStudyType, setSelectedStudyType] = useState(null);
+  const [selectedDocType, setSelectedDocType] = useState(null);
 
-  const handleGenerateDocument = async (studyType) => {
+  const handleGenerateDocument = async (studyType, docType = 'detail') => {
     setSelectedStudyType(studyType);
+    setSelectedDocType(docType);
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/generate-detail-document', {
+      const endpoint = docType === 'detail' 
+        ? 'http://localhost:5000/api/generate-detail-document'
+        : 'http://localhost:5000/api/generate-short-summary';
+        
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,7 +40,10 @@ function DetailDocumentModal({ cartItems, onClose }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Detail_Document_${studyType}_Studies_${new Date().toISOString().split('T')[0]}.docx`;
+      const fileName = docType === 'detail'
+        ? `Detail_Document_${studyType}_Studies_${new Date().toISOString().split('T')[0]}.docx`
+        : `Short_Summary_${studyType}_Studies_${new Date().toISOString().split('T')[0]}.docx`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       
@@ -42,14 +51,16 @@ function DetailDocumentModal({ cartItems, onClose }) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success(`Detail document for ${studyType} studies generated successfully!`);
+      const docName = docType === 'detail' ? 'Detail document' : 'Short summary document';
+      toast.success(`${docName} for ${studyType} studies generated successfully!`);
       onClose();
     } catch (error) {
       console.error('Error generating document:', error);
-      toast.error(`Failed to generate detail document: ${error.message}`);
+      toast.error(`Failed to generate document: ${error.message}`);
     } finally {
       setLoading(false);
       setSelectedStudyType(null);
+      setSelectedDocType(null);
     }
   };
 
@@ -65,17 +76,17 @@ function DetailDocumentModal({ cartItems, onClose }) {
 
         <div className="detail-doc-body">
           <p className="detail-doc-description">
-            Select the type of studies to generate a detailed document with full abstracts,
-            categorized sections, and comprehensive formatting.
+            Select the type of studies and document format to generate.
           </p>
 
+          <h3 className="doc-type-title">📄 Detail Document (Full Abstracts)</h3>
           <div className="study-type-buttons">
             <button
               className="study-type-btn animal"
-              onClick={() => handleGenerateDocument('animal')}
+              onClick={() => handleGenerateDocument('animal', 'detail')}
               disabled={loading}
             >
-              {loading && selectedStudyType === 'animal' ? (
+              {loading && selectedStudyType === 'animal' && selectedDocType === 'detail' ? (
                 <>
                   <FaSpinner className="spinner-icon" />
                   Generating...
@@ -85,7 +96,7 @@ function DetailDocumentModal({ cartItems, onClose }) {
                   <span className="study-icon">🐁</span>
                   <div className="study-info">
                     <h3>Animal Studies</h3>
-                    <p>Generate document from animal research articles</p>
+                    <p>Full detailed document</p>
                   </div>
                   <FaFileWord className="doc-icon" />
                 </>
@@ -94,10 +105,10 @@ function DetailDocumentModal({ cartItems, onClose }) {
 
             <button
               className="study-type-btn human"
-              onClick={() => handleGenerateDocument('human')}
+              onClick={() => handleGenerateDocument('human', 'detail')}
               disabled={loading}
             >
-              {loading && selectedStudyType === 'human' ? (
+              {loading && selectedStudyType === 'human' && selectedDocType === 'detail' ? (
                 <>
                   <FaSpinner className="spinner-icon" />
                   Generating...
@@ -107,7 +118,54 @@ function DetailDocumentModal({ cartItems, onClose }) {
                   <span className="study-icon">👤</span>
                   <div className="study-info">
                     <h3>Human Studies</h3>
-                    <p>Generate document from human research articles</p>
+                    <p>Full detailed document</p>
+                  </div>
+                  <FaFileWord className="doc-icon" />
+                </>
+              )}
+            </button>
+          </div>
+
+          <h3 className="doc-type-title">📊 Short Summary (Tables + Summaries)</h3>
+          <div className="study-type-buttons">
+            <button
+              className="study-type-btn animal"
+              onClick={() => handleGenerateDocument('animal', 'short')}
+              disabled={loading}
+            >
+              {loading && selectedStudyType === 'animal' && selectedDocType === 'short' ? (
+                <>
+                  <FaSpinner className="spinner-icon" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <span className="study-icon">🐁</span>
+                  <div className="study-info">
+                    <h3>Animal Studies</h3>
+                    <p>Tables with short summaries</p>
+                  </div>
+                  <FaFileWord className="doc-icon" />
+                </>
+              )}
+            </button>
+
+            <button
+              className="study-type-btn human"
+              onClick={() => handleGenerateDocument('human', 'short')}
+              disabled={loading}
+            >
+              {loading && selectedStudyType === 'human' && selectedDocType === 'short' ? (
+                <>
+                  <FaSpinner className="spinner-icon" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <span className="study-icon">👤</span>
+                  <div className="study-info">
+                    <h3>Human Studies</h3>
+                    <p>Tables with short summaries</p>
                   </div>
                   <FaFileWord className="doc-icon" />
                 </>
@@ -117,14 +175,26 @@ function DetailDocumentModal({ cartItems, onClose }) {
 
           <div className="detail-doc-info">
             <h4>📋 Document Features:</h4>
-            <ul>
-              <li>✓ Abbreviations table at the top</li>
-              <li>✓ Categorized sections with proper headings</li>
-              <li>✓ AI-generated detailed summaries from abstracts</li>
-              <li>✓ Times New Roman font, professional formatting</li>
-              <li>✓ Biological terms in italic</li>
-              <li>✓ Full references at the end</li>
-            </ul>
+            <div className="features-grid">
+              <div className="feature-column">
+                <strong>Detail Document:</strong>
+                <ul>
+                  <li>✓ Full abstracts & detailed summaries</li>
+                  <li>✓ Categorized sections</li>
+                  <li>✓ AI-generated detailed content</li>
+                  <li>✓ Biological terms in italic</li>
+                </ul>
+              </div>
+              <div className="feature-column">
+                <strong>Short Summary:</strong>
+                <ul>
+                  <li>✓ Tables for each main heading</li>
+                  <li>✓ Concise 2-3 sentence summaries</li>
+                  <li>✓ Key study parameters extracted</li>
+                  <li>✓ Quick overview format</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -79,13 +79,23 @@
   font-size: 15px;
   line-height: 1.6;
   color: #4b5563;
+  text-align: center;
+}
+
+.doc-type-title {
+  color: #667eea;
+  font-size: 17px;
+  font-weight: 600;
+  margin: 25px 0 15px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .study-type-buttons {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .study-type-btn {
@@ -166,13 +176,26 @@
 }
 
 .detail-doc-info h4 {
-  margin: 0 0 12px 0;
+  margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.feature-column strong {
+  display: block;
+  color: #667eea;
+  margin-bottom: 8px;
+  font-size: 14px;
 }
 
 .detail-doc-info ul {
@@ -182,8 +205,8 @@
 }
 
 .detail-doc-info li {
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 6px;
+  font-size: 13px;
   color: #4b5563;
   line-height: 1.5;
   position: relative;
@@ -192,6 +215,13 @@
 
 .detail-doc-info li:last-child {
   margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
 }
 
 @keyframes fadeIn {
