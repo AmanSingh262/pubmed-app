@@ -192,6 +192,9 @@
 .upload-actions {
   margin-top: 20px;
   text-align: center;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
 }
 
 .upload-button {
@@ -205,6 +208,8 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(147, 51, 234, 0.2);
+  flex: 1;
+  max-width: 280px;
 }
 
 .upload-button:hover:not(:disabled) {
@@ -216,4 +221,22 @@
   background: #9ca3af;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.animal-study-btn {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+}
+
+.animal-study-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.3);
+}
+
+.human-study-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.human-study-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
 }

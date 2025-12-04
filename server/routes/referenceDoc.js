@@ -227,6 +227,9 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
+    // Get study type from request (animal or human)
+    const studyType = req.body.studyType || 'all';
+    
     // Extract text from uploaded file
     const extractedText = await extractTextFromFile(req.file.buffer, req.file.mimetype);
     
@@ -241,8 +244,15 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'Could not extract meaningful terms from document' });
     }
     
-    // Create search query from key terms
-    const searchQuery = keyTerms.slice(0, 15).join(' OR '); // Use top 15 terms for better coverage
+    // Create search query from key terms, adding study type filter
+    let searchQuery = keyTerms.slice(0, 15).join(' OR '); // Use top 15 terms for better coverage
+    
+    // Add study type filter to search query
+    if (studyType === 'animal') {
+      searchQuery += ' AND (animal[MeSH Terms] OR animals[MeSH Terms] OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR rabbits[Title/Abstract] OR dog[Title/Abstract] OR dogs[Title/Abstract] OR pig[Title/Abstract] OR pigs[Title/Abstract] OR primate[Title/Abstract] OR primates[Title/Abstract] OR monkey[Title/Abstract] OR monkeys[Title/Abstract] OR guinea pig[Title/Abstract] OR hamster[Title/Abstract] OR ferret[Title/Abstract] OR sheep[Title/Abstract] OR goat[Title/Abstract] OR cattle[Title/Abstract] OR feline[Title/Abstract] OR canine[Title/Abstract] OR murine[Title/Abstract] OR porcine[Title/Abstract] OR bovine[Title/Abstract] OR equine[Title/Abstract] OR ovine[Title/Abstract] OR rodent[Title/Abstract] OR rodents[Title/Abstract] OR in vivo[Title/Abstract] OR animal model[Title/Abstract] OR animal study[Title/Abstract])';
+    } else if (studyType === 'human') {
+      searchQuery += ' AND (human[MeSH Terms] OR humans[MeSH Terms] OR patient[Title/Abstract] OR patients[Title/Abstract] OR clinical trial[Title/Abstract] OR clinical study[Title/Abstract] OR human study[Title/Abstract] OR volunteer[Title/Abstract] OR volunteers[Title/Abstract] OR participant[Title/Abstract] OR participants[Title/Abstract] OR subject[Title/Abstract] OR subjects[Title/Abstract] OR adult[Title/Abstract] OR adults[Title/Abstract] OR child[Title/Abstract] OR children[Title/Abstract] OR adolescent[Title/Abstract] OR infant[Title/Abstract] OR elderly[Title/Abstract] OR geriatric[Title/Abstract] OR pediatric[Title/Abstract])';
+    }
     
     // Search PubMed using the extracted terms
     const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
@@ -257,7 +267,8 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         message: 'No similar articles found',
         keyTerms,
         categorizedArticles: {},
-        totalArticles: 0
+        totalArticles: 0,
+        studyType
       });
     }
     
@@ -266,23 +277,32 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const fetchResponse = await axios.get(fetchUrl);
     const articles = [];
     
+    // Helper function to normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid);
+    };
+    
     if (fetchResponse.data.result) {
       pmids.forEach((pmid, index) => {
         const article = fetchResponse.data.result[pmid];
         if (article) {
           const title = article.title || '';
+          const normalizedPmid = normalizePmid(pmid);
           
           // Calculate similarity score based on keyword overlap with reference document
           const similarityScore = calculateSimilarityScore(keyTerms, title);
           
           articles.push({
-            pmid: pmid,
+            pmid: normalizedPmid,
             title: title,
             authors: article.authors?.map(a => a.name) || [],
             journal: article.fulljournalname || article.source || '',
             publicationDate: article.pubdate || '',
             abstract: '', // Will be fetched if needed
-            url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+            url: `https://pubmed.ncbi.nlm.nih.gov/${normalizedPmid}/`,
             similarityScore: similarityScore,
             selected: false // For selection in UI
           });
@@ -299,6 +319,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     res.json({
       message: 'Reference document processed successfully',
       fileName: req.file.originalname,
+      studyType: studyType,
       keyTerms: keyTerms.slice(0, 15), // Show top 15 key terms
       searchQuery,
       categorizedArticles,

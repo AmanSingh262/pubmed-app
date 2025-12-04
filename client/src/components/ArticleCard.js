@@ -6,7 +6,7 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
   const [expanded, setExpanded] = useState(false);
 
   const {
-    pmid,
+    pmid: rawPmid,
     title: rawTitle,
     abstract: rawAbstract,
     authors: rawAuthors,
@@ -18,6 +18,11 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
     relevanceScore,
     matches
   } = article;
+
+  // Normalize PMID (handle both string and object formats)
+  const pmid = typeof rawPmid === 'object' && rawPmid !== null ? 
+               (rawPmid._ || rawPmid.i || String(rawPmid)) : 
+               String(rawPmid);
 
   // Safely convert title to string
   const title = typeof rawTitle === 'string' ? rawTitle : 

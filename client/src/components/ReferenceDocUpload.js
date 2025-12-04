@@ -53,7 +53,7 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (studyType) => {
     if (!selectedFile) return;
 
     setIsUploading(true);
@@ -62,6 +62,7 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
     const formData = new FormData();
     formData.append('document', selectedFile);
+    formData.append('studyType', studyType);
 
     try {
       const response = await fetch('/api/reference-doc/upload', {
@@ -161,11 +162,18 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
       <div className="upload-actions">
         <button
-          className="upload-button"
-          onClick={handleUpload}
+          className="upload-button animal-study-btn"
+          onClick={() => handleUpload('animal')}
           disabled={!selectedFile || isUploading}
         >
-          {isUploading ? 'Processing...' : 'Find Similar Articles'}
+          {isUploading ? 'Processing...' : 'Animal Study Similar Articles'}
+        </button>
+        <button
+          className="upload-button human-study-btn"
+          onClick={() => handleUpload('human')}
+          disabled={!selectedFile || isUploading}
+        >
+          {isUploading ? 'Processing...' : 'Human Study Similar Articles'}
         </button>
       </div>
     </div>

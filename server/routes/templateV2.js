@@ -330,13 +330,27 @@ router.post('/generate', async (req, res) => {
       });
     }
 
+    // Normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid || '');
+    };
+
+    // Normalize article PMID before processing
+    const normalizedArticle = {
+      ...article,
+      pmid: normalizePmid(article.pmid)
+    };
+
     // Read template file
     const content = await fs.readFile(templatePath);
     const zip = new PizZip(content);
     
     // Extract article data
-    const articleData = extractArticleData(article);
-    const abbreviations = extractAbbreviations(article);
+    const articleData = extractArticleData(normalizedArticle);
+    const abbreviations = extractAbbreviations(normalizedArticle);
     
     // Create abbreviations table text
     let abbrText = '';
@@ -363,7 +377,7 @@ router.post('/generate', async (req, res) => {
       });
       
       // Send file
-      const filename = `Nonclinical_Overview_${article.pmid}_${Date.now()}.docx`;
+      const filename = `Nonclinical_Overview_${normalizedArticle.pmid}_${Date.now()}.docx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', buf.length);

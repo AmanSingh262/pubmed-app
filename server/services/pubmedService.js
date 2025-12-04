@@ -167,7 +167,9 @@ class PubMedService {
         const article = pubmedArticle?.MedlineCitation?.Article;
         if (!article) continue;
 
-        const pmid = pubmedArticle?.MedlineCitation?.PMID?._ || pubmedArticle?.MedlineCitation?.PMID;
+        // Extract and normalize PMID to string
+        const rawPmid = pubmedArticle?.MedlineCitation?.PMID;
+        const pmid = String(rawPmid?._ || rawPmid?.i || rawPmid || '');
         const title = article?.ArticleTitle || 'No title';
         
         // Extract abstract

@@ -963,15 +963,24 @@ router.post('/generate-detail-document', async (req, res) => {
     let refCounter = 1;
     for (const item of filteredItems) {
       const article = item.article;
+      
+      // Normalize PMID
+      const normalizePmid = (pmid) => {
+        if (typeof pmid === 'object' && pmid !== null) {
+          return String(pmid._ || pmid.i || pmid);
+        }
+        return String(pmid || '');
+      };
+      
       const authors = article.authors && article.authors.length > 0
         ? article.authors.slice(0, 6).join(', ') + (article.authors.length > 6 ? ', et al.' : '')
         : 'Unknown authors';
       const year = article.publicationDate ? article.publicationDate.split(' ')[0] : 'n.d.';
       const title = article.title || 'Untitled';
       const journal = article.journal || 'Unknown journal';
-      const pmid = article.pmid;
+      const pmid = normalizePmid(article.pmid);
       const doi = article.doi || '';
-      const url = article.url || `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`;
+      const url = article.url || `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
 
       sections.push(
         new Paragraph({

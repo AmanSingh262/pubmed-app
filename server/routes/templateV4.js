@@ -232,10 +232,18 @@ router.post('/generate', async (req, res) => {
       }
     }
     
+    // Normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid);
+    };
+    
     // Prepare template data
     const templateData = {
       drug_name: articleData.drug_name,
-      pmid: article.pmid || 'N/A',
+      pmid: normalizePmid(article.pmid) || 'N/A',
       article_title: article.title || '',
       authors: article.authors ? article.authors.join(', ') : '',
       journal: article.journal || '',
@@ -324,11 +332,19 @@ router.post('/preview', async (req, res) => {
 
     const articleData = extractArticleData(article);
     const abbreviations = extractAbbreviations(article);
+    
+    // Normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid);
+    };
 
     res.json({
       articleInfo: {
         title: article.title,
-        pmid: article.pmid,
+        pmid: normalizePmid(article.pmid),
         drugName: articleData.drug_name
       },
       extractedData: {

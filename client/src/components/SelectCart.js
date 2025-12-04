@@ -5,6 +5,14 @@ import { useCart } from '../context/CartContext';
 import UnifiedExportModal from './UnifiedExportModal';
 import DetailDocumentModal from './DetailDocumentModal';
 
+// Utility function to normalize PMID to string
+const normalizePmid = (pmid) => {
+  if (typeof pmid === 'object' && pmid !== null) {
+    return String(pmid._ || pmid.i || pmid);
+  }
+  return String(pmid || '');
+};
+
 // Utility function to format category path for display
 const formatCategoryPath = (path) => {
   if (!path) return '';
@@ -112,15 +120,17 @@ function SelectCart() {
                       
                       <div className="cart-divider"></div>
 
-                      {group.articles.map((article, index) => (
-                        <div key={article.pmid} className="cart-item">
+                      {group.articles.map((article, index) => {
+                        const pmid = normalizePmid(article.pmid);
+                        return (
+                        <div key={pmid} className="cart-item">
                           <div className="cart-item-header">
                             <span className="cart-item-number">
                               #{index + 1}
                             </span>
                             <button
                               className="cart-item-remove"
-                              onClick={() => removeFromCart(article.pmid)}
+                              onClick={() => removeFromCart(pmid)}
                               title="Remove from cart"
                             >
                               <FaTimes />
@@ -130,7 +140,7 @@ function SelectCart() {
                           <h4 className="cart-item-title">{article.title}</h4>
                           
                           <div className="cart-item-meta">
-                            <span className="cart-pmid">PMID: {article.pmid}</span>
+                            <span className="cart-pmid">PMID: {pmid}</span>
                             {article.authors && article.authors.length > 0 && (
                               <>
                                 <span className="meta-separator">•</span>
@@ -149,7 +159,8 @@ function SelectCart() {
                             </div>
                           )}
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   ))}
                 </div>

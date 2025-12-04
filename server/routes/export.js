@@ -532,11 +532,19 @@ function generateInTextCitation(article) {
  * Helper function to format citations
  */
 function formatCitation(article, style) {
+  // Normalize PMID
+  const normalizePmid = (pmid) => {
+    if (typeof pmid === 'object' && pmid !== null) {
+      return String(pmid._ || pmid.i || pmid);
+    }
+    return String(pmid || '');
+  };
+  
   const authors = article.authors || [];
   const title = article.title || 'Untitled';
   const journal = article.journal || '';
   const year = article.publicationDate ? article.publicationDate.split(' ')[0] : 'n.d.';
-  const pmid = article.pmid || '';
+  const pmid = normalizePmid(article.pmid);
   const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
 
   // Format authors based on style
@@ -1359,9 +1367,17 @@ router.post('/csv', (req, res) => {
     // Create CSV header
     const csvHeader = 'PMID,Title,Authors,Journal,Publication Date,Relevance Score,MeSH Terms,URL\n';
 
+    // Normalize PMID helper
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid || '');
+    };
+
     // Create CSV rows
     const csvRows = articles.map(article => {
-      const pmid = article.pmid || '';
+      const pmid = normalizePmid(article.pmid);
       const title = `"${(article.title || '').replace(/"/g, '""')}"`;
       const authors = `"${(article.authors || []).join('; ').replace(/"/g, '""')}"`;
       const journal = `"${(article.journal || '').replace(/"/g, '""')}"`;

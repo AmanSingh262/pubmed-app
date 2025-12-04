@@ -495,11 +495,19 @@ router.post('/generate', async (req, res) => {
       abbrText += `${abbr.abbr}\t${abbr.fullTerm}\n`;
     });
     
+    // Normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid);
+    };
+    
     // Prepare template data with all possible fields
     const templateData = {
       // Basic info
       drug_name: articleData.drug_name,
-      pmid: article.pmid || 'N/A',
+      pmid: normalizePmid(article.pmid) || 'N/A',
       article_title: article.title || '',
       authors: article.authors ? article.authors.join(', ') : '',
       journal: article.journal || '',
@@ -618,6 +626,14 @@ router.post('/preview', async (req, res) => {
     const articleData = extractArticleData(article);
     const mappedHeadings = mapContentToHeadings(headings, articleData);
     const abbreviations = extractAbbreviations(article);
+    
+    // Normalize PMID
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return String(pmid._ || pmid.i || pmid);
+      }
+      return String(pmid);
+    };
 
     res.json({
       headings: mappedHeadings.map(h => ({
@@ -630,7 +646,7 @@ router.post('/preview', async (req, res) => {
       abbreviations,
       articleInfo: {
         title: article.title,
-        pmid: article.pmid,
+        pmid: normalizePmid(article.pmid),
         drugName: articleData.drug_name
       }
     });

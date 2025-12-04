@@ -14,8 +14,12 @@ import ExportOptions from './components/ExportOptions';
 import SelectCart from './components/SelectCart';
 import ReferenceDocUpload from './components/ReferenceDocUpload';
 import { CartProvider, useCart } from './context/CartContext';
+import { clearBadCartData } from './utils/clearBadCartData';
 
 import api from './services/api';
+
+// Clear bad cart data on app load (one-time migration)
+clearBadCartData();
 
 function AppContent() {
   const [query, setQuery] = useState('');
@@ -145,12 +149,35 @@ function AppContent() {
   };
 
   const handleReferenceDocResults = (data) => {
-    setReferenceDocResults(data);
+    // Normalize PMIDs in the results
+    const normalizePmid = (pmid) => {
+      if (typeof pmid === 'object' && pmid !== null) {
+        return pmid._ || pmid.i || String(pmid);
+      }
+      return String(pmid);
+    };
+
+    // Normalize all articles in categorized results
+    const normalizedData = {
+      ...data,
+      categorizedArticles: {}
+    };
+
+    if (data.categorizedArticles) {
+      Object.keys(data.categorizedArticles).forEach(category => {
+        normalizedData.categorizedArticles[category] = data.categorizedArticles[category].map(article => ({
+          ...article,
+          pmid: normalizePmid(article.pmid)
+        }));
+      });
+    }
+
+    setReferenceDocResults(normalizedData);
     setShowReferenceResults(true);
     setShowResults(false);
     // Initialize pagination for each category
     const initialPages = {};
-    Object.keys(data.categorizedArticles || {}).forEach(category => {
+    Object.keys(normalizedData.categorizedArticles || {}).forEach(category => {
       initialPages[category] = 1;
     });
     setCurrentPage(initialPages);
