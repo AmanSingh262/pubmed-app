@@ -48,17 +48,10 @@ async function extractTextFromFile(buffer, mimetype) {
 
 /**
  * Helper function to extract key medical terms and concepts from text
- * Enhanced version with better term extraction and medical term recognition
+ * Enhanced version with better term extraction, bigrams, and medical term recognition
  */
 function extractKeyTerms(text) {
   if (!text) return [];
-  
-  // Medical term patterns to boost importance
-  const medicalPatterns = [
-    /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g, // Capitalized terms (drug names, conditions)
-    /\b\d+\s*(?:mg|mcg|g|ml|%)\b/gi, // Dosages and measurements
-    /\b(?:phase|trial|study|treatment|therapy|diagnosis|prognosis)\b/gi, // Clinical terms
-  ];
   
   const words = text.toLowerCase()
     .replace(/[^\w\s-]/g, ' ')
@@ -73,50 +66,69 @@ function extractKeyTerms(text) {
     'should', 'after', 'before', 'between', 'during', 'through', 'under', 'over',
     'very', 'using', 'used', 'found', 'showed', 'shown', 'data', 'results',
     'methods', 'conclusions', 'background', 'objectives', 'aims', 'however',
-    'therefore', 'thus', 'although', 'since', 'while', 'whereas'
+    'therefore', 'thus', 'although', 'since', 'while', 'whereas', 'study', 'studies'
   ]);
   
-  // Medical keywords to prioritize
+  // Medical keywords to prioritize (weight x5)
   const medicalKeywords = new Set([
     'pharmacokinetic', 'pharmacodynamic', 'efficacy', 'safety', 'toxicity',
     'adverse', 'clinical', 'trial', 'randomized', 'placebo', 'dose', 'treatment',
     'therapy', 'patient', 'disease', 'condition', 'diagnosis', 'prognosis',
     'metabolism', 'absorption', 'distribution', 'excretion', 'clearance',
-    'bioavailability', 'protein', 'receptor', 'inhibitor', 'antagonist', 'agonist'
+    'bioavailability', 'protein', 'receptor', 'inhibitor', 'antagonist', 'agonist',
+    'carcinogenicity', 'genotoxicity', 'mutagenicity', 'teratogenicity'
   ]);
   
-  // Count word frequency with medical term boosting
+  // Count single word frequency with medical term boosting
   const wordCount = {};
   words.forEach(word => {
     if (stopWords.has(word)) return;
-    
-    // Boost medical keywords
-    const boost = medicalKeywords.has(word) ? 3 : 1;
+    const boost = medicalKeywords.has(word) ? 5 : 1;
     wordCount[word] = (wordCount[word] || 0) + boost;
   });
   
-  // Get top frequent words
-  const keyTerms = Object.entries(wordCount)
+  // Extract bigrams (2-word phrases) for better context
+  const bigramCount = {};
+  for (let i = 0; i < words.length - 1; i++) {
+    if (stopWords.has(words[i]) || stopWords.has(words[i + 1])) continue;
+    const bigram = `${words[i]} ${words[i + 1]}`;
+    bigramCount[bigram] = (bigramCount[bigram] || 0) + 2; // Bigrams get 2x weight
+  }
+  
+  // Extract trigrams (3-word phrases) for even better context
+  const trigramCount = {};
+  for (let i = 0; i < words.length - 2; i++) {
+    if (stopWords.has(words[i]) || stopWords.has(words[i + 1]) || stopWords.has(words[i + 2])) continue;
+    const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+    trigramCount[trigram] = (trigramCount[trigram] || 0) + 3; // Trigrams get 3x weight
+  }
+  
+  // Combine and get top terms
+  const allTerms = { ...wordCount, ...bigramCount, ...trigramCount };
+  const keyTerms = Object.entries(allTerms)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 30) // Top 30 terms
-    .map(([word]) => word);
+    .slice(0, 50) // Top 50 terms including phrases
+    .map(([term]) => term);
   
   return keyTerms;
 }
 
 /**
  * Helper function to calculate similarity score between reference document and article
- * Enhanced with TF-IDF-like scoring and context matching
+ * Enhanced with TF-IDF-like scoring, phrase matching, and context matching
  */
 function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '') {
   if (!referenceKeyTerms || referenceKeyTerms.length === 0) return 0;
   
   const articleText = `${articleTitle} ${articleAbstract}`.toLowerCase();
-  const articleWords = articleText.split(/\s+/);
+  const titleLower = articleTitle.toLowerCase();
+  const abstractLower = articleAbstract.toLowerCase();
   
   let matchCount = 0;
   let weightedScore = 0;
   let titleBonus = 0;
+  let abstractBonus = 0;
+  let phraseMatchBonus = 0;
   
   referenceKeyTerms.forEach((term, index) => {
     const weight = referenceKeyTerms.length - index;
@@ -126,26 +138,45 @@ function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstra
     if (articleText.includes(termLower)) {
       matchCount++;
       
-      // Count occurrences for frequency boost
-      const occurrences = (articleText.match(new RegExp(termLower, 'g')) || []).length;
-      weightedScore += weight * Math.min(occurrences, 3); // Cap at 3 to avoid over-weighting
+      // Count occurrences with diminishing returns
+      const titleOccurrences = (titleLower.match(new RegExp(`\\b${termLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g')) || []).length;
+      const abstractOccurrences = (abstractLower.match(new RegExp(`\\b${termLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g')) || []).length;
+      const totalOccurrences = titleOccurrences + abstractOccurrences;
       
-      // Extra bonus if term appears in title
-      if (articleTitle.toLowerCase().includes(termLower)) {
-        titleBonus += weight * 2;
+      // Weighted scoring with logarithmic scaling to prevent over-weighting
+      const occurrenceScore = Math.log(totalOccurrences + 1) * weight;
+      weightedScore += occurrenceScore;
+      
+      // Title matches get massive bonus (5x weight)
+      if (titleOccurrences > 0) {
+        titleBonus += weight * 5 * titleOccurrences;
+      }
+      
+      // Abstract matches get moderate bonus (2x weight)
+      if (abstractOccurrences > 0) {
+        abstractBonus += weight * 2;
+      }
+      
+      // Phrase matches (bigrams/trigrams) get extra bonus
+      if (term.includes(' ')) {
+        phraseMatchBonus += weight * 3;
       }
     }
   });
   
-  // Calculate base score
+  // Require minimum match coverage
+  if (matchCount === 0) return 0;
+  
+  // Calculate base score with normalized weights
   const maxPossibleScore = referenceKeyTerms.reduce((sum, _, idx) => 
     sum + (referenceKeyTerms.length - idx), 0);
   
-  const baseScore = (weightedScore / maxPossibleScore) * 70; // 70% weight
-  const titleScore = (titleBonus / maxPossibleScore) * 20; // 20% weight for title matches
+  const baseScore = (weightedScore / maxPossibleScore) * 40; // 40% weight for general matches
+  const titleScore = (titleBonus / maxPossibleScore) * 35; // 35% weight for title matches (very important)
+  const abstractScore = (abstractBonus / maxPossibleScore) * 15; // 15% weight for abstract matches
   const coverageScore = (matchCount / referenceKeyTerms.length) * 10; // 10% weight for term coverage
   
-  const finalScore = baseScore + titleScore + coverageScore;
+  const finalScore = baseScore + titleScore + abstractScore + coverageScore;
   
   return Math.min(100, Math.round(finalScore * 10) / 10);
 }
@@ -257,10 +288,16 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     // Search PubMed using the extracted terms
     const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
     
-    // Step 1: Search for articles - fetch 200 results (top 50 per category = 4 pages)
-    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=200&retmode=json&sort=relevance`;
+    // Step 1: Search for articles - fetch top 100 most relevant results for better quality
+    console.log(`Searching PubMed with ${keyTerms.length} key terms...`);
+    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=100&retmode=json&sort=relevance`;
     const searchResponse = await axios.get(searchUrl);
     const pmids = searchResponse.data.esearchresult?.idlist || [];
+    
+    console.log(`Found ${pmids.length} articles from PubMed for reference document search`);
+    
+    // No need for batching with 100 articles - PubMed allows up to 200 per request
+    // No need for batching with 100 articles - PubMed allows up to 200 per request
     
     if (pmids.length === 0) {
       return res.json({
@@ -272,9 +309,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       });
     }
     
-    // Step 2: Fetch article details
-    const fetchUrl = `${PUBMED_API_BASE}/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`;
-    const fetchResponse = await axios.get(fetchUrl);
+    // Step 2: Fetch article details with abstracts (using efetch for complete data)
     const articles = [];
     
     // Helper function to normalize PMID
@@ -285,54 +320,128 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return String(pmid);
     };
     
-    if (fetchResponse.data.result) {
-      pmids.forEach((pmid, index) => {
-        const article = fetchResponse.data.result[pmid];
-        if (article) {
-          const title = article.title || '';
-          const normalizedPmid = normalizePmid(pmid);
-          
-          // Calculate similarity score based on keyword overlap with reference document
-          const similarityScore = calculateSimilarityScore(keyTerms, title);
-          
-          articles.push({
-            pmid: normalizedPmid,
-            title: title,
-            authors: article.authors?.map(a => a.name) || [],
-            journal: article.fulljournalname || article.source || '',
-            publicationDate: article.pubdate || '',
-            abstract: '', // Will be fetched if needed
-            url: `https://pubmed.ncbi.nlm.nih.gov/${normalizedPmid}/`,
-            similarityScore: similarityScore,
-            selected: false // For selection in UI
-          });
+    console.log(`Fetching abstracts for ${pmids.length} articles...`);
+    
+    // Use efetch to get full abstracts (not just summaries)
+    const fetchUrl = `${PUBMED_API_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&rettype=abstract`;
+    
+    try {
+      const fetchResponse = await axios.get(fetchUrl);
+      const xml2js = require('xml2js');
+      const parser = new xml2js.Parser({ explicitArray: false });
+      const result = await parser.parseStringPromise(fetchResponse.data);
+      
+      const pubmedArticles = result.PubmedArticleSet?.PubmedArticle;
+      const articleArray = Array.isArray(pubmedArticles) ? pubmedArticles : [pubmedArticles];
+      
+      articleArray.forEach(pubmedArticle => {
+        if (!pubmedArticle) return;
+        
+        const article = pubmedArticle.MedlineCitation?.Article;
+        if (!article) return;
+        
+        const rawPmid = pubmedArticle.MedlineCitation?.PMID;
+        const pmid = normalizePmid(rawPmid);
+        const title = article.ArticleTitle || '';
+        
+        // Extract abstract text
+        let abstract = '';
+        if (article.Abstract?.AbstractText) {
+          const abstractText = article.Abstract.AbstractText;
+          if (typeof abstractText === 'string') {
+            abstract = abstractText;
+          } else if (Array.isArray(abstractText)) {
+            abstract = abstractText.map(part => 
+              typeof part === 'string' ? part : part._
+            ).join(' ');
+          } else if (typeof abstractText === 'object') {
+            abstract = abstractText._ || JSON.stringify(abstractText);
+          }
+        }
+        
+        // Calculate similarity score using BOTH title and abstract
+        const similarityScore = calculateSimilarityScore(keyTerms, title, abstract);
+        
+        articles.push({
+          pmid: pmid,
+          title: title,
+          authors: article.AuthorList?.Author ? 
+            (Array.isArray(article.AuthorList.Author) ? 
+              article.AuthorList.Author : [article.AuthorList.Author]
+            ).map(a => `${a.LastName || ''} ${a.ForeName || ''}`.trim()).filter(Boolean) : [],
+          journal: pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '',
+          publicationDate: article.Journal?.JournalIssue?.PubDate?.Year || '',
+          abstract: abstract,
+          url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+          similarityScore: similarityScore,
+          selected: false
+        });
+      });
+    } catch (error) {
+      console.error(`Error fetching articles:`, error.message);
+      return res.status(500).json({ 
+        error: 'Failed to fetch article details from PubMed', 
+        details: error.message 
+      });
+    }    console.log(`Fetched ${articles.length} articles with abstracts`);
+    
+    // Filter out articles with very low similarity (below 20% threshold for better quality)
+    const MINIMUM_SIMILARITY_THRESHOLD = 20;
+    const filteredArticles = articles.filter(a => a.similarityScore >= MINIMUM_SIMILARITY_THRESHOLD);
+    
+    console.log(`Filtered to ${filteredArticles.length} articles above ${MINIMUM_SIMILARITY_THRESHOLD}% similarity threshold (removed ${articles.length - filteredArticles.length} low-quality matches)`);
+    
+    if (filteredArticles.length === 0) {
+      return res.json({
+        message: `No highly relevant articles found (minimum ${MINIMUM_SIMILARITY_THRESHOLD}% similarity required). Your document may need more specific medical/pharmaceutical content, or try a different document.`,
+        keyTerms,
+        categorizedArticles: {},
+        totalArticles: 0,
+        studyType,
+        statistics: {
+          totalSearched: articles.length,
+          aboveThreshold: 0,
+          belowThreshold: articles.length,
+          threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+          averageSimilarity: articles.length > 0 ? (articles.reduce((sum, a) => sum + a.similarityScore, 0) / articles.length).toFixed(1) + '%' : '0%',
+          topMatchScore: articles.length > 0 ? Math.max(...articles.map(a => a.similarityScore)).toFixed(1) + '%' : '0%'
         }
       });
     }
     
     // Sort articles by similarity score (highest first)
-    articles.sort((a, b) => b.similarityScore - a.similarityScore);
+    filteredArticles.sort((a, b) => b.similarityScore - a.similarityScore);
     
-    // Step 3: Categorize articles
-    const categorizedArticles = categorizeArticles(articles);
+    // Step 3: Categorize articles (only high-quality matches)
+    const categorizedArticles = categorizeArticles(filteredArticles);
     
     res.json({
       message: 'Reference document processed successfully',
       fileName: req.file.originalname,
       studyType: studyType,
-      keyTerms: keyTerms.slice(0, 15), // Show top 15 key terms
+      keyTerms: keyTerms.slice(0, 20), // Show top 20 key terms including phrases
       searchQuery,
       categorizedArticles,
-      totalArticles: articles.length,
+      totalArticles: filteredArticles.length,
       statistics: {
-        totalFound: articles.length,
+        totalSearched: articles.length,
+        totalFound: filteredArticles.length,
+        filteredOut: articles.length - filteredArticles.length,
+        threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
         categoryCounts: Object.fromEntries(
           Object.entries(categorizedArticles).map(([cat, arts]) => [cat, arts.length])
         ),
-        averageSimilarity: articles.length > 0 
-          ? (articles.reduce((sum, a) => sum + a.similarityScore, 0) / articles.length).toFixed(1)
-          : 0,
-        topMatchScore: articles.length > 0 ? articles[0].similarityScore : 0
+        averageSimilarity: filteredArticles.length > 0 
+          ? (filteredArticles.reduce((sum, a) => sum + a.similarityScore, 0) / filteredArticles.length).toFixed(1) + '%'
+          : '0%',
+        topMatchScore: filteredArticles.length > 0 ? filteredArticles[0].similarityScore.toFixed(1) + '%' : '0%',
+        lowestMatchScore: filteredArticles.length > 0 ? filteredArticles[filteredArticles.length - 1].similarityScore.toFixed(1) + '%' : '0%',
+        qualityDistribution: {
+          excellent: filteredArticles.filter(a => a.similarityScore >= 70).length,
+          good: filteredArticles.filter(a => a.similarityScore >= 50 && a.similarityScore < 70).length,
+          fair: filteredArticles.filter(a => a.similarityScore >= 30 && a.similarityScore < 50).length,
+          acceptable: filteredArticles.filter(a => a.similarityScore >= 20 && a.similarityScore < 30).length
+        }
       }
     });
     
