@@ -1,11 +1,24 @@
 services:
   - type: web
-    name: pubmed-api
+    name: pubmed-intelligent-filter
     env: node
-    buildCommand: cd server && npm install
+    region: oregon
+    plan: free
+    buildCommand: npm install && cd server && npm install && cd ../client && npm install && npm run build
     startCommand: node server/index.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 10000
+      - key: PUBMED_API_BASE_URL
+        value: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: CACHE_TTL_SECONDS
+        value: 3600
+      - key: OPENAI_API_KEY
+        sync: false

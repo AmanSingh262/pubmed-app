@@ -10,7 +10,8 @@
     "build": "npm install && cd server && npm install && cd ../client && npm install && npm run build",
     "start": "NODE_ENV=production node server/index.js",
     "install-all": "npm install && cd client && npm install",
-    "railway:build": "npm install && cd server && npm install && cd ../client && npm install && npm run build"
+    "railway:build": "npm install && cd server && npm install && cd ../client && npm install && npm run build",
+    "render:build": "npm install && cd server && npm install && cd ../client && npm install && npm run build"
   },
   "keywords": [
     "pubmed",
