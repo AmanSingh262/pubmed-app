@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config();
@@ -95,8 +96,32 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve static files from React build (for production)
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+const clientBuildPath = path.join(__dirname, '../client/build');
+const indexHtmlPath = path.join(clientBuildPath, 'index.html');
+
+// Check if build exists
+const buildExists = fs.existsSync(clientBuildPath);
+const indexExists = fs.existsSync(indexHtmlPath);
+
+// Log environment info for debugging
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  RENDER: process.env.RENDER,
+  isProduction,
+  clientBuildPath,
+  buildExists,
+  indexExists
+});
+
+if (isProduction && buildExists && indexExists) {
+  // Serve static files
+  app.use(express.static(clientBuildPath, {
+    maxAge: '1d',
+    etag: true
+  }));
+  
+  console.log('✅ Serving static files from:', clientBuildPath);
   
   // API info endpoint for /api root
   app.get('/api', (req, res) => {
@@ -114,20 +139,40 @@ if (process.env.NODE_ENV === 'production') {
   
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+    console.log('Serving React app from:', indexHtmlPath);
+    res.sendFile(indexHtmlPath, (err) => {
+      if (err) {
+        console.error('Error serving index.html:', err);
+        res.status(500).json({ 
+          error: 'Failed to load application',
+          details: err.message,
+          buildPath: clientBuildPath,
+          buildExists,
+          indexExists
+        });
+      }
+    });
   });
 } else {
-  // In development, show API info at root
+  // In development or build not found, show API info at root
+  console.log('⚠️ Running in development mode or build not found');
   app.get('/', (req, res) => {
     res.json({
       message: 'PubMed Intelligent Article Filtration API',
       version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      buildStatus: {
+        buildExists,
+        indexExists,
+        path: clientBuildPath
+      },
       endpoints: {
         search: '/api/search',
         categories: '/api/categories',
         export: '/api/export',
         health: '/api/health'
-      }
+      },
+      note: buildExists ? 'Build found but NODE_ENV not set to production' : 'React build not found. Run: cd client && npm run build'
     });
   });
 }
