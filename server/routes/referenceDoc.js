@@ -307,11 +307,13 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       searchQuery = keyTerms.slice(0, 15).map(term => `${term}[Title/Abstract]`).join(' OR ');
     }
     
-    // Add study type filter to search query
+    // Add study type filter to search query - STRICT MeSH-based filtering
     if (studyType === 'animal') {
-      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms] OR (animal[Title/Abstract] NOT human[Title/Abstract]) OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR dog[Title/Abstract] OR "in vivo"[Title/Abstract] OR "animal model"[Title/Abstract])`;
+      // Strict animal filter using MeSH terms only
+      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms]) NOT (Humans[MeSH Terms] NOT Animals[MeSH Terms])`;
     } else if (studyType === 'human') {
-      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms] OR (human[Title/Abstract] NOT animal[Title/Abstract]) OR patient[Title/Abstract] OR patients[Title/Abstract] OR "clinical trial"[Title/Abstract] OR "clinical study"[Title/Abstract] OR volunteer[Title/Abstract] OR participant[Title/Abstract] OR adult[Title/Abstract])`;
+      // Strict human filter using MeSH terms only
+      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms]) NOT (Animals[MeSH Terms] NOT Humans[MeSH Terms])`;
     }
     
     // Search PubMed using the extracted terms
@@ -411,6 +413,51 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         }
         abstract = String(abstract || '');
         
+        // Extract MeSH terms for filtering
+        let meshTerms = [];
+        if (pubmedArticle.MedlineCitation?.MeshHeadingList?.MeshHeading) {
+          const meshList = Array.isArray(pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading)
+            ? pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading
+            : [pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading];
+          meshTerms = meshList.map(mesh => {
+            if (typeof mesh === 'string') return mesh;
+            if (mesh.DescriptorName) {
+              return typeof mesh.DescriptorName === 'string' 
+                ? mesh.DescriptorName 
+                : (mesh.DescriptorName._ || String(mesh.DescriptorName));
+            }
+            return '';
+          }).filter(Boolean);
+        }
+        
+        // Apply strict study type filtering based on title and MeSH
+        if (studyType === 'animal' || studyType === 'human') {
+          const titleLower = title.toLowerCase();
+          const meshLower = meshTerms.map(m => m.toLowerCase());
+          const meshText = meshLower.join(' ');
+          
+          // Animal species indicators
+          const animalIndicators = ['in rats', 'in mice', 'in pigs', 'in rabbits', 'in dogs', ' rat ', ' rats ', ' mouse ', ' mice ', ' pig ', ' pigs '];
+          const hasAnimalInTitle = animalIndicators.some(ind => titleLower.includes(ind));
+          const hasAnimalsMeSH = meshLower.some(m => m === 'animals' || m.includes('animal'));
+          
+          // Human indicators
+          const hasHumansMeSH = meshLower.some(m => m === 'humans' || m === 'human');
+          const hasClinicalInTitle = titleLower.includes('clinical trial') || titleLower.includes('patient');
+          
+          // Skip article if it doesn't match the study type
+          if (studyType === 'animal') {
+            // For animal studies: must have animal indicators and NOT be clinical
+            if (!hasAnimalsMeSH && !hasAnimalInTitle) return; // Skip if no animal indicators
+            if (hasHumansMeSH && !hasAnimalsMeSH) return; // Skip if human-only
+            if (hasClinicalInTitle) return; // Skip clinical trials
+          } else if (studyType === 'human') {
+            // For human studies: must NOT have animal-only indicators
+            if (hasAnimalInTitle) return; // Skip if animals mentioned in title
+            if (hasAnimalsMeSH && !hasHumansMeSH) return; // Skip if animal-only MeSH
+          }
+        }
+        
         // Calculate similarity score using BOTH title and abstract
         const similarityScore = calculateSimilarityScore(keyTerms, title, abstract);
         
@@ -426,6 +473,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
           abstract: abstract,
           url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
           similarityScore: similarityScore,
+          meshTerms: meshTerms,
           selected: false
         });
       });
