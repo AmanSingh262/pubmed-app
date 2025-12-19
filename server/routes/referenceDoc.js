@@ -275,14 +275,39 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'Could not extract meaningful terms from document' });
     }
     
-    // Create search query from key terms, adding study type filter
-    let searchQuery = keyTerms.slice(0, 15).join(' OR '); // Use top 15 terms for better coverage
+    // Try to detect drug names (usually capitalized words or brand names)
+    const drugNamePattern = /\b([A-Z][A-Za-z]+(?:[-][A-Z][a-z]+)?)\b/g;
+    const drugNames = [];
+    const matches = extractedText.match(drugNamePattern);
+    if (matches) {
+      const uniqueDrugs = [...new Set(matches)].filter(name => 
+        name.length > 3 && 
+        !['The', 'This', 'That', 'With', 'From', 'Table', 'Figure'].includes(name)
+      );
+      drugNames.push(...uniqueDrugs.slice(0, 3)); // Top 3 potential drug names
+    }
+    
+    console.log('Extracted drug names:', drugNames);
+    console.log('Key terms:', keyTerms.slice(0, 10));
+    
+    // Build search query prioritizing drug names
+    let searchQuery = '';
+    if (drugNames.length > 0) {
+      // Primary search with drug names
+      searchQuery = drugNames.map(name => `"${name}"[Title/Abstract]`).join(' OR ');
+      // Add key terms as secondary search
+      const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
+      searchQuery = `(${searchQuery}) OR (${topTerms})`;
+    } else {
+      // Fallback to key terms only
+      searchQuery = keyTerms.slice(0, 15).map(term => `${term}[Title/Abstract]`).join(' OR ');
+    }
     
     // Add study type filter to search query
     if (studyType === 'animal') {
-      searchQuery += ' AND (animal[MeSH Terms] OR animals[MeSH Terms] OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR rabbits[Title/Abstract] OR dog[Title/Abstract] OR dogs[Title/Abstract] OR pig[Title/Abstract] OR pigs[Title/Abstract] OR primate[Title/Abstract] OR primates[Title/Abstract] OR monkey[Title/Abstract] OR monkeys[Title/Abstract] OR guinea pig[Title/Abstract] OR hamster[Title/Abstract] OR ferret[Title/Abstract] OR sheep[Title/Abstract] OR goat[Title/Abstract] OR cattle[Title/Abstract] OR feline[Title/Abstract] OR canine[Title/Abstract] OR murine[Title/Abstract] OR porcine[Title/Abstract] OR bovine[Title/Abstract] OR equine[Title/Abstract] OR ovine[Title/Abstract] OR rodent[Title/Abstract] OR rodents[Title/Abstract] OR in vivo[Title/Abstract] OR animal model[Title/Abstract] OR animal study[Title/Abstract])';
+      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms] OR (animal[Title/Abstract] NOT human[Title/Abstract]) OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR dog[Title/Abstract] OR "in vivo"[Title/Abstract] OR "animal model"[Title/Abstract])`;
     } else if (studyType === 'human') {
-      searchQuery += ' AND (human[MeSH Terms] OR humans[MeSH Terms] OR patient[Title/Abstract] OR patients[Title/Abstract] OR clinical trial[Title/Abstract] OR clinical study[Title/Abstract] OR human study[Title/Abstract] OR volunteer[Title/Abstract] OR volunteers[Title/Abstract] OR participant[Title/Abstract] OR participants[Title/Abstract] OR subject[Title/Abstract] OR subjects[Title/Abstract] OR adult[Title/Abstract] OR adults[Title/Abstract] OR child[Title/Abstract] OR children[Title/Abstract] OR adolescent[Title/Abstract] OR infant[Title/Abstract] OR elderly[Title/Abstract] OR geriatric[Title/Abstract] OR pediatric[Title/Abstract])';
+      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms] OR (human[Title/Abstract] NOT animal[Title/Abstract]) OR patient[Title/Abstract] OR patients[Title/Abstract] OR "clinical trial"[Title/Abstract] OR "clinical study"[Title/Abstract] OR volunteer[Title/Abstract] OR participant[Title/Abstract] OR adult[Title/Abstract])`;
     }
     
     // Search PubMed using the extracted terms
@@ -290,8 +315,22 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     
     // Step 1: Search for articles - fetch top 100 most relevant results for better quality
     console.log(`Searching PubMed with ${keyTerms.length} key terms...`);
+    console.log('Search query:', searchQuery.substring(0, 500) + '...');
+    
     const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=100&retmode=json&sort=relevance`;
-    const searchResponse = await axios.get(searchUrl);
+    
+    let searchResponse;
+    try {
+      searchResponse = await axios.get(searchUrl, { timeout: 30000 });
+    } catch (error) {
+      console.error('PubMed search API error:', error.message);
+      return res.status(500).json({ 
+        error: 'Failed to search PubMed',
+        details: 'PubMed API is not responding. Please try again later.',
+        keyTerms: keyTerms.slice(0, 10)
+      });
+    }
+    
     const pmids = searchResponse.data.esearchresult?.idlist || [];
     
     console.log(`Found ${pmids.length} articles from PubMed for reference document search`);

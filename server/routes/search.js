@@ -85,6 +85,7 @@ router.post('/', async (req, res) => {
       maxResults,
       categoryKeywords: primaryKeywords,
       headingKeyword,
+      studyType,
       yearFrom,
       yearTo,
       hasAbstract,

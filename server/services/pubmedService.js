@@ -29,6 +29,7 @@ class PubMedService {
       maxResults = 200,
       categoryKeywords = [],
       headingKeyword = '',
+      studyType = null,
       yearFrom = null,
       yearTo = null,
       hasAbstract = false,
@@ -48,6 +49,13 @@ class PubMedService {
     if (categoryKeywords && categoryKeywords.length > 0) {
       const keywordQuery = categoryKeywords.slice(0, 5).join(' OR '); // Limit to top 5 keywords
       searchQuery = `${searchQuery} AND (${keywordQuery})`;
+    }
+
+    // Add study type filter (animal or human)
+    if (studyType === 'animal') {
+      searchQuery = `${searchQuery} AND (Animals[MeSH Terms] OR (animal[Title/Abstract] NOT human[Title/Abstract]) OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR dog[Title/Abstract] OR pig[Title/Abstract] OR monkey[Title/Abstract] OR "in vivo"[Title/Abstract] OR "animal model"[Title/Abstract])`;
+    } else if (studyType === 'human') {
+      searchQuery = `${searchQuery} AND (Humans[MeSH Terms] OR (human[Title/Abstract] NOT animal[Title/Abstract]) OR patient[Title/Abstract] OR patients[Title/Abstract] OR "clinical trial"[Title/Abstract] OR "clinical study"[Title/Abstract] OR volunteer[Title/Abstract] OR participant[Title/Abstract] OR adult[Title/Abstract] OR child[Title/Abstract] OR pediatric[Title/Abstract])`;
     }
 
     // Add date range filter
