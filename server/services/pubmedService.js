@@ -30,6 +30,7 @@ class PubMedService {
       categoryKeywords = [],
       headingKeyword = '',
       studyType = null,
+      categoryPath = '',
       yearFrom = null,
       yearTo = null,
       hasAbstract = false,
@@ -37,7 +38,7 @@ class PubMedService {
       fullText = false
     } = options;
 
-    // Build enhanced search query
+    // Build enhanced search query with MeSH-first approach
     let searchQuery = query;
 
     // Add heading keyword if provided (e.g., "cefixime AND safety")
@@ -45,9 +46,10 @@ class PubMedService {
       searchQuery = `${query} AND ${headingKeyword}`;
     }
 
-    // Add category keywords with OR logic (e.g., "cefixime AND safety AND (adverse events OR toxicity)")
+    // Add category keywords with OR logic - prioritize MeSH terms
     if (categoryKeywords && categoryKeywords.length > 0) {
-      const keywordQuery = categoryKeywords.slice(0, 5).join(' OR '); // Limit to top 5 keywords
+      // Use top 3-5 keywords for more specific search
+      const keywordQuery = categoryKeywords.slice(0, 3).join(' OR ');
       searchQuery = `${searchQuery} AND (${keywordQuery})`;
     }
 
@@ -58,6 +60,20 @@ class PubMedService {
     } else if (studyType === 'human') {
       // Strict human filter: Prefer Humans MeSH term, exclude animal-only studies
       searchQuery = `${searchQuery} AND (Humans[MeSH Terms]) NOT (Animals[MeSH Terms] NOT Humans[MeSH Terms])`;
+    }
+
+    // Add publication type filters based on category to prevent overlap
+    if (categoryPath) {
+      if (categoryPath.includes('activeControlled') || categoryPath.includes('randomized') || categoryPath.includes('placebo')) {
+        // For clinical trials, exclude meta-analyses and reviews
+        searchQuery = `${searchQuery} NOT (Meta-Analysis[Publication Type] OR Systematic Review[Publication Type] OR Review[Publication Type])`;
+      } else if (categoryPath.includes('metaAnalysis')) {
+        // For meta-analyses, require specific publication type
+        searchQuery = `${searchQuery} AND (Meta-Analysis[Publication Type] OR Systematic Review[Publication Type])`;
+      } else if (categoryPath.includes('uncontrolled')) {
+        // For uncontrolled studies, exclude RCTs and meta-analyses
+        searchQuery = `${searchQuery} NOT (Randomized Controlled Trial[Publication Type] OR Meta-Analysis[Publication Type])`;
+      }
     }
 
     // Add date range filter

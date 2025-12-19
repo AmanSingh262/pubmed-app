@@ -86,6 +86,7 @@ router.post('/', async (req, res) => {
       categoryKeywords: primaryKeywords,
       headingKeyword,
       studyType,
+      categoryPath: categoryPaths[0], // Use first category path for publication type filtering
       yearFrom,
       yearTo,
       hasAbstract,

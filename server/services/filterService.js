@@ -127,22 +127,37 @@ class FilterService {
     // If subcategory or type is selected, get their specific keywords
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
-    // Get top 5-10 most relevant keywords for search
+    // Get top 3-5 most relevant keywords for search (reduced from 5-10 for better specificity)
     const primaryKeywords = [];
     
-    // Add MeSH terms (most specific)
+    // PRIORITIZE MeSH terms (most specific and reliable)
     if (filterKeywords.meshTerms.length > 0) {
-      filterKeywords.meshTerms.slice(0, 5).forEach(term => {
-        // Remove [MeSH] tag for search
+      // Get unique MeSH terms, prioritize those that aren't in other categories
+      const specificMeshTerms = filterKeywords.meshTerms
+        .filter(term => {
+          const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
+          // Exclude overly generic terms that appear everywhere
+          return !['efficacy', 'treatment outcome', 'drug therapy'].includes(cleanTerm);
+        })
+        .slice(0, 3); // Top 3 most specific MeSH terms
+      
+      specificMeshTerms.forEach(term => {
         const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
     }
     
-    // Add key textKeywords
-    if (filterKeywords.textKeywords.length > 0) {
-      filterKeywords.textKeywords.slice(0, 3).forEach(term => {
-        // Remove [tiab] tag for search
+    // Add specific textKeywords only if we have few MeSH terms
+    if (primaryKeywords.length < 3 && filterKeywords.textKeywords.length > 0) {
+      const specificTextKeywords = filterKeywords.textKeywords
+        .filter(term => {
+          const cleanTerm = term.replace(/\[tiab\]$/i, '').trim().toLowerCase();
+          // Exclude generic terms
+          return !['efficacy', 'safety'].includes(cleanTerm) && cleanTerm.length > 5;
+        })
+        .slice(0, 2); // Max 2 text keywords
+      
+      specificTextKeywords.forEach(term => {
         const cleanTerm = term.replace(/\[tiab\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
@@ -174,36 +189,57 @@ class FilterService {
     const { keywords, meshTerms, textKeywords } = filterKeywords;
     const allKeywords = [...keywords, ...meshTerms, ...textKeywords];
 
-    // MeSH term matching (highest weight: +10 points per match)
+    // MeSH term matching (HIGHEST weight: +15 points per match, increased from 10)
+    let meshMatchCount = 0;
     if (article.meshTerms && meshTerms.length > 0) {
       for (const mesh of article.meshTerms) {
         // Ensure mesh is a string
         const meshStr = typeof mesh === 'string' ? mesh : String(mesh);
+        const meshLower = meshStr.toLowerCase();
+        
         for (const filterMesh of meshTerms) {
           // Remove [MeSH] tag for comparison
-          const cleanFilterMesh = filterMesh.replace(/\[MeSH\]$/i, '').trim();
-          if (meshStr.toLowerCase().includes(cleanFilterMesh.toLowerCase()) ||
-              cleanFilterMesh.toLowerCase().includes(meshStr.toLowerCase())) {
-            score += 10;
+          const cleanFilterMesh = filterMesh.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
+          
+          // Exact match gets higher score
+          if (meshLower === cleanFilterMesh) {
+            score += 20; // Exact MeSH match is very strong indicator
             matches.meshMatches.push(meshStr);
+            meshMatchCount++;
+            break;
+          } else if (meshLower.includes(cleanFilterMesh) || cleanFilterMesh.includes(meshLower)) {
+            score += 15; // Partial MeSH match
+            matches.meshMatches.push(meshStr);
+            meshMatchCount++;
             break;
           }
         }
       }
     }
 
-    // Title keyword matching (+5 points per match)
+    // Title keyword matching (+8 points per match, increased from 5)
+    let titleMatchCount = 0;
     if (article.title) {
       // Ensure title is a string
       const titleStr = typeof article.title === 'string' ? article.title : String(article.title);
       const titleLower = titleStr.toLowerCase();
+      
       for (const keyword of allKeywords) {
         const cleanKeyword = keyword.replace(/\[(MeSH|tiab)\]$/i, '').trim().toLowerCase();
-        if (titleLower.includes(cleanKeyword)) {
-          score += 5;
+        
+        // Use word boundary for more accurate matching
+        const wordBoundaryRegex = new RegExp(`\\b${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (wordBoundaryRegex.test(titleLower)) {
+          score += 8;
           matches.titleMatches.push(keyword);
+          titleMatchCount++;
         }
       }
+    }
+    
+    // Boost score if both title and MeSH match
+    if (titleMatchCount > 0 && meshMatchCount > 0) {
+      score += 10; // Bonus for having both types of matches
     }
 
     // Abstract keyword matching (+2 points per match)
