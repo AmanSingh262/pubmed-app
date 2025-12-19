@@ -341,23 +341,43 @@ class FilterService {
     });
 
     if (studyType === 'human') {
-      // For human studies, exclude if animal score is significantly higher
-      // and there's no strong human indication
-      if (animalScore > humanScore * 2 && humanScore < 5) {
+      // STRICT for human studies - check title primarily
+      
+      // High priority rejection: obvious animal species in title
+      const obviousAnimalInTitle = title.includes(' in rats') || title.includes(' in mice') || 
+                                    title.includes(' in pigs') || title.includes(' in rabbits') ||
+                                    title.includes('rat model') || title.includes('mouse model') ||
+                                    title.includes('animal model');
+      if (obviousAnimalInTitle) {
         return true;
       }
-      // Definite exclusion if only animal MeSH terms present
-      if (hasAnimalMesh && !hasHumanMesh && animalScore > 10) {
+      
+      // Reject if animal MeSH present but no human MeSH
+      if (hasAnimalMesh && !hasHumanMesh) {
         return true;
       }
+      
+      // Reject if title has strong animal indicators and low human score
+      const strongAnimalInTitle = animalKeywords.slice(0, 10).some(keyword => 
+        title.includes(` ${keyword} `) || title.includes(` ${keyword},`)
+      );
+      if (strongAnimalInTitle && humanScore < animalScore) {
+        return true;
+      }
+      
     } else if (studyType === 'animal') {
-      // For animal studies, exclude if human score is significantly higher
-      // and there's no strong animal indication
-      if (humanScore > animalScore * 2 && animalScore < 5) {
+      // STRICT for animal studies
+      
+      // Reject if obvious clinical trial in title
+      const obviousClinicalInTitle = title.includes('clinical trial') || 
+                                      title.includes('randomized controlled trial') ||
+                                      (title.includes('patients') && title.includes('study'));
+      if (obviousClinicalInTitle) {
         return true;
       }
-      // Definite exclusion if only human MeSH terms present
-      if (hasHumanMesh && !hasAnimalMesh && humanScore > 10) {
+      
+      // Reject if has human MeSH but no animal indicators
+      if (hasHumanMesh && !hasAnimalMesh && animalScore < 3) {
         return true;
       }
     }

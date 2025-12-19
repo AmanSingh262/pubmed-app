@@ -120,9 +120,13 @@ function extractKeyTerms(text) {
 function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '') {
   if (!referenceKeyTerms || referenceKeyTerms.length === 0) return 0;
   
-  const articleText = `${articleTitle} ${articleAbstract}`.toLowerCase();
-  const titleLower = articleTitle.toLowerCase();
-  const abstractLower = articleAbstract.toLowerCase();
+  // Ensure title and abstract are strings
+  const titleStr = typeof articleTitle === 'string' ? articleTitle : String(articleTitle || '');
+  const abstractStr = typeof articleAbstract === 'string' ? articleAbstract : String(articleAbstract || '');
+  
+  const articleText = `${titleStr} ${abstractStr}`.toLowerCase();
+  const titleLower = titleStr.toLowerCase();
+  const abstractLower = abstractStr.toLowerCase();
   
   let matchCount = 0;
   let weightedScore = 0;
@@ -381,7 +385,13 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         
         const rawPmid = pubmedArticle.MedlineCitation?.PMID;
         const pmid = normalizePmid(rawPmid);
-        const title = article.ArticleTitle || '';
+        
+        // Ensure title is a string
+        let title = article.ArticleTitle || '';
+        if (typeof title === 'object' && title !== null) {
+          title = title._ || String(title);
+        }
+        title = String(title || '');
         
         // Extract abstract text
         let abstract = '';
@@ -390,13 +400,16 @@ router.post('/upload', upload.single('document'), async (req, res) => {
           if (typeof abstractText === 'string') {
             abstract = abstractText;
           } else if (Array.isArray(abstractText)) {
-            abstract = abstractText.map(part => 
-              typeof part === 'string' ? part : part._
-            ).join(' ');
-          } else if (typeof abstractText === 'object') {
-            abstract = abstractText._ || JSON.stringify(abstractText);
+            abstract = abstractText.map(part => {
+              if (typeof part === 'string') return part;
+              if (typeof part === 'object' && part !== null) return part._ || '';
+              return String(part || '');
+            }).join(' ');
+          } else if (typeof abstractText === 'object' && abstractText !== null) {
+            abstract = abstractText._ || String(abstractText);
           }
         }
+        abstract = String(abstract || '');
         
         // Calculate similarity score using BOTH title and abstract
         const similarityScore = calculateSimilarityScore(keyTerms, title, abstract);

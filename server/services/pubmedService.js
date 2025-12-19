@@ -51,11 +51,13 @@ class PubMedService {
       searchQuery = `${searchQuery} AND (${keywordQuery})`;
     }
 
-    // Add study type filter (animal or human)
+    // Add study type filter (animal or human) - STRICT but functional filtering
     if (studyType === 'animal') {
-      searchQuery = `${searchQuery} AND (Animals[MeSH Terms] OR (animal[Title/Abstract] NOT human[Title/Abstract]) OR mouse[Title/Abstract] OR mice[Title/Abstract] OR rat[Title/Abstract] OR rats[Title/Abstract] OR rabbit[Title/Abstract] OR dog[Title/Abstract] OR pig[Title/Abstract] OR monkey[Title/Abstract] OR "in vivo"[Title/Abstract] OR "animal model"[Title/Abstract])`;
+      // Strict animal filter: Prefer Animals MeSH term, exclude clinical trials
+      searchQuery = `${searchQuery} AND (Animals[MeSH Terms]) NOT (Humans[MeSH Terms] NOT Animals[MeSH Terms])`;
     } else if (studyType === 'human') {
-      searchQuery = `${searchQuery} AND (Humans[MeSH Terms] OR (human[Title/Abstract] NOT animal[Title/Abstract]) OR patient[Title/Abstract] OR patients[Title/Abstract] OR "clinical trial"[Title/Abstract] OR "clinical study"[Title/Abstract] OR volunteer[Title/Abstract] OR participant[Title/Abstract] OR adult[Title/Abstract] OR child[Title/Abstract] OR pediatric[Title/Abstract])`;
+      // Strict human filter: Prefer Humans MeSH term, exclude animal-only studies
+      searchQuery = `${searchQuery} AND (Humans[MeSH Terms]) NOT (Animals[MeSH Terms] NOT Humans[MeSH Terms])`;
     }
 
     // Add date range filter

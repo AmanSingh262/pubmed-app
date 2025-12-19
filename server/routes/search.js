@@ -122,6 +122,63 @@ router.post('/', async (req, res) => {
       console.log(`Filtered out ${articles.length - validArticles.length} articles with missing data`);
     }
 
+    // Step 3.5: STRICT filtering based on study type - focus on TITLE for accuracy
+    const studyTypeFilteredArticles = validArticles.filter(article => {
+      const title = (typeof article.title === 'string' ? article.title : String(article.title || '')).toLowerCase();
+      const meshTermsLower = (article.meshTerms || []).map(term => 
+        (typeof term === 'string' ? term : String(term)).toLowerCase()
+      );
+
+      // Animal species keywords for title checking
+      const animalSpeciesInTitle = ['in rats', 'in mice', 'in pigs', 'in rabbits', 'in dogs', 'in monkeys', 'in guinea pig', 'rat model', 'mouse model', 'animal model'];
+      const strongAnimalWords = [' rat ', ' rats ', ' mouse ', ' mice ', ' pig ', ' pigs ', 'porcine', 'murine', 'in swine'];
+      
+      if (studyType === 'human') {
+        // STRICT for human studies - check title for obvious animal species
+        
+        // Reject if title clearly indicates animal study
+        const hasObviousAnimalInTitle = animalSpeciesInTitle.some(phrase => title.includes(phrase)) ||
+                                        strongAnimalWords.some(word => title.includes(word));
+        if (hasObviousAnimalInTitle) {
+          console.log(`❌ REJECTED (obvious animal in title): ${title.substring(0, 60)}...`);
+          return false;
+        }
+        
+        // If MeSH terms exist, check them
+        if (meshTermsLower.length > 0) {
+          const hasHumansMeSH = meshTermsLower.some(term => term.includes('human'));
+          const hasAnimalOnlyMeSH = meshTermsLower.some(term => term === 'animals') && !hasHumansMeSH;
+          
+          // Reject if it's clearly an animal-only study
+          if (hasAnimalOnlyMeSH) {
+            console.log(`❌ REJECTED (Animals MeSH without Humans): ${title.substring(0, 60)}...`);
+            return false;
+          }
+        }
+        
+        console.log(`✅ ACCEPTED (human study): ${title.substring(0, 60)}...`);
+        return true;
+        
+      } else if (studyType === 'animal') {
+        // STRICT for animal studies - check for clinical trials
+        
+        // Reject if title clearly indicates clinical trial
+        const hasClinicalInTitle = title.includes('clinical trial') || 
+                                   title.includes('randomized controlled trial') ||
+                                   (title.includes('patient') && title.includes('study'));
+        if (hasClinicalInTitle) {
+          console.log(`❌ REJECTED (clinical trial in title): ${title.substring(0, 60)}...`);
+          return false;
+        }
+        
+        console.log(`✅ ACCEPTED (animal study): ${title.substring(0, 60)}...`);
+        return true;
+      }
+
+      return true;
+    });
+
+    console.log(`Study type filtering: ${validArticles.length} -> ${studyTypeFilteredArticles.length} articles`);
     console.log(`Filtering by ${studyType} > [${categoryPaths.join(', ')}]`);
 
     // Step 4: Collect all filtered articles from all categories
@@ -129,7 +186,7 @@ router.post('/', async (req, res) => {
 
     for (const path of categoryPaths) {
       const filtered = filterService.filterAndRankArticles(
-        validArticles,
+        studyTypeFilteredArticles,
         studyType,
         path,
         maxResults // Get all matching articles, not just topN
