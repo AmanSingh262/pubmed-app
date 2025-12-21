@@ -345,16 +345,28 @@ class PubMedService {
         // Extract and normalize PMID to string
         const rawPmid = pubmedArticle?.MedlineCitation?.PMID;
         const pmid = String(rawPmid?._ || rawPmid?.i || rawPmid || '');
-        const title = article?.ArticleTitle || 'No title';
+        
+        // Extract title and ensure it's always a string
+        const rawTitle = article?.ArticleTitle;
+        let title = 'No title';
+        if (rawTitle) {
+          if (typeof rawTitle === 'string') {
+            title = rawTitle;
+          } else if (rawTitle._) {
+            title = String(rawTitle._);
+          } else if (typeof rawTitle === 'object') {
+            title = String(rawTitle);
+          }
+        }
         
         // Extract abstract
         let abstract = '';
         if (article?.Abstract?.AbstractText) {
           const abstractText = article.Abstract.AbstractText;
           if (Array.isArray(abstractText)) {
-            abstract = abstractText.map(a => a._ || a).join(' ');
+            abstract = abstractText.map(a => String(a._ || a)).join(' ');
           } else {
-            abstract = abstractText._ || abstractText;
+            abstract = String(abstractText._ || abstractText || '');
           }
         }
 
@@ -409,14 +421,14 @@ class PubMedService {
         }
 
         articles.push({
-          pmid,
-          title,
-          abstract,
+          pmid: String(pmid),
+          title: String(title),
+          abstract: String(abstract),
           authors: authors.slice(0, 10), // Limit to first 10 authors
-          journal,
+          journal: String(journal),
           publicationDate: pubDate,
-          meshTerms,
-          keywords,
+          meshTerms: meshTerms.map(m => String(m)),
+          keywords: keywords.map(k => String(k)),
           url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
         });
       }
