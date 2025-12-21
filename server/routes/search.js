@@ -214,6 +214,7 @@ router.post('/', async (req, res) => {
             article.hasDrug = article.hasDrug || existing.hasDrug;
             article.drugInTitle = article.drugInTitle || existing.drugInTitle;
             article.drugMentionCount = Math.max(article.drugMentionCount || 0, existing.drugMentionCount || 0);
+            article.filterScore = Math.max(article.filterScore || 0, existing.filterScore || 0);
           }
           allFilteredArticles.set(article.pmid, article);
         }
@@ -221,20 +222,20 @@ router.post('/', async (req, res) => {
     }
 
     // Convert map to array and sort by relevance score
-    // Articles with drug name will be at the top due to massive score boost (150-200+ points)
+    // Articles with BOTH drug AND filters will be at the top (200-300+ points)
     const combinedArticles = Array.from(allFilteredArticles.values())
       .sort((a, b) => {
-        // Primary sort by relevance score (drug presence = 150-200+ points)
+        // Primary sort by relevance score (drug+filter = 200-300+ points, others much lower)
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
         }
-        // Secondary sort: drug in title beats drug in abstract
-        if (a.drugInTitle !== b.drugInTitle) {
-          return a.drugInTitle ? -1 : 1;
-        }
-        // Tertiary sort: prioritize articles with both drug and filter
+        // Secondary sort: ensure hasDrugAndFilter is prioritized
         if (a.hasDrugAndFilter !== b.hasDrugAndFilter) {
           return a.hasDrugAndFilter ? -1 : 1;
+        }
+        // Tertiary sort: drug in title beats drug in abstract
+        if (a.drugInTitle !== b.drugInTitle) {
+          return a.drugInTitle ? -1 : 1;
         }
         // Quaternary sort: more drug mentions
         if ((a.drugMentionCount || 0) !== (b.drugMentionCount || 0)) {
@@ -245,11 +246,13 @@ router.post('/', async (req, res) => {
       })
       .slice(0, topN);
 
+    const articlesWithDrugAndFilter = combinedArticles.filter(a => a.hasDrugAndFilter).length;
     const articlesWithDrug = combinedArticles.filter(a => a.hasDrug).length;
+    const articlesDrugOnly = combinedArticles.filter(a => a.hasDrug && !a.hasDrugAndFilter).length;
     const articlesWithDrugInTitle = combinedArticles.filter(a => a.drugInTitle).length;
 
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
-    console.log(`📊 Drug-focused results: ${articlesWithDrug} with drug, ${articlesWithDrugInTitle} with drug in title`);
+    console.log(`🔥 BOTH drug+filters: ${articlesWithDrugAndFilter} (HIGHEST) | Drug only: ${articlesDrugOnly} (LOW) | Drug in title: ${articlesWithDrugInTitle}`);
 
     const processingTime = Date.now() - startTime;
 
