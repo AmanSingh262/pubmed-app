@@ -248,9 +248,10 @@ router.post('/', async (req, res) => {
 
     const articlesWithDrugAndFilter = combinedArticles.filter(a => a.hasDrugAndFilter).length;
     const articlesWithDrugInTitle = combinedArticles.filter(a => a.drugInTitle).length;
+    const articlesFilterOnly = combinedArticles.filter(a => !a.hasDrug && a.relevanceScore > 0).length;
 
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
-    console.log(`✅ ALL results have BOTH drug + filters | 🔥 Drug in title: ${articlesWithDrugInTitle}`);
+    console.log(`🔥 Drug+filters: ${articlesWithDrugAndFilter} (TOP) | Filter only: ${articlesFilterOnly} | Drug in title: ${articlesWithDrugInTitle}`);
 
     const processingTime = Date.now() - startTime;
 
