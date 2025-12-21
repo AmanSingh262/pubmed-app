@@ -69,16 +69,26 @@ class PubMedService {
     // Build enhanced search query - MORE FLEXIBLE approach
     let searchQuery = query;
 
-    // Add heading keyword with OR logic for broader results
+    // Add heading keyword with flexible matching (not strict MeSH)
     if (headingKeyword) {
-      searchQuery = `${query} AND (${headingKeyword}[MeSH Terms] OR ${headingKeyword}[Title/Abstract])`;
+      // Use Title/Abstract and All Fields for broader, more reliable matching
+      searchQuery = `${query} AND ${headingKeyword}[Title/Abstract]`;
     }
 
     // Add category keywords with OR logic - USE MORE KEYWORDS for broader search
     if (categoryKeywords && categoryKeywords.length > 0) {
-      // Use top 5-8 keywords instead of just 3 for better coverage
-      const keywordQuery = categoryKeywords.slice(0, 8).join(' OR ');
-      searchQuery = `${searchQuery} AND (${keywordQuery})`;
+      // Clean keywords and use flexible matching
+      const cleanKeywords = categoryKeywords
+        .map(kw => kw.replace(/\[(MeSH|tiab)\]$/i, '').trim())
+        .filter(kw => kw.length > 0);
+      
+      if (cleanKeywords.length > 0) {
+        // Use up to 8 keywords with Title/Abstract search for reliability
+        const keywordQuery = cleanKeywords.slice(0, 8)
+          .map(kw => `"${kw}"[Title/Abstract]`)
+          .join(' OR ');
+        searchQuery = `${searchQuery} AND (${keywordQuery})`;
+      }
     }
 
     // Add study type filter (animal or human) - Simplified for reliability
@@ -173,7 +183,45 @@ class PubMedService {
       if (response.data.esearchresult.errorlist) {
         const errors = response.data.esearchresult.errorlist;
         console.error('PubMed query errors:', errors);
-        throw new Error(`PubMed query error: ${JSON.stringify(errors)}`);
+        console.log('Attempting simpler query without complex filters...');
+        
+        // Fallback: Try simpler query with just drug name and study type
+        const simpleQuery = studyType ? 
+          `${query} AND ${studyType === 'animal' ? 'Animals[MeSH Terms]' : 'Humans[MeSH Terms]'}` : 
+          query;
+        
+        console.log(`Fallback query: ${simpleQuery}`);
+        
+        // Retry with simpler query
+        const fallbackParams = {
+          db: 'pubmed',
+          term: simpleQuery,
+          retmax: maxResults,
+          retmode: 'json',
+          sort: 'relevance'
+        };
+        
+        if (this.apiKey) {
+          fallbackParams.api_key = this.apiKey;
+        }
+        
+        const fallbackResponse = await axios.get(`${this.baseURL}/esearch.fcgi`, { 
+          params: fallbackParams,
+          timeout: 30000,
+          validateStatus: (status) => status < 500
+        });
+        
+        if (fallbackResponse.data?.esearchresult?.idlist) {
+          const idList = fallbackResponse.data.esearchresult.idlist || [];
+          const count = fallbackResponse.data.esearchresult.count || 0;
+          console.log(`Fallback successful: Found ${count} articles with simpler query`);
+          
+          const result = { ids: idList, totalCount: parseInt(count) };
+          this.cache.set(cacheKey, result);
+          return result;
+        } else {
+          throw new Error(`PubMed query failed even with simpler query. Please check your search terms.`);
+        }
       }
       
       const idList = response.data.esearchresult?.idlist || [];
