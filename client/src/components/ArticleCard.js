@@ -50,8 +50,8 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
     : 'Unknown authors';
 
   const abstractPreview = abstract && abstract.length > 300
-    ? abstract.substring(0, 300) + '...'
-    : abstract;
+    ? String(abstract).substring(0, 300) + '...'
+    : abstract || 'No abstract available';
 
   const getScoreColor = (score) => {
     if (score >= 30) return '#10b981';

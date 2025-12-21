@@ -206,7 +206,7 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
                   
                   <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
                     <strong>Drug Name:</strong> {previewData.articleInfo?.drugName}<br/>
-                    <strong>Title:</strong> {previewData.articleInfo?.title?.substring(0, 80)}...
+                    <strong>Title:</strong> {previewData.articleInfo?.title ? String(previewData.articleInfo.title).substring(0, 80) + '...' : 'N/A'}
                   </div>
 
                   <h5>Content Availability:</h5>
@@ -260,7 +260,7 @@ function TemplateDocModal({ isOpen, onClose, selectedArticles }) {
                 <div key={index} className="article-preview-item">
                   <span className="pmid-badge">PMID: {article.pmid}</span>
                   <span className="article-title-short">
-                    {article.title.substring(0, 60)}...
+                    {article.title ? String(article.title).substring(0, 60) + '...' : 'N/A'}
                   </span>
                 </div>
               ))}
