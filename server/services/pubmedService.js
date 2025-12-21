@@ -8,6 +8,34 @@ class PubMedService {
     this.apiKey = process.env.PUBMED_API_KEY || '';
     this.cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL_SECONDS || '3600') });
     this.parser = new xml2js.Parser({ explicitArray: false });
+    this.maxRetries = 3;
+    this.retryDelay = 1000; // 1 second initial delay
+  }
+
+  /**
+   * Retry helper function with exponential backoff
+   * @param {Function} fn - Function to retry
+   * @param {number} retries - Number of retries remaining
+   * @param {number} delay - Current delay in ms
+   * @returns {Promise<any>}
+   */
+  async retryWithBackoff(fn, retries = this.maxRetries, delay = this.retryDelay) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (retries === 0) {
+        throw error;
+      }
+      
+      // Don't retry on 4xx errors (client errors)
+      if (error.response && error.response.status >= 400 && error.response.status < 500) {
+        throw error;
+      }
+
+      console.log(`Retrying... (${this.maxRetries - retries + 1}/${this.maxRetries}) after ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return this.retryWithBackoff(fn, retries - 1, delay * 2);
+    }
   }
 
   /**
@@ -53,13 +81,13 @@ class PubMedService {
       searchQuery = `${searchQuery} AND (${keywordQuery})`;
     }
 
-    // Add study type filter (animal or human) - STRICT but functional filtering
+    // Add study type filter (animal or human) - Simplified for reliability
     if (studyType === 'animal') {
-      // Strict animal filter: Prefer Animals MeSH term, exclude clinical trials
-      searchQuery = `${searchQuery} AND (Animals[MeSH Terms]) NOT (Humans[MeSH Terms] NOT Animals[MeSH Terms])`;
+      // Animal filter: Include Animals MeSH term
+      searchQuery = `${searchQuery} AND Animals[MeSH Terms]`;
     } else if (studyType === 'human') {
-      // Strict human filter: Prefer Humans MeSH term, exclude animal-only studies
-      searchQuery = `${searchQuery} AND (Humans[MeSH Terms]) NOT (Animals[MeSH Terms] NOT Humans[MeSH Terms])`;
+      // Human filter: Include Humans MeSH term
+      searchQuery = `${searchQuery} AND Humans[MeSH Terms]`;
     }
 
     // Add publication type filters based on category to prevent overlap
@@ -120,10 +148,38 @@ class PubMedService {
         params.api_key = this.apiKey;
       }
 
-      const response = await axios.get(`${this.baseURL}/esearch.fcgi`, { params });
+      // Use retry mechanism for the API call
+      const response = await this.retryWithBackoff(async () => {
+        return await axios.get(`${this.baseURL}/esearch.fcgi`, { 
+          params,
+          timeout: 30000, // 30 second timeout
+          validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+        });
+      });
+
+      // Check for API errors
+      if (response.status >= 400) {
+        console.error(`PubMed API error: Status ${response.status}`);
+        throw new Error(`PubMed API returned status ${response.status}`);
+      }
+
+      // Check if response has the expected structure
+      if (!response.data || !response.data.esearchresult) {
+        console.error('Invalid response structure from PubMed:', response.data);
+        throw new Error('Invalid response from PubMed API');
+      }
+
+      // Check for error messages in the response
+      if (response.data.esearchresult.errorlist) {
+        const errors = response.data.esearchresult.errorlist;
+        console.error('PubMed query errors:', errors);
+        throw new Error(`PubMed query error: ${JSON.stringify(errors)}`);
+      }
       
       const idList = response.data.esearchresult?.idlist || [];
       const count = response.data.esearchresult?.count || 0;
+
+      console.log(`Found ${count} articles, retrieved ${idList.length} IDs`);
 
       const result = { ids: idList, totalCount: parseInt(count) };
       this.cache.set(cacheKey, result);
@@ -131,7 +187,21 @@ class PubMedService {
       return result;
     } catch (error) {
       console.error('Error searching PubMed:', error.message);
-      throw new Error('Failed to search PubMed articles');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        query: searchQuery
+      });
+      
+      // Return more specific error message
+      if (error.response) {
+        throw new Error(`PubMed API error: ${error.response.status} - ${error.message}`);
+      } else if (error.request) {
+        throw new Error(`PubMed API network error: ${error.message}`);
+      } else {
+        throw new Error(`PubMed search failed: ${error.message}`);
+      }
     }
   }
 
@@ -164,7 +234,25 @@ class PubMedService {
         params.api_key = this.apiKey;
       }
 
-      const response = await axios.get(`${this.baseURL}/efetch.fcgi`, { params });
+      // Use retry mechanism for the API call
+      const response = await this.retryWithBackoff(async () => {
+        return await axios.get(`${this.baseURL}/efetch.fcgi`, { 
+          params,
+          timeout: 60000, // 60 second timeout for fetching details
+          validateStatus: (status) => status < 500
+        });
+      });
+
+      // Check for API errors
+      if (response.status >= 400) {
+        console.error(`PubMed API error: Status ${response.status}`);
+        throw new Error(`PubMed API returned status ${response.status}`);
+      }
+
+      if (!response.data) {
+        console.error('Empty response from PubMed efetch');
+        throw new Error('Empty response from PubMed API');
+      }
       
       const result = await this.parser.parseStringPromise(response.data);
       const articles = this.parseArticles(result);
@@ -173,7 +261,20 @@ class PubMedService {
       return articles;
     } catch (error) {
       console.error('Error fetching article details:', error.message);
-      throw new Error('Failed to fetch article details');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.status,
+        idsCount: ids.length
+      });
+      
+      // Return more specific error message
+      if (error.response) {
+        throw new Error(`PubMed API error fetching details: ${error.response.status}`);
+      } else if (error.request) {
+        throw new Error(`Network error fetching article details: ${error.message}`);
+      } else {
+        throw new Error(`Failed to fetch article details: ${error.message}`);
+      }
     }
   }
 
