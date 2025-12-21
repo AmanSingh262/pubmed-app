@@ -171,9 +171,10 @@ class FilterService {
    * @param {Object} article - Article object with title, abstract, meshTerms, keywords
    * @param {Object} filterKeywords - Keywords to match against
    * @param {string} drugQuery - Optional drug/query term to check for dual presence
+   * @param {string} categoryPath - Category path to identify subheading priority (e.g., "pharmacokinetics.distribution")
    * @returns {Object} Score details with total score and matches
    */
-  calculateRelevanceScore(article, filterKeywords, drugQuery = null) {
+  calculateRelevanceScore(article, filterKeywords, drugQuery = null, categoryPath = null) {
     let score = 0;
     const matches = {
       meshMatches: [],
@@ -200,46 +201,59 @@ class FilterService {
       const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
       const fullText = `${titleStr} ${abstractStr}`;
       
-      // Create flexible drug matching patterns
-      // Include partial matches and common variations
-      const drugPatterns = [
-        new RegExp(`\\b${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), // Exact word
-        new RegExp(`${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi'), // Partial match (e.g., "augmentin" in "augmentin-based")
-      ];
+      // Check drug presence with word boundary for accurate matching
+      const drugRegex = new RegExp(`\\b${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
       
-      // Check if any pattern matches
-      for (const pattern of drugPatterns) {
-        if (pattern.test(titleStr)) {
-          drugInTitle = true;
-          hasDrug = true;
-          break;
-        }
-      }
-      
-      if (!hasDrug) {
-        for (const pattern of drugPatterns) {
-          if (pattern.test(abstractStr)) {
-            drugInAbstract = true;
-            hasDrug = true;
-            break;
-          }
-        }
-      }
+      drugInTitle = drugRegex.test(titleStr);
+      drugInAbstract = drugRegex.test(abstractStr);
+      hasDrug = drugInTitle || drugInAbstract;
       
       if (hasDrug) {
-        // Count drug mentions for frequency scoring - use more flexible matching
-        drugMentionCount = (fullText.match(drugPatterns[1]) || []).length;
+        // Count drug mentions for frequency scoring
+        drugMentionCount = (fullText.match(drugRegex) || []).length;
         matches.drugMatches.push(drugQuery);
         
-        console.log(`💊 DRUG FOUND: "${drugQuery}" - Title: ${drugInTitle}, Abstract: ${drugInAbstract}, Mentions: ${drugMentionCount}`);
+        // MASSIVE BASE SCORE for drug presence - ensures drug articles rank highest
+        if (drugInTitle) {
+          score += 150; // Huge base score for drug in title
+          console.log(`💊 DRUG IN TITLE: "${drugQuery}" found in title (Base: +150)`);
+        } else if (drugInAbstract) {
+          score += 80; // Strong base score for drug in abstract
+          console.log(`💊 DRUG IN ABSTRACT: "${drugQuery}" found in abstract (Base: +80)`);
+        }
+        
+        // Frequency bonus - more mentions = more relevant
+        if (drugMentionCount >= 5) {
+          score += 40; // Very frequent mentions
+        } else if (drugMentionCount >= 3) {
+          score += 25; // Multiple mentions
+        } else if (drugMentionCount >= 2) {
+          score += 15; // Two mentions
+        }
+        
+        console.log(`💊 Drug "${drugQuery}" mentioned ${drugMentionCount} times (Frequency bonus: +${drugMentionCount >= 5 ? 40 : drugMentionCount >= 3 ? 25 : drugMentionCount >= 2 ? 15 : 0})`);
       }
     }
 
     const { keywords, meshTerms, textKeywords } = filterKeywords;
     const allKeywords = [...keywords, ...meshTerms, ...textKeywords];
 
+    // Identify subheading name for priority scoring
+    let subheadingName = null;
+    let isSubheadingSelected = false;
+    if (categoryPath) {
+      const pathParts = categoryPath.split('.');
+      if (pathParts.length >= 2) {
+        isSubheadingSelected = true;
+        // Get the subheading name from the last part of the path
+        subheadingName = pathParts[pathParts.length - 1];
+        console.log(`🎯 SUBHEADING SELECTED: "${subheadingName}" - Prioritizing subheading-specific keywords`);
+      }
+    }
+
     // MeSH term matching (HIGHEST weight: +15 points per match, increased from 10)
     let meshMatchCount = 0;
+    let subheadingMeshMatchCount = 0;
     if (article.meshTerms && meshTerms.length > 0) {
       for (const mesh of article.meshTerms) {
         // Ensure mesh is a string
@@ -250,14 +264,14 @@ class FilterService {
           // Remove [MeSH] tag for comparison
           const cleanFilterMesh = filterMesh.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
           
-          // More flexible matching - exact, contains, or partial
+          // Exact match gets higher score
           if (meshLower === cleanFilterMesh) {
-            score += 25; // Exact MeSH match - increased for better detection
+            score += 20; // Exact MeSH match is very strong indicator
             matches.meshMatches.push(meshStr);
             meshMatchCount++;
             break;
           } else if (meshLower.includes(cleanFilterMesh) || cleanFilterMesh.includes(meshLower)) {
-            score += 20; // Partial MeSH match - increased
+            score += 15; // Partial MeSH match
             matches.meshMatches.push(meshStr);
             meshMatchCount++;
             break;
@@ -266,55 +280,94 @@ class FilterService {
       }
     }
 
-    // Title keyword matching (+10 points per match - increased for better detection)
+    // Title keyword matching (+8 points per match, increased from 5)
     let titleMatchCount = 0;
+    let subheadingTitleMatchCount = 0;
     if (article.title) {
       // Ensure title is a string
       const titleStr = typeof article.title === 'string' ? article.title : String(article.title);
       const titleLower = titleStr.toLowerCase();
       
+      // PRIORITY 1: Check for subheading name itself in title (HIGHEST priority)
+      if (isSubheadingSelected && subheadingName) {
+        const subheadingRegex = new RegExp(`\\b${subheadingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (subheadingRegex.test(titleLower)) {
+          score += 50; // MASSIVE boost for subheading name in title
+          matches.titleMatches.push(subheadingName);
+          titleMatchCount++;
+          subheadingTitleMatchCount++;
+          console.log(`🎯🎯 SUBHEADING NAME IN TITLE: "${subheadingName}" (Score: +50)`);
+        }
+      }
+      
       for (const keyword of allKeywords) {
         const cleanKeyword = keyword.replace(/\[(MeSH|tiab)\]$/i, '').trim().toLowerCase();
         
-        // Try both word boundary and partial matching
-        const wordBoundaryRegex = new RegExp(`\\b${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-        const partialRegex = new RegExp(cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        // Check if this is a subheading-specific keyword
+        const isSubheadingKeyword = isSubheadingSelected && 
+          (cleanKeyword.includes(subheadingName.toLowerCase()) || 
+           cleanKeyword === subheadingName.toLowerCase());
         
+        // Use word boundary for more accurate matching
+        const wordBoundaryRegex = new RegExp(`\\b${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
         if (wordBoundaryRegex.test(titleLower)) {
-          score += 10; // Exact word match
+          const titleScore = isSubheadingKeyword ? 25 : 8; // 3x score for subheading keywords
+          score += titleScore;
           matches.titleMatches.push(keyword);
           titleMatchCount++;
-        } else if (partialRegex.test(titleLower)) {
-          score += 7; // Partial match in title
-          matches.titleMatches.push(keyword);
-          titleMatchCount++;
+          if (isSubheadingKeyword) {
+            subheadingTitleMatchCount++;
+            console.log(`🎯 SUBHEADING KEYWORD IN TITLE: "${cleanKeyword}" (Score: +${titleScore})`);
+          }
         }
       }
     }
     
     // Boost score if both title and MeSH match
     if (titleMatchCount > 0 && meshMatchCount > 0) {
-      score += 15; // Bonus for having both types of matches - increased
+      score += 10; // Bonus for having both types of matches
     }
 
-    // Abstract keyword matching (+3 points per match - increased for better detection)
-    let abstractMatchCount = 0;
+    // Abstract keyword matching (+2 points per match)
+    let subheadingAbstractMatchCount = 0;
     if (article.abstract) {
       // Ensure abstract is a string
       const abstractStr = typeof article.abstract === 'string' ? article.abstract : String(article.abstract);
       const abstractLower = abstractStr.toLowerCase();
+      
+      // PRIORITY 1: Check for subheading name itself in abstract
+      if (isSubheadingSelected && subheadingName) {
+        const subheadingRegex = new RegExp(`\\b${subheadingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        const subheadingMatches = (abstractLower.match(subheadingRegex) || []).length;
+        if (subheadingMatches > 0) {
+          const abstractScore = 15 * subheadingMatches; // 15 points per mention
+          score += abstractScore;
+          matches.abstractMatches.push(subheadingName);
+          subheadingAbstractMatchCount++;
+          console.log(`🎯 SUBHEADING NAME IN ABSTRACT: "${subheadingName}" (${subheadingMatches}x, Score: +${abstractScore})`);
+        }
+      }
+      
       for (const keyword of allKeywords) {
         const cleanKeyword = keyword.replace(/\[(MeSH|tiab)\]$/i, '').trim().toLowerCase();
-        // Use partial matching for abstracts (more flexible)
+        
+        // Check if this is a subheading-specific keyword
+        const isSubheadingKeyword = isSubheadingSelected && 
+          (cleanKeyword.includes(subheadingName.toLowerCase()) || 
+           cleanKeyword === subheadingName.toLowerCase());
+        
         if (abstractLower.includes(cleanKeyword)) {
-          score += 3;
+          const abstractScore = isSubheadingKeyword ? 6 : 2; // 3x score for subheading keywords
+          score += abstractScore;
           matches.abstractMatches.push(keyword);
-          abstractMatchCount++;
+          if (isSubheadingKeyword) {
+            subheadingAbstractMatchCount++;
+          }
         }
       }
     }
 
-    // Article keywords matching (+4 points per match - increased)
+    // Article keywords matching (+3 points per match)
     if (article.keywords && article.keywords.length > 0) {
       for (const artKeyword of article.keywords) {
         // Ensure keyword is a string
@@ -322,7 +375,7 @@ class FilterService {
         for (const filterKeyword of allKeywords) {
           const cleanFilterKeyword = filterKeyword.replace(/\[(MeSH|tiab)\]$/i, '').trim().toLowerCase();
           if (keywordStr.toLowerCase().includes(cleanFilterKeyword)) {
-            score += 4;
+            score += 3;
             matches.keywordMatches.push(keywordStr);
             break;
           }
@@ -338,66 +391,80 @@ class FilterService {
       matches.keywordMatches.length > 0
     ].filter(Boolean).length;
 
-    // Apply multiplier for diverse matches
-    if (matchTypes >= 3) {
-      score = Math.floor(score * 1.6); // 60% bonus for 3+ match types - increased
+    // Additional bonus for subheading-specific matches across multiple locations
+    const subheadingMatchLocations = [
+      subheadingMeshMatchCount > 0,
+      subheadingTitleMatchCount > 0,
+      subheadingAbstractMatchCount > 0
+    ].filter(Boolean).length;
+    
+    if (subheadingMatchLocations >= 2) {
+      score = Math.floor(score * 1.6); // 60% bonus for subheading matches in 2+ locations
+      console.log(`🎯 SUBHEADING MULTI-LOCATION BONUS: ${subheadingMatchLocations} locations (Multiplier: 1.6x)`);
+    } else if (matchTypes >= 3) {
+      score = Math.floor(score * 1.5); // 50% bonus for 3+ match types
     } else if (matchTypes >= 2) {
-      score = Math.floor(score * 1.3); // 30% bonus for 2+ match types - increased
+      score = Math.floor(score * 1.2); // 20% bonus for 2+ match types
     }
 
     // Store filter score before adding drug bonuses
     const filterScore = score;
     const hasFilterMatches = score > 0 || matchTypes > 0;
 
-    // Log filter matching results
-    if (hasFilterMatches) {
-      console.log(`✓ FILTER MATCHED: Score ${filterScore}, MeSH:${meshMatchCount}, Title:${titleMatchCount}, Abstract:${abstractMatchCount}, Types:${matchTypes}`);
-    }
-
-    // CRITICAL: HIGH PRIORITY when article has BOTH drug AND filter matches
+    // CRITICAL: HIGH PRIORITY only if article has BOTH drug AND filter matches
     let hasDrugAndFilter = false;
     if (hasDrug && hasFilterMatches) {
       hasDrugAndFilter = true;
       
       // MASSIVE PRIORITY BOOST only when BOTH conditions are met
       if (drugInTitle) {
-        score += 250; // Huge boost for drug in title + filters - increased to ensure top ranking
-        console.log(`🔥 PERFECT MATCH: Drug "${drugQuery}" in title + filters (Boost: +250)`);
+        score += 200; // Huge boost for drug in title + filters
+        console.log(`🔥 HIGH PRIORITY: Drug "${drugQuery}" in title + filters matched (Boost: +200)`);
       } else if (drugInAbstract) {
-        score += 150; // Strong boost for drug in abstract + filters - increased
-        console.log(`🔥 EXCELLENT MATCH: Drug "${drugQuery}" in abstract + filters (Boost: +150)`);
+        score += 120; // Strong boost for drug in abstract + filters
+        console.log(`🔥 HIGH PRIORITY: Drug "${drugQuery}" in abstract + filters matched (Boost: +120)`);
       }
       
       // Frequency bonus for multiple drug mentions (only when filters also match)
       if (drugMentionCount >= 5) {
-        score += 50; // Very frequent mentions - increased
+        score += 40; // Very frequent mentions
       } else if (drugMentionCount >= 3) {
-        score += 30; // Multiple mentions - increased
+        score += 25; // Multiple mentions
       } else if (drugMentionCount >= 2) {
-        score += 20; // Two mentions - increased
+        score += 15; // Two mentions
       }
       
-      console.log(`💊 Drug mentioned ${drugMentionCount} times with filter matches | FINAL SCORE: ${score}`);
+      console.log(`💊 Drug mentioned ${drugMentionCount} times with filter matches`);
     } else if (hasDrug && !hasFilterMatches) {
-      // Drug present but NO filter matches - still excluded later, but minimal score
-      score = 1; // Minimal score to identify but exclude
-      console.log(`⚠️ Drug "${drugQuery}" found but NO filter match - will be excluded`);
-    } else if (!hasDrug && hasFilterMatches) {
-      // Filters matched but no drug - will be excluded
-      score = 1; // Minimal score to identify but exclude  
-      console.log(`⚠️ Filters matched but NO drug "${drugQuery}" - will be excluded`);
+      // Drug present but NO filter matches - LOW priority (small boost only)
+      if (drugInTitle) {
+        score += 5; // Minimal boost
+        console.log(`⚠️ LOW PRIORITY: Drug "${drugQuery}" in title but NO filter match (Boost: +5)`);
+      } else {
+        score += 2; // Very minimal boost
+        console.log(`⚠️ LOW PRIORITY: Drug "${drugQuery}" in abstract but NO filter match (Boost: +2)`);
+      }
+    }
+
+    // Calculate final priority score
+    const finalScore = score;
+    const priorityLevel = hasDrugAndFilter ? 'HIGHEST' : 
+                         hasDrug ? 'LOW' : 
+                         matchTypes >= 2 ? 'MEDIUM' : 'LOW';
+
+    if (hasDrug || hasDrugAndFilter) {
+      console.log(`📊 FINAL SCORE: ${finalScore} | Priority: ${priorityLevel} | Drug: ${hasDrug} | Filters: ${hasFilterMatches} | Drug+Filter: ${hasDrugAndFilter}`);
     }
 
     return {
-      score,
+      score: finalScore,
       matches,
       matchTypes,
       hasDrugAndFilter,
       hasDrug,
       drugInTitle,
       drugMentionCount,
-      filterScore,
-      hasFilterMatches
+      filterScore
     };
   }
 
@@ -551,9 +618,9 @@ class FilterService {
     
     console.log(`Excluded ${articles.length - typeFilteredArticles.length} articles based on study type`);
 
-    // Calculate scores for all articles, passing drugQuery for priority boosting
+    // Calculate scores for all articles, passing drugQuery and categoryPath for priority boosting
     const scoredArticles = typeFilteredArticles.map(article => {
-      const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery);
+      const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery, categoryPath);
       return {
         ...article,
         relevanceScore: scoreData.score,
@@ -575,9 +642,9 @@ class FilterService {
         // MUST have both drug AND filter matches
         if (!article.hasDrugAndFilter) {
           if (article.hasDrug && !article.hasDrugAndFilter) {
-            console.log(`❌ EXCLUDED (drug only, no filters): ${String(article.title).substring(0, 60)}...`);
+            console.log(`❌ EXCLUDED (drug only, no filters): ${article.title?.substring(0, 60)}...`);
           } else if (!article.hasDrug && article.filterScore > 0) {
-            console.log(`❌ EXCLUDED (filters only, no drug): ${String(article.title).substring(0, 60)}...`);
+            console.log(`❌ EXCLUDED (filters only, no drug): ${article.title?.substring(0, 60)}...`);
           }
           return false;
         }
@@ -585,7 +652,7 @@ class FilterService {
         return article.hasDrugAndFilter && article.relevanceScore > 0;
       })
       .sort((a, b) => {
-        // Primary sort: BOTH drug and filters (scores 300-500+) rank first
+        // Primary sort: BOTH drug and filters (scores 200-300+) rank first
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
         }

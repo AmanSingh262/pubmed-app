@@ -54,7 +54,7 @@ class PubMedService {
    */
   async searchArticles(query, options = {}) {
     const {
-      maxResults = 2000, // Fetch all available articles - PubMed API limit is ~10000
+      maxResults = 200,
       categoryKeywords = [],
       headingKeyword = '',
       studyType = null,
@@ -66,29 +66,19 @@ class PubMedService {
       fullText = false
     } = options;
 
-    // Build enhanced search query - MORE FLEXIBLE approach
+    // Build enhanced search query with MeSH-first approach
     let searchQuery = query;
 
-    // Add heading keyword with flexible matching (not strict MeSH)
+    // Add heading keyword if provided (e.g., "cefixime AND safety")
     if (headingKeyword) {
-      // Use Title/Abstract and All Fields for broader, more reliable matching
-      searchQuery = `${query} AND ${headingKeyword}[Title/Abstract]`;
+      searchQuery = `${query} AND ${headingKeyword}`;
     }
 
-    // Add category keywords with OR logic - USE MORE KEYWORDS for broader search
+    // Add category keywords with OR logic - prioritize MeSH terms
     if (categoryKeywords && categoryKeywords.length > 0) {
-      // Clean keywords and use flexible matching
-      const cleanKeywords = categoryKeywords
-        .map(kw => kw.replace(/\[(MeSH|tiab)\]$/i, '').trim())
-        .filter(kw => kw.length > 0);
-      
-      if (cleanKeywords.length > 0) {
-        // Use up to 8 keywords with Title/Abstract search for reliability
-        const keywordQuery = cleanKeywords.slice(0, 8)
-          .map(kw => `"${kw}"[Title/Abstract]`)
-          .join(' OR ');
-        searchQuery = `${searchQuery} AND (${keywordQuery})`;
-      }
+      // Use top 3-5 keywords for more specific search
+      const keywordQuery = categoryKeywords.slice(0, 3).join(' OR ');
+      searchQuery = `${searchQuery} AND (${keywordQuery})`;
     }
 
     // Add study type filter (animal or human) - Simplified for reliability
@@ -183,45 +173,7 @@ class PubMedService {
       if (response.data.esearchresult.errorlist) {
         const errors = response.data.esearchresult.errorlist;
         console.error('PubMed query errors:', errors);
-        console.log('Attempting simpler query without complex filters...');
-        
-        // Fallback: Try simpler query with just drug name and study type
-        const simpleQuery = studyType ? 
-          `${query} AND ${studyType === 'animal' ? 'Animals[MeSH Terms]' : 'Humans[MeSH Terms]'}` : 
-          query;
-        
-        console.log(`Fallback query: ${simpleQuery}`);
-        
-        // Retry with simpler query
-        const fallbackParams = {
-          db: 'pubmed',
-          term: simpleQuery,
-          retmax: maxResults,
-          retmode: 'json',
-          sort: 'relevance'
-        };
-        
-        if (this.apiKey) {
-          fallbackParams.api_key = this.apiKey;
-        }
-        
-        const fallbackResponse = await axios.get(`${this.baseURL}/esearch.fcgi`, { 
-          params: fallbackParams,
-          timeout: 30000,
-          validateStatus: (status) => status < 500
-        });
-        
-        if (fallbackResponse.data?.esearchresult?.idlist) {
-          const idList = fallbackResponse.data.esearchresult.idlist || [];
-          const count = fallbackResponse.data.esearchresult.count || 0;
-          console.log(`Fallback successful: Found ${count} articles with simpler query`);
-          
-          const result = { ids: idList, totalCount: parseInt(count) };
-          this.cache.set(cacheKey, result);
-          return result;
-        } else {
-          throw new Error(`PubMed query failed even with simpler query. Please check your search terms.`);
-        }
+        throw new Error(`PubMed query error: ${JSON.stringify(errors)}`);
       }
       
       const idList = response.data.esearchresult?.idlist || [];
@@ -345,28 +297,16 @@ class PubMedService {
         // Extract and normalize PMID to string
         const rawPmid = pubmedArticle?.MedlineCitation?.PMID;
         const pmid = String(rawPmid?._ || rawPmid?.i || rawPmid || '');
-        
-        // Extract title and ensure it's always a string
-        const rawTitle = article?.ArticleTitle;
-        let title = 'No title';
-        if (rawTitle) {
-          if (typeof rawTitle === 'string') {
-            title = rawTitle;
-          } else if (rawTitle._) {
-            title = String(rawTitle._);
-          } else if (typeof rawTitle === 'object') {
-            title = String(rawTitle);
-          }
-        }
+        const title = article?.ArticleTitle || 'No title';
         
         // Extract abstract
         let abstract = '';
         if (article?.Abstract?.AbstractText) {
           const abstractText = article.Abstract.AbstractText;
           if (Array.isArray(abstractText)) {
-            abstract = abstractText.map(a => String(a._ || a)).join(' ');
+            abstract = abstractText.map(a => a._ || a).join(' ');
           } else {
-            abstract = String(abstractText._ || abstractText || '');
+            abstract = abstractText._ || abstractText;
           }
         }
 
@@ -421,14 +361,14 @@ class PubMedService {
         }
 
         articles.push({
-          pmid: String(pmid),
-          title: String(title),
-          abstract: String(abstract),
+          pmid,
+          title,
+          abstract,
           authors: authors.slice(0, 10), // Limit to first 10 authors
-          journal: String(journal),
+          journal,
           publicationDate: pubDate,
-          meshTerms: meshTerms.map(m => String(m)),
-          keywords: keywords.map(k => String(k)),
+          meshTerms,
+          keywords,
           url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
         });
       }

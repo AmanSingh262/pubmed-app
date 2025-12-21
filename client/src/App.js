@@ -236,14 +236,12 @@ function AppContent() {
 
       // Add article to cart with category information
       addToCart(article, category, 'reference');
-      const titleStr = article.title ? String(article.title).substring(0, 50) : 'Article';
-      toast.success(`Added "${titleStr}..." to cart`);
+      toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
     } catch (error) {
       console.error('Error adding to cart:', error);
       // Still add to cart even if abstract fetch fails
       addToCart(article, category, 'reference');
-      const titleStr = article.title ? String(article.title).substring(0, 50) : 'Article';
-      toast.success(`Added "${titleStr}..." to cart`);
+      toast.success(`Added "${article.title.substring(0, 50)}..." to cart`);
     }
   };
 

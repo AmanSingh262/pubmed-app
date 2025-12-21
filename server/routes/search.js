@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
       studyType = 'animal',
       categoryPath,
       customKeywords = null,
-      maxResults = 2000, // Increased to fetch all available articles from PubMed
+      maxResults = 200,
       topN = 30,
       yearFrom = null,
       yearTo = null,
@@ -250,7 +250,7 @@ router.post('/', async (req, res) => {
     const articlesWithDrugInTitle = combinedArticles.filter(a => a.drugInTitle).length;
 
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
-    console.log(`✅ ALL ${combinedArticles.length} results have BOTH drug + filters | 🔥 ${articlesWithDrugInTitle} with drug in title`);
+    console.log(`✅ ALL results have BOTH drug + filters | 🔥 Drug in title: ${articlesWithDrugInTitle}`);
 
     const processingTime = Date.now() - startTime;
 
@@ -306,7 +306,7 @@ router.post('/batch', async (req, res) => {
       query,
       studyType = 'animal',
       categoryPaths = [],
-      maxResults = 2000, // Increased to fetch all available articles from PubMed
+      maxResults = 200,
       topN = 30
     } = req.body;
 
