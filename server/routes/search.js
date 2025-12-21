@@ -248,11 +248,11 @@ router.post('/', async (req, res) => {
 
     const articlesWithDrugAndFilter = combinedArticles.filter(a => a.hasDrugAndFilter).length;
     const articlesWithDrug = combinedArticles.filter(a => a.hasDrug).length;
-    const articlesDrugOnly = combinedArticles.filter(a => a.hasDrug && !a.hasDrugAndFilter).length;
+    const articlesFilterOnly = combinedArticles.filter(a => !a.hasDrug && a.relevanceScore > 0).length;
     const articlesWithDrugInTitle = combinedArticles.filter(a => a.drugInTitle).length;
 
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
-    console.log(`🔥 BOTH drug+filters: ${articlesWithDrugAndFilter} (HIGHEST) | Drug only: ${articlesDrugOnly} (LOW) | Drug in title: ${articlesWithDrugInTitle}`);
+    console.log(`🔥 Drug+filters: ${articlesWithDrugAndFilter} | Filter only: ${articlesFilterOnly} | Drug in title: ${articlesWithDrugInTitle}`);
 
     const processingTime = Date.now() - startTime;
 
