@@ -190,7 +190,8 @@ router.post('/', async (req, res) => {
         studyTypeFilteredArticles,
         studyType,
         path,
-        maxResults // Get all matching articles, not just topN
+        maxResults, // Get all matching articles, not just topN
+        query // Pass the drug query for priority boosting
       );
 
       // Add to map, keeping highest score if article appears in multiple categories
@@ -207,6 +208,8 @@ router.post('/', async (req, res) => {
             };
             // Boost score for appearing in multiple categories
             article.relevanceScore = Math.max(article.relevanceScore, existing.relevanceScore) + 2;
+            // Preserve hasDrugAndFilter flag
+            article.hasDrugAndFilter = article.hasDrugAndFilter || existing.hasDrugAndFilter;
           }
           allFilteredArticles.set(article.pmid, article);
         }
@@ -214,11 +217,24 @@ router.post('/', async (req, res) => {
     }
 
     // Convert map to array and sort by relevance score
+    // Articles with both drug and filter keywords will be at the top
     const combinedArticles = Array.from(allFilteredArticles.values())
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .sort((a, b) => {
+        // Primary sort by relevance score (already includes drug+filter boost)
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        // Secondary sort: prioritize articles with both drug and filter
+        if (a.hasDrugAndFilter !== b.hasDrugAndFilter) {
+          return a.hasDrugAndFilter ? -1 : 1;
+        }
+        // Tertiary sort by match types
+        return (b.matchTypes || 0) - (a.matchTypes || 0);
+      })
       .slice(0, topN);
 
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
+    console.log(`Articles with both drug and filters: ${combinedArticles.filter(a => a.hasDrugAndFilter).length}`);
 
     const processingTime = Date.now() - startTime;
 
@@ -313,7 +329,8 @@ router.post('/batch', async (req, res) => {
         articles,
         studyType,
         categoryPath,
-        topN
+        topN,
+        query // Pass the drug query for priority boosting
       );
 
       return {

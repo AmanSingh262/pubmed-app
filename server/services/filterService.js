@@ -170,9 +170,10 @@ class FilterService {
    * Calculate relevance score for an article based on keyword matches
    * @param {Object} article - Article object with title, abstract, meshTerms, keywords
    * @param {Object} filterKeywords - Keywords to match against
+   * @param {string} drugQuery - Optional drug/query term to check for dual presence
    * @returns {Object} Score details with total score and matches
    */
-  calculateRelevanceScore(article, filterKeywords) {
+  calculateRelevanceScore(article, filterKeywords, drugQuery = null) {
     let score = 0;
     const matches = {
       meshMatches: [],
@@ -183,7 +184,7 @@ class FilterService {
 
     // Safety check
     if (!article) {
-      return { score: 0, matches, matchTypes: 0 };
+      return { score: 0, matches, matchTypes: 0, hasDrugAndFilter: false };
     }
 
     const { keywords, meshTerms, textKeywords } = filterKeywords;
@@ -286,10 +287,49 @@ class FilterService {
       score = Math.floor(score * 1.2); // 20% bonus for 2+ match types
     }
 
+    // CRITICAL PRIORITY BOOST: Check if article contains BOTH drug query AND filter keywords
+    let hasDrugAndFilter = false;
+    if (drugQuery) {
+      const drugQueryLower = drugQuery.toLowerCase().trim();
+      const titleStr = typeof article.title === 'string' ? article.title.toLowerCase() : '';
+      const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
+      const fullText = `${titleStr} ${abstractStr}`;
+      
+      // Check if drug/query is present in the article
+      const hasDrugInTitle = titleStr.includes(drugQueryLower);
+      const hasDrugInAbstract = abstractStr.includes(drugQueryLower);
+      const hasDrug = hasDrugInTitle || hasDrugInAbstract;
+      
+      // Check if article has filter keyword matches (non-zero score means it matched filters)
+      const hasFilterMatches = score > 0 || matchTypes > 0;
+      
+      // If article contains BOTH the drug AND filter keywords, it's highly relevant
+      if (hasDrug && hasFilterMatches) {
+        hasDrugAndFilter = true;
+        
+        // MASSIVE PRIORITY BOOST for articles containing both drug and filters
+        // This ensures they appear at the top of results
+        if (hasDrugInTitle) {
+          score += 100; // Huge boost if drug is in title
+        } else {
+          score += 50; // Still significant boost if drug is in abstract
+        }
+        
+        // Additional boost if drug appears multiple times
+        const drugOccurrences = (fullText.match(new RegExp(drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+        if (drugOccurrences > 2) {
+          score += 20; // Extra boost for frequent mentions
+        }
+        
+        console.log(`🔥 HIGH PRIORITY: Article contains both "${drugQuery}" and filter keywords (Score: ${score})`);
+      }
+    }
+
     return {
       score,
       matches,
-      matchTypes
+      matchTypes,
+      hasDrugAndFilter
     };
   }
 
@@ -427,9 +467,10 @@ class FilterService {
    * @param {string} studyType - 'animal' or 'human'
    * @param {string} categoryPath - Category path string
    * @param {number} topN - Number of top results to return
+   * @param {string} drugQuery - Optional drug/query term for priority boosting
    * @returns {Array} Filtered and ranked articles
    */
-  filterAndRankArticles(articles, studyType, categoryPath, topN = 30) {
+  filterAndRankArticles(articles, studyType, categoryPath, topN = 30, drugQuery = null) {
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
     if (filterKeywords.keywords.length === 0) {
@@ -442,21 +483,36 @@ class FilterService {
     
     console.log(`Excluded ${articles.length - typeFilteredArticles.length} articles based on study type`);
 
-    // Calculate scores for all articles
+    // Calculate scores for all articles, passing drugQuery for priority boosting
     const scoredArticles = typeFilteredArticles.map(article => {
-      const scoreData = this.calculateRelevanceScore(article, filterKeywords);
+      const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery);
       return {
         ...article,
         relevanceScore: scoreData.score,
         matches: scoreData.matches,
-        matchTypes: scoreData.matchTypes
+        matchTypes: scoreData.matchTypes,
+        hasDrugAndFilter: scoreData.hasDrugAndFilter
       };
     });
 
     // Filter articles with score > 0 and sort by score descending
+    // Articles with both drug and filters will automatically rank highest due to score boost
     const filteredArticles = scoredArticles
       .filter(article => article.relevanceScore > 0)
-      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+      .sort((a, b) => {
+        // Primary sort by relevance score (includes drug+filter boost)
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+        // Secondary sort: prioritize articles with both drug and filter
+        if (a.hasDrugAndFilter !== b.hasDrugAndFilter) {
+          return a.hasDrugAndFilter ? -1 : 1;
+        }
+        // Tertiary sort by match types
+        return b.matchTypes - a.matchTypes;
+      });
+
+    console.log(`Articles with both drug and filters: ${filteredArticles.filter(a => a.hasDrugAndFilter).length}`);
 
     // Return top N results
     return filteredArticles.slice(0, topN);

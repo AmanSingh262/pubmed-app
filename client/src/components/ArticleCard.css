@@ -298,6 +298,13 @@
   border: 1px solid #86efac;
 }
 
+.keyword-tag {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #60a5fa;
+  font-weight: 600;
+}
+
 .title-tag {
   background: #fef3c7;
   color: #92400e;

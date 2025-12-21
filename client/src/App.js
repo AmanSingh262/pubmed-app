@@ -102,8 +102,16 @@ function AppContent() {
         toast.success(`Found top ${data.filteredArticles} relevant articles!`);
       }
     } catch (error) {
-      toast.error('Failed to search articles. Please try again.');
       console.error('Search error:', error);
+      
+      // Extract error message from response if available
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to search articles';
+      toast.error(errorMessage + '. Please try again.');
+      
+      // Log additional details for debugging
+      if (error.response?.data?.details) {
+        console.error('Error details:', error.response.data.details);
+      }
     } finally {
       setLoading(false);
     }

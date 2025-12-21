@@ -156,9 +156,22 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
         <div className="article-matches">
           <div className="matches-header">
             <FaTags className="matches-icon" />
-            <span>Keyword Matches ({(matches.meshMatches?.length || 0) + (matches.titleMatches?.length || 0) + (matches.abstractMatches?.length || 0)})</span>
+            <span>Keyword Matches ({(matches.meshMatches?.length || 0) + (matches.titleMatches?.length || 0) + (matches.abstractMatches?.length || 0) + (matches.keywordMatches?.length || 0)})</span>
           </div>
           <div className="matches-content">
+            {matches.keywordMatches && matches.keywordMatches.length > 0 && (
+              <div className="match-group">
+                <span className="match-type">🎯 Keywords:</span>
+                <div className="match-tags">
+                  {matches.keywordMatches.slice(0, 5).map((term, idx) => (
+                    <span key={idx} className="match-tag keyword-tag">{String(term)}</span>
+                  ))}
+                  {matches.keywordMatches.length > 5 && (
+                    <span className="match-more">+{matches.keywordMatches.length - 5} more</span>
+                  )}
+                </div>
+              </div>
+            )}
             {matches.meshMatches && matches.meshMatches.length > 0 && (
               <div className="match-group">
                 <span className="match-type">MeSH Terms:</span>
