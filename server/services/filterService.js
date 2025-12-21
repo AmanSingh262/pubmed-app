@@ -568,22 +568,21 @@ class FilterService {
     });
 
     // Filter and sort articles
-    // NEW APPROACH: Include all articles with filter matches
-    // But prioritize (highest scores) articles with BOTH drug AND filters
+    // STRICT: ONLY show articles with BOTH drug AND filters
+    // Exclude: drug only (no filters) OR filter only (no drug)
     const filteredArticles = scoredArticles
       .filter(article => {
-        // Include if has filter matches (with or without drug)
-        if (article.filterScore > 0 || article.hasDrugAndFilter) {
-          return true;
-        }
-        
-        // Exclude if only drug, no filters
-        if (article.hasDrug && !article.hasDrugAndFilter) {
-          console.log(`❌ EXCLUDED (drug only, no filters): ${String(article.title).substring(0, 60)}...`);
+        // MUST have both drug AND filter matches
+        if (!article.hasDrugAndFilter) {
+          if (article.hasDrug && !article.hasDrugAndFilter) {
+            console.log(`❌ EXCLUDED (drug only, no filters): ${String(article.title).substring(0, 60)}...`);
+          } else if (!article.hasDrug && article.filterScore > 0) {
+            console.log(`❌ EXCLUDED (filters only, no drug): ${String(article.title).substring(0, 60)}...`);
+          }
           return false;
         }
-        
-        return false;
+        // Only include articles with BOTH drug AND filters
+        return article.hasDrugAndFilter && article.relevanceScore > 0;
       })
       .sort((a, b) => {
         // Primary sort: BOTH drug and filters (scores 300-500+) rank first
@@ -609,14 +608,13 @@ class FilterService {
     const articlesWithDrug = filteredArticles.filter(a => a.hasDrug).length;
     const articlesWithDrugAndFilter = filteredArticles.filter(a => a.hasDrugAndFilter).length;
     const articlesWithDrugInTitle = filteredArticles.filter(a => a.drugInTitle).length;
-    const articlesFilterOnly = filteredArticles.filter(a => !a.hasDrug && a.filterScore > 0).length;
+    const excludedFilterOnly = scoredArticles.filter(a => !a.hasDrug && a.filterScore > 0).length;
     const excludedDrugOnly = scoredArticles.filter(a => a.hasDrug && !a.hasDrugAndFilter).length;
 
     console.log(`📊 RANKING SUMMARY:`);
-    console.log(`   - ✅ Total included: ${filteredArticles.length}`);
-    console.log(`   - 🔥 Drug + filters (HIGHEST priority): ${articlesWithDrugAndFilter}`);
-    console.log(`   - 📄 Filter matches only: ${articlesFilterOnly}`);
-    console.log(`   - Drug in title: ${articlesWithDrugInTitle}`);
+    console.log(`   - ✅ Total included: ${filteredArticles.length} (ALL have BOTH drug + filters)`);
+    console.log(`   - 🔥 Drug in title + filters: ${articlesWithDrugInTitle}`);
+    console.log(`   - ❌ Excluded filter only (no drug): ${excludedFilterOnly}`);
     console.log(`   - ❌ Excluded drug only (no filters): ${excludedDrugOnly}`);
 
     // Return top N results
