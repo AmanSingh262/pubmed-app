@@ -204,12 +204,16 @@ router.post('/', async (req, res) => {
               meshMatches: [...new Set([...(existing.matches.meshMatches || []), ...(article.matches.meshMatches || [])])],
               titleMatches: [...new Set([...(existing.matches.titleMatches || []), ...(article.matches.titleMatches || [])])],
               abstractMatches: [...new Set([...(existing.matches.abstractMatches || []), ...(article.matches.abstractMatches || [])])],
-              keywordMatches: [...new Set([...(existing.matches.keywordMatches || []), ...(article.matches.keywordMatches || [])])]
+              keywordMatches: [...new Set([...(existing.matches.keywordMatches || []), ...(article.matches.keywordMatches || [])])],
+              drugMatches: [...new Set([...(existing.matches.drugMatches || []), ...(article.matches.drugMatches || [])])]
             };
             // Boost score for appearing in multiple categories
             article.relevanceScore = Math.max(article.relevanceScore, existing.relevanceScore) + 2;
-            // Preserve hasDrugAndFilter flag
+            // Preserve drug-related flags
             article.hasDrugAndFilter = article.hasDrugAndFilter || existing.hasDrugAndFilter;
+            article.hasDrug = article.hasDrug || existing.hasDrug;
+            article.drugInTitle = article.drugInTitle || existing.drugInTitle;
+            article.drugMentionCount = Math.max(article.drugMentionCount || 0, existing.drugMentionCount || 0);
           }
           allFilteredArticles.set(article.pmid, article);
         }
@@ -217,24 +221,35 @@ router.post('/', async (req, res) => {
     }
 
     // Convert map to array and sort by relevance score
-    // Articles with both drug and filter keywords will be at the top
+    // Articles with drug name will be at the top due to massive score boost (150-200+ points)
     const combinedArticles = Array.from(allFilteredArticles.values())
       .sort((a, b) => {
-        // Primary sort by relevance score (already includes drug+filter boost)
+        // Primary sort by relevance score (drug presence = 150-200+ points)
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
         }
-        // Secondary sort: prioritize articles with both drug and filter
+        // Secondary sort: drug in title beats drug in abstract
+        if (a.drugInTitle !== b.drugInTitle) {
+          return a.drugInTitle ? -1 : 1;
+        }
+        // Tertiary sort: prioritize articles with both drug and filter
         if (a.hasDrugAndFilter !== b.hasDrugAndFilter) {
           return a.hasDrugAndFilter ? -1 : 1;
         }
-        // Tertiary sort by match types
+        // Quaternary sort: more drug mentions
+        if ((a.drugMentionCount || 0) !== (b.drugMentionCount || 0)) {
+          return (b.drugMentionCount || 0) - (a.drugMentionCount || 0);
+        }
+        // Final sort by match types
         return (b.matchTypes || 0) - (a.matchTypes || 0);
       })
       .slice(0, topN);
 
+    const articlesWithDrug = combinedArticles.filter(a => a.hasDrug).length;
+    const articlesWithDrugInTitle = combinedArticles.filter(a => a.drugInTitle).length;
+
     console.log(`Filtered to ${combinedArticles.length} relevant articles from ${categoryPaths.length} categories`);
-    console.log(`Articles with both drug and filters: ${combinedArticles.filter(a => a.hasDrugAndFilter).length}`);
+    console.log(`📊 Drug-focused results: ${articlesWithDrug} with drug, ${articlesWithDrugInTitle} with drug in title`);
 
     const processingTime = Date.now() - startTime;
 

@@ -179,12 +179,59 @@ class FilterService {
       meshMatches: [],
       titleMatches: [],
       abstractMatches: [],
-      keywordMatches: []
+      keywordMatches: [],
+      drugMatches: []
     };
 
     // Safety check
     if (!article) {
-      return { score: 0, matches, matchTypes: 0, hasDrugAndFilter: false };
+      return { score: 0, matches, matchTypes: 0, hasDrugAndFilter: false, hasDrug: false };
+    }
+
+    // PRIORITY 1: Check for drug name presence FIRST (most important)
+    let hasDrug = false;
+    let drugInTitle = false;
+    let drugInAbstract = false;
+    let drugMentionCount = 0;
+
+    if (drugQuery) {
+      const drugQueryLower = drugQuery.toLowerCase().trim();
+      const titleStr = typeof article.title === 'string' ? article.title.toLowerCase() : '';
+      const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
+      const fullText = `${titleStr} ${abstractStr}`;
+      
+      // Check drug presence with word boundary for accurate matching
+      const drugRegex = new RegExp(`\\b${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      
+      drugInTitle = drugRegex.test(titleStr);
+      drugInAbstract = drugRegex.test(abstractStr);
+      hasDrug = drugInTitle || drugInAbstract;
+      
+      if (hasDrug) {
+        // Count drug mentions for frequency scoring
+        drugMentionCount = (fullText.match(drugRegex) || []).length;
+        matches.drugMatches.push(drugQuery);
+        
+        // MASSIVE BASE SCORE for drug presence - ensures drug articles rank highest
+        if (drugInTitle) {
+          score += 150; // Huge base score for drug in title
+          console.log(`💊 DRUG IN TITLE: "${drugQuery}" found in title (Base: +150)`);
+        } else if (drugInAbstract) {
+          score += 80; // Strong base score for drug in abstract
+          console.log(`💊 DRUG IN ABSTRACT: "${drugQuery}" found in abstract (Base: +80)`);
+        }
+        
+        // Frequency bonus - more mentions = more relevant
+        if (drugMentionCount >= 5) {
+          score += 40; // Very frequent mentions
+        } else if (drugMentionCount >= 3) {
+          score += 25; // Multiple mentions
+        } else if (drugMentionCount >= 2) {
+          score += 15; // Two mentions
+        }
+        
+        console.log(`💊 Drug "${drugQuery}" mentioned ${drugMentionCount} times (Frequency bonus: +${drugMentionCount >= 5 ? 40 : drugMentionCount >= 3 ? 25 : drugMentionCount >= 2 ? 15 : 0})`);
+      }
     }
 
     const { keywords, meshTerms, textKeywords } = filterKeywords;
@@ -287,49 +334,39 @@ class FilterService {
       score = Math.floor(score * 1.2); // 20% bonus for 2+ match types
     }
 
-    // CRITICAL PRIORITY BOOST: Check if article contains BOTH drug query AND filter keywords
+    // PRIORITY 2: Additional boost if article has BOTH drug AND filter matches
     let hasDrugAndFilter = false;
-    if (drugQuery) {
-      const drugQueryLower = drugQuery.toLowerCase().trim();
-      const titleStr = typeof article.title === 'string' ? article.title.toLowerCase() : '';
-      const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
-      const fullText = `${titleStr} ${abstractStr}`;
+    if (hasDrug && (score > 0 || matchTypes > 0)) {
+      hasDrugAndFilter = true;
       
-      // Check if drug/query is present in the article
-      const hasDrugInTitle = titleStr.includes(drugQueryLower);
-      const hasDrugInAbstract = abstractStr.includes(drugQueryLower);
-      const hasDrug = hasDrugInTitle || hasDrugInAbstract;
-      
-      // Check if article has filter keyword matches (non-zero score means it matched filters)
-      const hasFilterMatches = score > 0 || matchTypes > 0;
-      
-      // If article contains BOTH the drug AND filter keywords, it's highly relevant
-      if (hasDrug && hasFilterMatches) {
-        hasDrugAndFilter = true;
-        
-        // MASSIVE PRIORITY BOOST for articles containing both drug and filters
-        // This ensures they appear at the top of results
-        if (hasDrugInTitle) {
-          score += 100; // Huge boost if drug is in title
-        } else {
-          score += 50; // Still significant boost if drug is in abstract
-        }
-        
-        // Additional boost if drug appears multiple times
-        const drugOccurrences = (fullText.match(new RegExp(drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-        if (drugOccurrences > 2) {
-          score += 20; // Extra boost for frequent mentions
-        }
-        
-        console.log(`🔥 HIGH PRIORITY: Article contains both "${drugQuery}" and filter keywords (Score: ${score})`);
+      // EXTRA SYNERGY BONUS for having both drug and relevant filters
+      if (drugInTitle) {
+        score += 50; // Extra boost if drug in title + filters
+      } else {
+        score += 30; // Extra boost if drug in abstract + filters
       }
+      
+      console.log(`🔥 SYNERGY BONUS: Article has both "${drugQuery}" and filter keywords (Extra: +${drugInTitle ? 50 : 30})`);
+    }
+
+    // Calculate final priority score
+    const finalScore = score;
+    const priorityLevel = hasDrug && hasDrugAndFilter ? 'HIGHEST' : 
+                         hasDrug ? 'HIGH' : 
+                         matchTypes >= 2 ? 'MEDIUM' : 'LOW';
+
+    if (hasDrug || hasDrugAndFilter) {
+      console.log(`📊 FINAL SCORE: ${finalScore} | Priority: ${priorityLevel} | Drug: ${hasDrug} | Drug+Filter: ${hasDrugAndFilter}`);
     }
 
     return {
-      score,
+      score: finalScore,
       matches,
       matchTypes,
-      hasDrugAndFilter
+      hasDrugAndFilter,
+      hasDrug,
+      drugInTitle,
+      drugMentionCount
     };
   }
 
@@ -491,28 +528,47 @@ class FilterService {
         relevanceScore: scoreData.score,
         matches: scoreData.matches,
         matchTypes: scoreData.matchTypes,
-        hasDrugAndFilter: scoreData.hasDrugAndFilter
+        hasDrugAndFilter: scoreData.hasDrugAndFilter,
+        hasDrug: scoreData.hasDrug,
+        drugInTitle: scoreData.drugInTitle,
+        drugMentionCount: scoreData.drugMentionCount
       };
     });
 
     // Filter articles with score > 0 and sort by score descending
-    // Articles with both drug and filters will automatically rank highest due to score boost
+    // Articles with drug name will automatically rank highest due to massive score boost
     const filteredArticles = scoredArticles
       .filter(article => article.relevanceScore > 0)
       .sort((a, b) => {
-        // Primary sort by relevance score (includes drug+filter boost)
+        // Primary sort by relevance score (drug presence gives 150-200+ points)
         if (b.relevanceScore !== a.relevanceScore) {
           return b.relevanceScore - a.relevanceScore;
         }
-        // Secondary sort: prioritize articles with both drug and filter
+        // Secondary sort: prioritize drug in title over abstract
+        if (a.drugInTitle !== b.drugInTitle) {
+          return a.drugInTitle ? -1 : 1;
+        }
+        // Tertiary sort: prioritize articles with both drug and filter
         if (a.hasDrugAndFilter !== b.hasDrugAndFilter) {
           return a.hasDrugAndFilter ? -1 : 1;
         }
-        // Tertiary sort by match types
+        // Quaternary sort: more drug mentions = higher priority
+        if (a.drugMentionCount !== b.drugMentionCount) {
+          return b.drugMentionCount - a.drugMentionCount;
+        }
+        // Final sort by match types
         return b.matchTypes - a.matchTypes;
       });
 
-    console.log(`Articles with both drug and filters: ${filteredArticles.filter(a => a.hasDrugAndFilter).length}`);
+    const articlesWithDrug = filteredArticles.filter(a => a.hasDrug).length;
+    const articlesWithDrugAndFilter = filteredArticles.filter(a => a.hasDrugAndFilter).length;
+    const articlesWithDrugInTitle = filteredArticles.filter(a => a.drugInTitle).length;
+
+    console.log(`📊 RANKING SUMMARY:`);
+    console.log(`   - Total filtered: ${filteredArticles.length}`);
+    console.log(`   - With drug name: ${articlesWithDrug}`);
+    console.log(`   - Drug in title: ${articlesWithDrugInTitle}`);
+    console.log(`   - Drug + filters: ${articlesWithDrugAndFilter}`);
 
     // Return top N results
     return filteredArticles.slice(0, topN);
