@@ -54,7 +54,7 @@ class PubMedService {
    */
   async searchArticles(query, options = {}) {
     const {
-      maxResults = 200,
+      maxResults = 300, // Increased default to get more articles for filtering
       categoryKeywords = [],
       headingKeyword = '',
       studyType = null,
@@ -66,18 +66,18 @@ class PubMedService {
       fullText = false
     } = options;
 
-    // Build enhanced search query with MeSH-first approach
+    // Build enhanced search query - MORE FLEXIBLE approach
     let searchQuery = query;
 
-    // Add heading keyword if provided (e.g., "cefixime AND safety")
+    // Add heading keyword with OR logic for broader results
     if (headingKeyword) {
-      searchQuery = `${query} AND ${headingKeyword}`;
+      searchQuery = `${query} AND (${headingKeyword}[MeSH Terms] OR ${headingKeyword}[Title/Abstract])`;
     }
 
-    // Add category keywords with OR logic - prioritize MeSH terms
+    // Add category keywords with OR logic - USE MORE KEYWORDS for broader search
     if (categoryKeywords && categoryKeywords.length > 0) {
-      // Use top 3-5 keywords for more specific search
-      const keywordQuery = categoryKeywords.slice(0, 3).join(' OR ');
+      // Use top 5-8 keywords instead of just 3 for better coverage
+      const keywordQuery = categoryKeywords.slice(0, 8).join(' OR ');
       searchQuery = `${searchQuery} AND (${keywordQuery})`;
     }
 
