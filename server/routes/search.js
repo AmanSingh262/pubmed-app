@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
       studyType = 'animal',
       categoryPath,
       customKeywords = null,
-      maxResults = 200,
+      maxResults = 2000, // Increased to fetch all available articles from PubMed
       topN = 30,
       yearFrom = null,
       yearTo = null,
@@ -306,7 +306,7 @@ router.post('/batch', async (req, res) => {
       query,
       studyType = 'animal',
       categoryPaths = [],
-      maxResults = 200,
+      maxResults = 2000, // Increased to fetch all available articles from PubMed
       topN = 30
     } = req.body;
 

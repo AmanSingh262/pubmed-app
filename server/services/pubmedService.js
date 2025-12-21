@@ -54,7 +54,7 @@ class PubMedService {
    */
   async searchArticles(query, options = {}) {
     const {
-      maxResults = 300, // Increased default to get more articles for filtering
+      maxResults = 2000, // Fetch all available articles - PubMed API limit is ~10000
       categoryKeywords = [],
       headingKeyword = '',
       studyType = null,
