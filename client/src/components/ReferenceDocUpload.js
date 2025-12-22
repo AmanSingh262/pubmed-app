@@ -210,7 +210,12 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
       {error && (
         <div className="upload-error">
-         Extracting && (
+          <span className="error-icon">⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {isExtracting && (
         <div className="extraction-progress">
           <span className="extraction-icon">🔍</span>
           <span>Extracting information from document...</span>
