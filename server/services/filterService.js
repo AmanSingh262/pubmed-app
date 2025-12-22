@@ -256,16 +256,31 @@ class FilterService {
       const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
       const fullText = `${titleStr} ${abstractStr}`;
       
-      // Check drug presence with word boundary for accurate matching
+      // Check drug presence - RELAXED: allow partial matches for brand names and variations
+      // Try word boundary first (most accurate)
       const drugRegex = new RegExp(`\\b${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-      
       drugInTitle = drugRegex.test(titleStr);
       drugInAbstract = drugRegex.test(abstractStr);
       hasDrug = drugInTitle || drugInAbstract;
       
+      // If not found with word boundary, try substring match (catches "augmentin" in "augmentins" etc.)
+      if (!hasDrug && drugQueryLower.length >= 4) {
+        drugInTitle = titleStr.includes(drugQueryLower);
+        drugInAbstract = abstractStr.includes(drugQueryLower);
+        hasDrug = drugInTitle || drugInAbstract;
+        if (hasDrug) {
+          console.log(`💊 DRUG FOUND (partial match): "${drugQuery}" in ${drugInTitle ? 'title' : 'abstract'}`);
+        }
+      }
+      
       if (hasDrug) {
         // Count drug mentions for frequency scoring
         drugMentionCount = (fullText.match(drugRegex) || []).length;
+        // If partial match, count manually
+        if (drugMentionCount === 0) {
+          const regex = new RegExp(drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          drugMentionCount = (fullText.match(regex) || []).length;
+        }
         matches.drugMatches.push(drugQuery);
         
         // MASSIVE BASE SCORE for drug presence - ensures drug articles rank highest
@@ -332,8 +347,8 @@ class FilterService {
         titleHasInnerKeywords = categoryInfo.innerKeywords.some(keyword => fullText.includes(keyword));
         
         if (titleHasInnerKeywords && hasDrug) {
-          score += 200; // High boost for drug + inner keywords
-          console.log(`🎯 INNER KEYWORDS MATCH: Drug "${drugQuery}" + child keywords found (Boost: +200)`);
+          score += 300; // High boost for drug + inner keywords
+          console.log(`🎯 INNER KEYWORDS MATCH: Drug "${drugQuery}" + child keywords found (Boost: +300)`);
         } else if (titleHasInnerKeywords) {
           score += 50; // Moderate boost for inner keywords
           console.log(`🎯 INNER KEYWORDS: Child-specific terms found (Boost: +50)`);
@@ -724,43 +739,33 @@ class FilterService {
     });
 
     // Filter and sort articles
-    // LENIENT: Show articles with drug + any filter evidence (to ensure minimum 25 results)
-    // Priority: Best matches first, but include weaker matches if they have the drug
+    // VERY LENIENT: Trust PubMed's search results - just rank them by relevance
+    // If PubMed found them, they're likely relevant - we just prioritize the best ones
     const filteredArticles = scoredArticles
       .filter(article => {
         const titleStr = typeof article.title === 'string' ? article.title : (article.title ? String(article.title) : 'Unknown');
         
-        // Reject parent-only matches ONLY if zero filter score
-        if (article.shouldRejectParentOnly) {
-          console.log(`❌ EXCLUDED (parent-only, no filter keywords): ${titleStr.substring(0, 60)}...`);
+        // Only reject if clearly wrong study type or parent-only with zero matches
+        if (article.shouldRejectParentOnly && article.filterScore === 0 && !article.hasDrug) {
+          console.log(`❌ EXCLUDED (parent-only, no drug, no keywords): ${titleStr.substring(0, 60)}...`);
           return false;
         }
         
-        // Accept articles with drug AND any filter match (even tiny score)
-        if (article.hasDrug && article.filterScore > 0) {
-          return true; // Include if has both drug and any filter keywords
+        // Accept ALL articles that have the drug name (PubMed already filtered for relevance)
+        if (article.hasDrug) {
+          return true;
         }
         
-        // Also accept articles with drug even if weak/no direct filter match
-        // This ensures we show enough results (minimum 25)
-        if (article.hasDrug && article.matchTypes >= 1) {
-          console.log(`✅ INCLUDED (drug + weak match): ${titleStr.substring(0, 60)}...`);
-          return true; // Include drug articles with at least some keyword presence
+        // Also accept articles with strong filter matches even without explicit drug mention
+        // (drug might be a synonym or in different form)
+        if (article.filterScore >= 10 || article.matchTypes >= 2) {
+          console.log(`✅ INCLUDED (strong filter match, implicit drug): ${titleStr.substring(0, 60)}...`);
+          return true;
         }
         
-        // Exclude drug-only with absolutely no related keywords
-        if (article.hasDrug && article.filterScore === 0 && article.matchTypes === 0) {
-          console.log(`❌ EXCLUDED (drug only, zero matches): ${titleStr.substring(0, 60)}...`);
-          return false;
-        }
-        
-        // Exclude filter-only (no drug)
-        if (!article.hasDrug && article.filterScore > 0) {
-          console.log(`❌ EXCLUDED (filters only, no drug): ${titleStr.substring(0, 60)}...`);
-          return false;
-        }
-        
-        return false; // Exclude everything else
+        // Exclude only if no drug AND weak/no filter matches
+        console.log(`❌ EXCLUDED (no drug, weak matches): ${titleStr.substring(0, 60)}...`);
+        return false;
       })
       .sort((a, b) => {
         // HIGHEST PRIORITY: Title has full filter path + drug (scores 650+)
@@ -796,21 +801,21 @@ class FilterService {
     const articlesWithDrugInTitle = filteredArticles.filter(a => a.drugInTitle).length;
     const articlesWithFullPath = filteredArticles.filter(a => a.titleHasFullPath && a.hasDrug).length;
     const articlesWithInnerKeywords = filteredArticles.filter(a => a.titleHasInnerKeywords && a.hasDrug).length;
-    const weakMatches = filteredArticles.filter(a => a.hasDrug && a.filterScore > 0 && a.filterScore < 10).length;
-    const excludedFilterOnly = scoredArticles.filter(a => !a.hasDrug && a.filterScore > 0).length;
-    const excludedDrugOnly = scoredArticles.filter(a => a.hasDrug && a.filterScore === 0 && a.matchTypes === 0).length;
-    const excludedParentOnly = scoredArticles.filter(a => a.shouldRejectParentOnly).length;
+    const weakMatches = filteredArticles.filter(a => a.hasDrug && a.filterScore >= 0 && a.filterScore < 10).length;
+    const strongFilterOnly = filteredArticles.filter(a => !a.hasDrug && a.filterScore >= 10).length;
+    const totalExcluded = scoredArticles.length - filteredArticles.length;
 
     console.log(`📊 RANKING SUMMARY:`);
-    console.log(`   - ✅ Total included: ${filteredArticles.length} articles`);
+    console.log(`   - ✅ Total included: ${filteredArticles.length} articles (from ${scoredArticles.length} scored)`);
     console.log(`   - 🔥🔥🔥 Title: Drug + Full Path: ${articlesWithFullPath}`);
     console.log(`   - 🎯🎯 Title: Drug + Inner Keywords: ${articlesWithInnerKeywords}`);
-    console.log(`   - 🔥 Drug in title + strong filters: ${articlesWithDrugInTitle}`);
-    console.log(`   - 💊 Drug + filters (any strength): ${articlesWithDrugAndFilter}`);
-    console.log(`   - 📄 Drug + weak filter matches: ${weakMatches}`);
-    console.log(`   - ❌ Excluded parent-only (missing child): ${excludedParentOnly}`);
-    console.log(`   - ❌ Excluded filter only (no drug): ${excludedFilterOnly}`);
-    console.log(`   - ❌ Excluded drug only (no matches): ${excludedDrugOnly}`);
+    console.log(`   - 🔥 Drug in title: ${articlesWithDrugInTitle}`);
+    console.log(`   - 💊 Has drug name: ${articlesWithDrug}`);
+    console.log(`   - 💊 Drug + any filters: ${articlesWithDrugAndFilter}`);
+    console.log(`   - 📄 Drug + weak matches: ${weakMatches}`);
+    console.log(`   - 🔍 Strong filter only (no drug): ${strongFilterOnly}`);
+    console.log(`   - ❌ Total excluded: ${totalExcluded}`);
+    console.log(`   - 📈 Inclusion rate: ${Math.round((filteredArticles.length / scoredArticles.length) * 100)}%`);
 
     // Return top N results
     return filteredArticles.slice(0, topN);
