@@ -86,6 +86,35 @@ class FilterService {
   }
 
   /**
+   * Get parent category keywords (to detect parent-only matches)
+   * @param {string} studyType - 'animal' or 'human'
+   * @param {string} categoryPath - Category path
+   * @returns {Object} Parent keywords object
+   */
+  getParentKeywords(studyType, categoryPath) {
+    const pathParts = categoryPath.split('.');
+    if (pathParts.length < 2) {
+      return { keywords: [], meshTerms: [], textKeywords: [] };
+    }
+    
+    // Get only the parent category keywords
+    const parentPath = pathParts[0];
+    const studyKey = studyType === 'animal' ? 'animalStudies' : 'humanStudies';
+    const study = this.keywordMappings[studyKey];
+    
+    if (!study || !study.categories[parentPath]) {
+      return { keywords: [], meshTerms: [], textKeywords: [] };
+    }
+    
+    const parent = study.categories[parentPath];
+    return {
+      keywords: [parent.name],
+      meshTerms: [],
+      textKeywords: [parent.name]
+    };
+  }
+
+  /**
    * Get heading keyword for PubMed search query
    * @param {string} studyType - 'animal' or 'human'
    * @param {string} categoryPath - Category path
@@ -172,9 +201,10 @@ class FilterService {
    * @param {Object} filterKeywords - Keywords to match against
    * @param {string} drugQuery - Optional drug/query term to check for dual presence
    * @param {string} categoryPath - Category path to identify subheading priority (e.g., "pharmacokinetics.distribution")
+   * @param {string} studyType - Study type ('animal' or 'human') for parent keyword detection
    * @returns {Object} Score details with total score and matches
    */
-  calculateRelevanceScore(article, filterKeywords, drugQuery = null, categoryPath = null) {
+  calculateRelevanceScore(article, filterKeywords, drugQuery = null, categoryPath = null, studyType = 'human') {
     let score = 0;
     const matches = {
       meshMatches: [],
@@ -241,13 +271,19 @@ class FilterService {
     // Identify subheading name for priority scoring
     let subheadingName = null;
     let isSubheadingSelected = false;
+    let parentKeywords = { keywords: [], meshTerms: [], textKeywords: [] };
+    let hasSubheadingMatch = false;
+    let hasOnlyParentMatch = false;
+    
     if (categoryPath) {
       const pathParts = categoryPath.split('.');
       if (pathParts.length >= 2) {
         isSubheadingSelected = true;
         // Get the subheading name from the last part of the path
         subheadingName = pathParts[pathParts.length - 1];
-        console.log(`🎯 SUBHEADING SELECTED: "${subheadingName}" - Prioritizing subheading-specific keywords`);
+        // Get parent category keywords to detect parent-only matches
+        parentKeywords = this.getParentKeywords(studyType, categoryPath);
+        console.log(`🎯 SUBHEADING SELECTED: "${subheadingName}" - Will EXCLUDE parent-only matches`);
       }
     }
 
@@ -264,16 +300,42 @@ class FilterService {
           // Remove [MeSH] tag for comparison
           const cleanFilterMesh = filterMesh.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
           
+          // Check if this is a subheading-specific keyword
+          const isSubheadingKeyword = isSubheadingSelected && 
+            cleanFilterMesh.includes(subheadingName.toLowerCase());
+          
+          // Check if this is a parent-only keyword  
+          const isParentKeyword = isSubheadingSelected && 
+            parentKeywords.keywords.some(pk => cleanFilterMesh.toLowerCase().includes(pk.toLowerCase()));
+          
           // Exact match gets higher score
           if (meshLower === cleanFilterMesh) {
-            score += 20; // Exact MeSH match is very strong indicator
+            const meshScore = isSubheadingKeyword ? 40 : 20; // 2x score for subheading keywords
+            score += meshScore;
             matches.meshMatches.push(meshStr);
             meshMatchCount++;
+            if (isSubheadingKeyword) {
+              subheadingMeshMatchCount++;
+              hasSubheadingMatch = true;
+              console.log(`🎯 SUBHEADING MeSH MATCH: "${cleanFilterMesh}" in MeSH (Score: +${meshScore})`);
+            } else if (isParentKeyword && !isSubheadingKeyword) {
+              hasOnlyParentMatch = true;
+              console.log(`⚠️ PARENT-ONLY MeSH: "${cleanFilterMesh}" (will be excluded)`);
+            }
             break;
           } else if (meshLower.includes(cleanFilterMesh) || cleanFilterMesh.includes(meshLower)) {
-            score += 15; // Partial MeSH match
+            const meshScore = isSubheadingKeyword ? 30 : 15; // 2x score for subheading keywords
+            score += meshScore;
             matches.meshMatches.push(meshStr);
             meshMatchCount++;
+            if (isSubheadingKeyword) {
+              subheadingMeshMatchCount++;
+              hasSubheadingMatch = true;
+              console.log(`🎯 SUBHEADING MeSH PARTIAL: "${cleanFilterMesh}" in MeSH (Score: +${meshScore})`);
+            } else if (isParentKeyword && !isSubheadingKeyword) {
+              hasOnlyParentMatch = true;
+              console.log(`⚠️ PARENT-ONLY MeSH PARTIAL: "${cleanFilterMesh}" (will be excluded)`);
+            }
             break;
           }
         }
@@ -292,11 +354,12 @@ class FilterService {
       if (isSubheadingSelected && subheadingName) {
         const subheadingRegex = new RegExp(`\\b${subheadingName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
         if (subheadingRegex.test(titleLower)) {
-          score += 50; // MASSIVE boost for subheading name in title
+          score += 100; // MASSIVE boost for subheading name in title (increased from 50)
           matches.titleMatches.push(subheadingName);
           titleMatchCount++;
           subheadingTitleMatchCount++;
-          console.log(`🎯🎯 SUBHEADING NAME IN TITLE: "${subheadingName}" (Score: +50)`);
+          hasSubheadingMatch = true;
+          console.log(`🎯🎯 SUBHEADING NAME IN TITLE: "${subheadingName}" (Score: +100)`);
         }
       }
       
@@ -308,16 +371,24 @@ class FilterService {
           (cleanKeyword.includes(subheadingName.toLowerCase()) || 
            cleanKeyword === subheadingName.toLowerCase());
         
+        // Check if this is a parent-only keyword
+        const isParentKeyword = isSubheadingSelected && 
+          parentKeywords.keywords.some(pk => cleanKeyword.toLowerCase() === pk.toLowerCase());
+        
         // Use word boundary for more accurate matching
         const wordBoundaryRegex = new RegExp(`\\b${cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
         if (wordBoundaryRegex.test(titleLower)) {
-          const titleScore = isSubheadingKeyword ? 25 : 8; // 3x score for subheading keywords
+          const titleScore = isSubheadingKeyword ? 60 : 8; // 7.5x score for subheading keywords in title
           score += titleScore;
           matches.titleMatches.push(keyword);
           titleMatchCount++;
           if (isSubheadingKeyword) {
             subheadingTitleMatchCount++;
+            hasSubheadingMatch = true;
             console.log(`🎯 SUBHEADING KEYWORD IN TITLE: "${cleanKeyword}" (Score: +${titleScore})`);
+          } else if (isParentKeyword && !isSubheadingKeyword) {
+            hasOnlyParentMatch = true;
+            console.log(`⚠️ PARENT-ONLY TITLE: "${cleanKeyword}" (will be excluded)`);
           }
         }
       }
@@ -344,6 +415,7 @@ class FilterService {
           score += abstractScore;
           matches.abstractMatches.push(subheadingName);
           subheadingAbstractMatchCount++;
+          hasSubheadingMatch = true;
           console.log(`🎯 SUBHEADING NAME IN ABSTRACT: "${subheadingName}" (${subheadingMatches}x, Score: +${abstractScore})`);
         }
       }
@@ -356,12 +428,19 @@ class FilterService {
           (cleanKeyword.includes(subheadingName.toLowerCase()) || 
            cleanKeyword === subheadingName.toLowerCase());
         
+        // Check if this is a parent-only keyword
+        const isParentKeyword = isSubheadingSelected && 
+          parentKeywords.keywords.some(pk => cleanKeyword.toLowerCase() === pk.toLowerCase());
+        
         if (abstractLower.includes(cleanKeyword)) {
           const abstractScore = isSubheadingKeyword ? 6 : 2; // 3x score for subheading keywords
           score += abstractScore;
           matches.abstractMatches.push(keyword);
           if (isSubheadingKeyword) {
             subheadingAbstractMatchCount++;
+            hasSubheadingMatch = true;
+          } else if (isParentKeyword && !isSubheadingKeyword) {
+            hasOnlyParentMatch = true;
           }
         }
       }
@@ -464,7 +543,10 @@ class FilterService {
       hasDrug,
       drugInTitle,
       drugMentionCount,
-      filterScore
+      filterScore,
+      hasSubheadingMatch,
+      hasOnlyParentMatch,
+      isSubheadingSelected
     };
   }
 
@@ -618,9 +700,9 @@ class FilterService {
     
     console.log(`Excluded ${articles.length - typeFilteredArticles.length} articles based on study type`);
 
-    // Calculate scores for all articles, passing drugQuery and categoryPath for priority boosting
+    // Calculate scores for all articles, passing drugQuery, categoryPath, and studyType for priority boosting
     const scoredArticles = typeFilteredArticles.map(article => {
-      const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery, categoryPath);
+      const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery, categoryPath, studyType);
       return {
         ...article,
         relevanceScore: scoreData.score,
@@ -630,13 +712,17 @@ class FilterService {
         hasDrug: scoreData.hasDrug,
         drugInTitle: scoreData.drugInTitle,
         drugMentionCount: scoreData.drugMentionCount,
-        filterScore: scoreData.filterScore
+        filterScore: scoreData.filterScore,
+        hasSubheadingMatch: scoreData.hasSubheadingMatch,
+        hasOnlyParentMatch: scoreData.hasOnlyParentMatch,
+        isSubheadingSelected: scoreData.isSubheadingSelected
       };
     });
 
     // Filter and sort articles
     // STRICT: ONLY show articles with BOTH drug AND filters
-    // Exclude: drug only (no filters) OR filter only (no drug)
+    // When subheading selected: EXCLUDE parent-only matches
+    // Exclude: drug only (no filters) OR filter only (no drug) OR parent-only (no subheading)
     const filteredArticles = scoredArticles
       .filter(article => {
         // MUST have both drug AND filter matches
@@ -648,7 +734,14 @@ class FilterService {
           }
           return false;
         }
-        // Only include articles with BOTH drug AND filters
+        
+        // If subheading is selected, EXCLUDE articles that ONLY match parent category
+        if (article.isSubheadingSelected && article.hasOnlyParentMatch && !article.hasSubheadingMatch) {
+          console.log(`❌ EXCLUDED (parent-only match, no subheading): ${article.title?.substring(0, 60)}...`);
+          return false;
+        }
+        
+        // Only include articles with BOTH drug AND filters (and subheading if selected)
         return article.hasDrugAndFilter && article.relevanceScore > 0;
       })
       .sort((a, b) => {
