@@ -187,14 +187,27 @@ function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstra
 
 /**
  * Helper function to categorize articles based on content
- * Enhanced with better pattern matching and multiple category support
+ * Enhanced with better pattern matching, multiple category support, and subheadings
  */
-function categorizeArticles(articles) {
+function categorizeArticles(articles, includeSubheadings = true) {
   const categorized = {
     'Pharmacokinetics': [],
     'Pharmacodynamics': [],
     'Efficacy & Clinical Trials': [],
     'Safety & Toxicity': []
+  };
+  
+  // Subheading patterns for detailed categorization
+  const subheadingPatterns = {
+    'Absorption': /\b(?:absorption|bioavailability|cmax|tmax|peak concentration|time to peak|first[- ]pass|gastric|intestinal|oral)\b/i,
+    'Distribution': /\b(?:distribution|volume of distribution|vd|tissue penetration|blood[- ]brain barrier|protein binding|plasma binding)\b/i,
+    'Metabolism': /\b(?:metabolism|metabolite|biotransformation|cytochrome|cyp|p450|enzyme|oxidation|reduction|conjugation|glucuronidation)\b/i,
+    'Excretion': /\b(?:excretion|elimination|clearance|renal|hepatic|biliary|urinary|half[- ]life|t1\/2)\b/i,
+    'Method of Analysis': /\b(?:method|analysis|analytical|hplc|lc[- ]ms|mass spectrometry|chromatography|assay|quantification|detection|validation)\b/i,
+    'Single Dose': /\b(?:single dose|single[- ]dose|one[- ]time dose|acute administration|single administration)\b/i,
+    'Multiple Dose': /\b(?:multiple dose|multiple[- ]dose|repeated dose|chronic administration|steady[- ]state)\b/i,
+    'Drug Interaction': /\b(?:drug interaction|interaction|concomitant|coadministration|combination therapy)\b/i,
+    'Special Populations': /\b(?:pediatric|geriatric|elderly|renal impairment|hepatic impairment|pregnancy|lactation|children)\b/i
   };
   
   // Limit to top 50 per category
@@ -207,6 +220,16 @@ function categorizeArticles(articles) {
     
     // Track which categories this article belongs to
     const matchedCategories = [];
+    
+    // Detect subheadings if enabled
+    let subheadings = [];
+    if (includeSubheadings) {
+      Object.keys(subheadingPatterns).forEach(subheading => {
+        if (subheadingPatterns[subheading].test(combined)) {
+          subheadings.push(subheading);
+        }
+      });
+    }
     
     // Pharmacokinetics - enhanced patterns
     if (combined.match(/\b(?:pharmacokinetic|pk|adme|absorption|distribution|metabolism|metabolite|excretion|clearance|half[- ]life|bioavailability|cmax|tmax|auc|volume of distribution|elimination|renal|hepatic)\b/i)) {
@@ -232,14 +255,22 @@ function categorizeArticles(articles) {
     if (matchedCategories.length > 0) {
       matchedCategories.forEach(category => {
         if (categorized[category].length < maxPerCategory) {
-          categorized[category].push({...article, primaryCategory: matchedCategories[0]});
+          categorized[category].push({
+            ...article, 
+            primaryCategory: matchedCategories[0],
+            subheadings: subheadings.length > 0 ? subheadings : undefined
+          });
         }
       });
     } else {
       // If no specific category, add to the first category that has space
       const firstAvailable = Object.keys(categorized).find(cat => categorized[cat].length < maxPerCategory);
       if (firstAvailable) {
-        categorized[firstAvailable].push({...article, primaryCategory: 'General'});
+        categorized[firstAvailable].push({
+          ...article, 
+          primaryCategory: 'General',
+          subheadings: subheadings.length > 0 ? subheadings : undefined
+        });
       }
     }
   });
@@ -262,8 +293,14 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    // Get study type from request (animal or human)
+    // Get parameters from request
     const studyType = req.body.studyType || 'all';
+    const userDrugName = req.body.drugName || null;
+    const doseForm = req.body.doseForm || null;
+    const indication = req.body.indication || null;
+    const includeSubheadings = req.body.includeSubheadings !== 'false'; // Default true
+    
+    console.log('User-specified parameters:', { userDrugName, doseForm, indication, includeSubheadings });
     
     // Extract text from uploaded file
     const extractedText = await extractTextFromFile(req.file.buffer, req.file.mimetype);
@@ -296,15 +333,59 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     
     // Build search query prioritizing drug names
     let searchQuery = '';
-    if (drugNames.length > 0) {
+    
+    // PRIORITY 1: Use user-specified drug name if provided
+    if (userDrugName && userDrugName.trim().length > 0) {
+      searchQuery = `"${userDrugName.trim()}"[Title/Abstract]`;
+      console.log('Using user-specified drug name:', userDrugName);
+      
+      // Add dose form if specified
+      if (doseForm && doseForm !== 'not-applicable') {
+        searchQuery += ` AND "${doseForm}"[Title/Abstract]`;
+        console.log('Adding dose form filter:', doseForm);
+      }
+      
+      // Add indication if specified
+      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+        searchQuery += ` AND "${indication.trim()}"[Title/Abstract]`;
+        console.log('Adding indication filter:', indication);
+      }
+      
+      // Add key terms as additional context
+      const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
+      searchQuery = `(${searchQuery}) AND (${topTerms})`;
+    }
+    // FALLBACK: Auto-detect drug names from document
+    else if (drugNames.length > 0) {
       // Primary search with drug names
       searchQuery = drugNames.map(name => `"${name}"[Title/Abstract]`).join(' OR ');
+      
+      // Add dose form if specified
+      if (doseForm && doseForm !== 'not-applicable') {
+        searchQuery = `(${searchQuery}) AND "${doseForm}"[Title/Abstract]`;
+      }
+      
+      // Add indication if specified
+      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+        searchQuery = `(${searchQuery}) AND "${indication.trim()}"[Title/Abstract]`;
+      }
+      
       // Add key terms as secondary search
       const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
       searchQuery = `(${searchQuery}) OR (${topTerms})`;
     } else {
       // Fallback to key terms only
       searchQuery = keyTerms.slice(0, 15).map(term => `${term}[Title/Abstract]`).join(' OR ');
+      
+      // Add dose form if specified
+      if (doseForm && doseForm !== 'not-applicable') {
+        searchQuery = `(${searchQuery}) AND "${doseForm}"[Title/Abstract]`;
+      }
+      
+      // Add indication if specified  
+      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+        searchQuery = `(${searchQuery}) AND "${indication.trim()}"[Title/Abstract]`;
+      }
     }
     
     // Add study type filter to search query - STRICT MeSH-based filtering
@@ -513,12 +594,16 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     filteredArticles.sort((a, b) => b.similarityScore - a.similarityScore);
     
     // Step 3: Categorize articles (only high-quality matches)
-    const categorizedArticles = categorizeArticles(filteredArticles);
+    const categorizedArticles = categorizeArticles(filteredArticles, includeSubheadings);
     
     res.json({
       message: 'Reference document processed successfully',
       fileName: req.file.originalname,
       studyType: studyType,
+      drugName: userDrugName || (drugNames.length > 0 ? drugNames.join(', ') : 'Auto-detected'),
+      doseForm: doseForm || 'Not specified',
+      indication: indication || 'Not specified',
+      includeSubheadings: includeSubheadings,
       keyTerms: keyTerms.slice(0, 20), // Show top 20 key terms including phrases
       searchQuery,
       categorizedArticles,

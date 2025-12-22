@@ -7,6 +7,12 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  
+  // New fields for enhanced search
+  const [drugName, setDrugName] = useState('');
+  const [doseForm, setDoseForm] = useState('');
+  const [indication, setIndication] = useState('');
+  const [includeSubheadings, setIncludeSubheadings] = useState(true);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -63,6 +69,18 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     const formData = new FormData();
     formData.append('document', selectedFile);
     formData.append('studyType', studyType);
+    
+    // Add new optional fields
+    if (drugName && drugName.trim()) {
+      formData.append('drugName', drugName.trim());
+    }
+    if (doseForm && doseForm !== 'not-applicable') {
+      formData.append('doseForm', doseForm);
+    }
+    if (indication && indication !== 'not-applicable') {
+      formData.append('indication', indication.trim());
+    }
+    formData.append('includeSubheadings', includeSubheadings);
 
     try {
       const response = await fetch('/api/reference-doc/upload', {
@@ -159,6 +177,83 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
           <p className="progress-text">Processing document... {uploadProgress}%</p>
         </div>
       )}
+
+      {/* New fields for enhanced search */}
+      <div className="search-options">
+        <h4>🎯 Search Options (Optional)</h4>
+        
+        <div className="form-group">
+          <label htmlFor="drugName">
+            Drug Name <span className="optional-tag">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            id="drugName"
+            value={drugName}
+            onChange={(e) => setDrugName(e.target.value)}
+            placeholder="e.g., Augmentin, Aspirin, Ibuprofen"
+            disabled={isUploading}
+            className="form-input"
+          />
+          <p className="field-hint">Specify the drug name to find more accurate similar articles</p>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="doseForm">
+            Dose Form <span className="optional-tag">(Optional)</span>
+          </label>
+          <select
+            id="doseForm"
+            value={doseForm}
+            onChange={(e) => setDoseForm(e.target.value)}
+            disabled={isUploading}
+            className="form-select"
+          >
+            <option value="">Select dose form</option>
+            <option value="not-applicable">Not Applicable</option>
+            <option value="tablet">Tablet</option>
+            <option value="capsule">Capsule</option>
+            <option value="injection">Injection</option>
+            <option value="syrup">Syrup</option>
+            <option value="suspension">Suspension</option>
+            <option value="cream">Cream/Ointment</option>
+            <option value="powder">Powder</option>
+            <option value="solution">Solution</option>
+            <option value="patch">Transdermal Patch</option>
+            <option value="inhaler">Inhaler</option>
+            <option value="suppository">Suppository</option>
+          </select>
+          <p className="field-hint">Filter articles by dosage form (e.g., tablet, injection)</p>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="indication">
+            Indication <span className="optional-tag">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            id="indication"
+            value={indication}
+            onChange={(e) => setIndication(e.target.value)}
+            placeholder="e.g., Diabetes, Hypertension, Infection"
+            disabled={isUploading}
+            className="form-input"
+          />
+          <p className="field-hint">Specify the condition/indication or type "Not Applicable"</p>
+        </div>
+
+        <div className="form-group checkbox-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={includeSubheadings}
+              onChange={(e) => setIncludeSubheadings(e.target.checked)}
+              disabled={isUploading}
+            />
+            <span>Include subheadings in results (Absorption, Method of Analysis, Single Dose, etc.)</span>
+          </label>
+        </div>
+      </div>
 
       <div className="upload-actions">
         <button
