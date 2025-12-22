@@ -163,6 +163,57 @@
   font-size: 18px;
 }
 
+.extraction-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  margin-top: 16px;
+  color: #1e40af;
+  font-size: 14px;
+}
+
+.extraction-icon {
+  font-size: 18px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.extraction-success {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  margin-top: 16px;
+  color: #065f46;
+  font-size: 14px;
+}
+
+.success-icon {
+  font-size: 18px;
+}
+
+.drug-suggestions {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #a7f3d0;
+}
+
+.drug-suggestions small {
+  color: #047857;
+  font-size: 12px;
+}
+
 .upload-progress {
   margin-top: 20px;
 }

@@ -13,13 +13,15 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const [doseForm, setDoseForm] = useState('');
   const [indication, setIndication] = useState('');
   const [includeSubheadings, setIncludeSubheadings] = useState(true);
+  const [extractedInfo, setExtractedInfo] = useState(null);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     validateAndSetFile(file);
   };
 
-  const validateAndSetFile = (file) => {
+  const validateAndSetFile = async (file) => {
     if (!file) return;
 
     // Validate file type
@@ -37,6 +39,9 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
     setSelectedFile(file);
     setError('');
+    
+    // Auto-extract information from document
+    await extractDocumentInfo(file);
   };
 
   const handleDrag = (e) => {
@@ -59,6 +64,42 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     }
   };
 
+  const extractDocumentInfo = async (file) => {
+    setIsExtracting(true);
+    setExtractedInfo(null);
+    
+    const formData = new FormData();
+    formData.append('document', file);
+
+    try {
+      const response = await fetch('/api/reference-doc/extract-info', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setExtractedInfo(data);
+        
+        // Auto-populate fields with extracted information
+        if (data.suggestedDrugName) {
+          setDrugName(data.suggestedDrugName);
+        }
+        if (data.doseForm && data.doseForm !== 'not-applicable') {
+          setDoseForm(data.doseForm);
+        }
+        if (data.indication && data.indication !== 'Not Applicable') {
+          setIndication(data.indication);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to extract document info:', error);
+      // Continue without extraction - user can fill manually
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const handleUpload = async (studyType) => {
     if (!selectedFile) return;
 
@@ -78,6 +119,11 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
       formData.append('doseForm', doseForm);
     }
     if (indication && indication !== 'not-applicable') {
+    setExtractedInfo(null);
+    // Optionally clear the fields when removing file
+    // setDrugName('');
+    // setDoseForm('');
+    // setIndication('');
       formData.append('indication', indication.trim());
     }
     formData.append('includeSubheadings', includeSubheadings);
@@ -164,7 +210,26 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
       {error && (
         <div className="upload-error">
-          <span className="error-icon">⚠️</span>
+         Extracting && (
+        <div className="extraction-progress">
+          <span className="extraction-icon">🔍</span>
+          <span>Extracting information from document...</span>
+        </div>
+      )}
+
+      {extractedInfo && !isExtracting && (
+        <div className="extraction-success">
+          <span className="success-icon">✅</span>
+          <span>Document analyzed! Fields populated with extracted information.</span>
+          {extractedInfo.drugNames && extractedInfo.drugNames.length > 1 && (
+            <div className="drug-suggestions">
+              <small>Other detected drugs: {extractedInfo.drugNames.slice(1, 4).join(', ')}</small>
+            </div>
+          )}
+        </div>
+      )}
+
+      {is <span className="error-icon">⚠️</span>
           <span>{error}</span>
         </div>
       )}

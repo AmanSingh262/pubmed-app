@@ -117,7 +117,7 @@ function extractKeyTerms(text) {
  * Helper function to calculate similarity score between reference document and article
  * Enhanced with TF-IDF-like scoring, phrase matching, and context matching
  */
-function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '') {
+function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstract = '', drugName = null) {
   if (!referenceKeyTerms || referenceKeyTerms.length === 0) return 0;
   
   // Ensure title and abstract are strings
@@ -127,6 +127,26 @@ function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstra
   const articleText = `${titleStr} ${abstractStr}`.toLowerCase();
   const titleLower = titleStr.toLowerCase();
   const abstractLower = abstractStr.toLowerCase();
+  
+  // PRIORITY: Check for drug name presence
+  let hasDrugInTitle = false;
+  let hasDrugInAbstract = false;
+  let drugMatchCount = 0;
+  
+  if (drugName && drugName.trim().length > 0) {
+    const drugLower = drugName.toLowerCase().trim();
+    // Try exact match first
+    const drugRegex = new RegExp(`\\b${drugLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    hasDrugInTitle = drugRegex.test(titleLower);
+    hasDrugInAbstract = drugRegex.test(abstractLower);
+    drugMatchCount = (articleText.match(drugRegex) || []).length;
+    
+    // Also try partial match if no exact match
+    if (!hasDrugInTitle && !hasDrugInAbstract && drugLower.length >= 4) {
+      hasDrugInTitle = titleLower.includes(drugLower);
+      hasDrugInAbstract = abstractLower.includes(drugLower);
+    }
+  }
   
   let matchCount = 0;
   let weightedScore = 0;
@@ -180,7 +200,19 @@ function calculateSimilarityScore(referenceKeyTerms, articleTitle, articleAbstra
   const abstractScore = (abstractBonus / maxPossibleScore) * 15; // 15% weight for abstract matches
   const coverageScore = (matchCount / referenceKeyTerms.length) * 10; // 10% weight for term coverage
   
-  const finalScore = baseScore + titleScore + abstractScore + coverageScore;
+  let finalScore = baseScore + titleScore + abstractScore + coverageScore;
+  
+  // MASSIVE BOOST if drug name is present (PRIORITY FEATURE)
+  if (hasDrugInTitle || hasDrugInAbstract) {
+    const drugBoost = hasDrugInTitle ? 50 : 30; // 50 points for title, 30 for abstract
+    const frequencyBoost = Math.min(drugMatchCount * 5, 20); // Up to 20 extra points for frequency
+    finalScore = finalScore + drugBoost + frequencyBoost;
+    
+    // If has BOTH drug AND good keywords (score > 20), give additional multiplier
+    if (finalScore > 20) {
+      finalScore = finalScore * 1.3; // 30% boost for having BOTH drug and keywords
+    }
+  }
   
   return Math.min(100, Math.round(finalScore * 10) / 10);
 }
@@ -553,7 +585,9 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         }
         
         // Calculate similarity score using BOTH title and abstract
-        const similarityScore = calculateSimilarityScore(keyTerms, title, abstract);
+        // PRIORITY: Pass drug name to boost articles that have BOTH drug AND keywords
+        const drugNameForScoring = userDrugName || (drugNames.length > 0 ? drugNames[0] : null);
+        const similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
         
         articles.push({
           pmid: pmid,
@@ -720,6 +754,99 @@ router.post('/fetch-abstracts', async (req, res) => {
     console.error('Fetch abstracts error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch abstracts', 
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/reference-doc/extract-info
+ * Extract drug name, dose form, and indication from uploaded document
+ */
+router.post('/extract-info', upload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Extract text from uploaded file
+    const extractedText = await extractTextFromFile(req.file.buffer, req.file.mimetype);
+    
+    if (!extractedText || extractedText.trim().length === 0) {
+      return res.status(400).json({ error: 'Could not extract text from document' });
+    }
+    
+    // Extract drug names (capitalized words, potential brand/generic names)
+    const drugNamePattern = /\b([A-Z][A-Za-z]+(?:[-][A-Z][a-z]+)?)\b/g;
+    const drugNames = [];
+    const matches = extractedText.match(drugNamePattern);
+    if (matches) {
+      const uniqueDrugs = [...new Set(matches)].filter(name => 
+        name.length > 3 && 
+        !['The', 'This', 'That', 'With', 'From', 'Table', 'Figure', 'Method', 'Results', 'Study', 'Clinical', 'Patient', 'Disease', 'Treatment'].includes(name)
+      );
+      drugNames.push(...uniqueDrugs.slice(0, 5)); // Top 5 potential drug names
+    }
+    
+    // Extract dose form
+    const doseFormPatterns = {
+      'tablet': /\b(tablet|tabs?)\b/gi,
+      'capsule': /\b(capsule|caps?)\b/gi,
+      'injection': /\b(injection|injectable|intravenous|i\.?v\.?|subcutaneous|s\.?c\.?|intramuscular|i\.?m\.?)\b/gi,
+      'syrup': /\b(syrup|oral liquid)\b/gi,
+      'suspension': /\b(suspension)\b/gi,
+      'cream': /\b(cream|ointment|gel|topical)\b/gi,
+      'powder': /\b(powder|granule)\b/gi,
+      'solution': /\b(solution|drops)\b/gi,
+      'patch': /\b(patch|transdermal)\b/gi,
+      'inhaler': /\b(inhaler|inhalation|aerosol)\b/gi,
+      'suppository': /\b(suppository|rectal)\b/gi
+    };
+    
+    let detectedDoseForm = '';
+    let maxMatches = 0;
+    for (const [form, pattern] of Object.entries(doseFormPatterns)) {
+      const matches = extractedText.match(pattern);
+      if (matches && matches.length > maxMatches) {
+        maxMatches = matches.length;
+        detectedDoseForm = form;
+      }
+    }
+    
+    // Extract indication/disease/condition
+    const indicationPatterns = [
+      /\b(?:indication|treatment of|used for|therapeutic use|indicated for)[\s:]+([A-Za-z\s,]+?)(?:\.|,|\n|$)/gi,
+      /\b(diabetes|hypertension|infection|cancer|pain|inflammation|asthma|depression|anxiety|arthritis|tuberculosis|malaria|pneumonia|fever|allergy|migraine|epilepsy|schizophrenia|parkinsons?|alzheimers?|HIV|AIDS)\b/gi
+    ];
+    
+    const indications = [];
+    indicationPatterns.forEach(pattern => {
+      const matches = extractedText.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.replace(/^(indication|treatment of|used for|therapeutic use|indicated for)[\s:]+/i, '').trim();
+          if (cleaned.length > 3 && cleaned.length < 50) {
+            indications.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    const uniqueIndications = [...new Set(indications)];
+    const detectedIndication = uniqueIndications.length > 0 ? uniqueIndications[0] : '';
+    
+    // Return extracted information
+    res.json({
+      drugNames: drugNames,
+      suggestedDrugName: drugNames.length > 0 ? drugNames[0] : '',
+      doseForm: detectedDoseForm || 'not-applicable',
+      indication: detectedIndication || 'Not Applicable'
+    });
+    
+  } catch (error) {
+    console.error('Extract info error:', error);
+    res.status(500).json({ 
+      error: 'Failed to extract information', 
       details: error.message 
     });
   }
