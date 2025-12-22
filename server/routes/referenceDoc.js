@@ -333,78 +333,91 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     
     // Build search query prioritizing drug names
     let searchQuery = '';
+    let boostTerms = []; // Terms to boost in search, not require
     
     // PRIORITY 1: Use user-specified drug name if provided
     if (userDrugName && userDrugName.trim().length > 0) {
       searchQuery = `"${userDrugName.trim()}"[Title/Abstract]`;
       console.log('Using user-specified drug name:', userDrugName);
       
-      // Add dose form if specified
+      // Add dose form as boost, not requirement (to avoid zero results)
       if (doseForm && doseForm !== 'not-applicable') {
-        searchQuery += ` AND "${doseForm}"[Title/Abstract]`;
-        console.log('Adding dose form filter:', doseForm);
+        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
+        console.log('Boosting with dose form:', doseForm);
       }
       
-      // Add indication if specified
+      // Add indication as boost, not requirement
       if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        searchQuery += ` AND "${indication.trim()}"[Title/Abstract]`;
-        console.log('Adding indication filter:', indication);
+        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
+        console.log('Boosting with indication:', indication);
       }
       
       // Add key terms as additional context
       const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
-      searchQuery = `(${searchQuery}) AND (${topTerms})`;
+      if (boostTerms.length > 0) {
+        searchQuery = `(${searchQuery}) AND ((${topTerms}) OR (${boostTerms.join(' OR ')}))`;
+      } else {
+        searchQuery = `(${searchQuery}) AND (${topTerms})`;
+      }
     }
     // FALLBACK: Auto-detect drug names from document
     else if (drugNames.length > 0) {
       // Primary search with drug names
       searchQuery = drugNames.map(name => `"${name}"[Title/Abstract]`).join(' OR ');
       
-      // Add dose form if specified
+      // Add dose form as boost
       if (doseForm && doseForm !== 'not-applicable') {
-        searchQuery = `(${searchQuery}) AND "${doseForm}"[Title/Abstract]`;
+        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
       }
       
-      // Add indication if specified
+      // Add indication as boost
       if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        searchQuery = `(${searchQuery}) AND "${indication.trim()}"[Title/Abstract]`;
+        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
       }
       
       // Add key terms as secondary search
       const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
-      searchQuery = `(${searchQuery}) OR (${topTerms})`;
+      if (boostTerms.length > 0) {
+        searchQuery = `(${searchQuery}) OR (${topTerms}) OR (${boostTerms.join(' OR ')})`;
+      } else {
+        searchQuery = `(${searchQuery}) OR (${topTerms})`;
+      }
     } else {
       // Fallback to key terms only
       searchQuery = keyTerms.slice(0, 15).map(term => `${term}[Title/Abstract]`).join(' OR ');
       
-      // Add dose form if specified
+      // Add dose form and indication as boost if specified
       if (doseForm && doseForm !== 'not-applicable') {
-        searchQuery = `(${searchQuery}) AND "${doseForm}"[Title/Abstract]`;
+        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
       }
       
-      // Add indication if specified  
       if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        searchQuery = `(${searchQuery}) AND "${indication.trim()}"[Title/Abstract]`;
+        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
+      }
+      
+      if (boostTerms.length > 0) {
+        searchQuery = `(${searchQuery}) OR (${boostTerms.join(' OR ')})`;
       }
     }
     
-    // Add study type filter to search query - STRICT MeSH-based filtering
+    // Add study type filter to search query - LENIENT filtering to avoid zero results
     if (studyType === 'animal') {
-      // Strict animal filter using MeSH terms only
-      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms]) NOT (Humans[MeSH Terms] NOT Animals[MeSH Terms])`;
+      // Lenient animal filter - include animal studies
+      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms])`;
     } else if (studyType === 'human') {
-      // Strict human filter using MeSH terms only
-      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms]) NOT (Animals[MeSH Terms] NOT Humans[MeSH Terms])`;
+      // Lenient human filter - include human studies
+      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms])`;
     }
+    // If studyType is 'all', no filter is added
     
     // Search PubMed using the extracted terms
     const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
     
-    // Step 1: Search for articles - fetch top 100 most relevant results for better quality
+    // Step 1: Search for articles - fetch top 150 results for better coverage
     console.log(`Searching PubMed with ${keyTerms.length} key terms...`);
     console.log('Search query:', searchQuery.substring(0, 500) + '...');
     
-    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=100&retmode=json&sort=relevance`;
+    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=150&retmode=json&sort=relevance`;
     
     let searchResponse;
     try {
@@ -566,8 +579,8 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       });
     }    console.log(`Fetched ${articles.length} articles with abstracts`);
     
-    // Filter out articles with very low similarity (below 20% threshold for better quality)
-    const MINIMUM_SIMILARITY_THRESHOLD = 20;
+    // Filter out articles with very low similarity - LOWERED threshold to show more results
+    const MINIMUM_SIMILARITY_THRESHOLD = 10; // Lowered from 20 to 10
     const filteredArticles = articles.filter(a => a.similarityScore >= MINIMUM_SIMILARITY_THRESHOLD);
     
     console.log(`Filtered to ${filteredArticles.length} articles above ${MINIMUM_SIMILARITY_THRESHOLD}% similarity threshold (removed ${articles.length - filteredArticles.length} low-quality matches)`);
