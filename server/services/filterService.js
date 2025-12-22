@@ -742,9 +742,9 @@ class FilterService {
         // MUST have both drug AND filter matches
         if (!article.hasDrugAndFilter) {
           if (article.hasDrug && !article.hasDrugAndFilter) {
-            console.log(`❌ EXCLUDED (drug only, no filters): ${article.title?.substring(0, 60)}...`);
+            console.log(`❌ EXCLUDED (drug only, no filters): ${String(article.title || '').substring(0, 60)}...`);
           } else if (!article.hasDrug && article.filterScore > 0) {
-            console.log(`❌ EXCLUDED (filters only, no drug): ${article.title?.substring(0, 60)}...`);
+            console.log(`❌ EXCLUDED (filters only, no drug): ${String(article.title || '').substring(0, 60)}...`);
           }
           return false;
         }
@@ -752,14 +752,14 @@ class FilterService {
         // CRITICAL: When child selected, article TITLE MUST contain child keywords
         // This prevents "Pharmacokinetics of..." articles when "Distribution" is selected
         if (article.isSubheadingSelected && !article.hasSubheadingInTitle) {
-          console.log(`❌ EXCLUDED (no child keyword in TITLE): ${article.title?.substring(0, 60)}...`);
+          console.log(`❌ EXCLUDED (no child keyword in TITLE): ${String(article.title || '').substring(0, 60)}...`);
           return false;
         }
         
         // CRITICAL: When subheading/child is selected, article MUST have filter matches
         // This prevents generic parent-only articles from appearing
         if (article.isSubheadingSelected && article.filterScore <= 0) {
-          console.log(`❌ EXCLUDED (no child keyword matches): ${article.title?.substring(0, 60)}...`);
+          console.log(`❌ EXCLUDED (no child keyword matches): ${String(article.title || '').substring(0, 60)}...`);
           return false;
         }
         
