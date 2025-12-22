@@ -332,8 +332,8 @@ class FilterService {
         titleHasInnerKeywords = categoryInfo.innerKeywords.some(keyword => fullText.includes(keyword));
         
         if (titleHasInnerKeywords && hasDrug) {
-          score += 300; // High boost for drug + inner keywords
-          console.log(`🎯 INNER KEYWORDS MATCH: Drug "${drugQuery}" + child keywords found (Boost: +300)`);
+          score += 200; // High boost for drug + inner keywords
+          console.log(`🎯 INNER KEYWORDS MATCH: Drug "${drugQuery}" + child keywords found (Boost: +200)`);
         } else if (titleHasInnerKeywords) {
           score += 50; // Moderate boost for inner keywords
           console.log(`🎯 INNER KEYWORDS: Child-specific terms found (Boost: +50)`);
