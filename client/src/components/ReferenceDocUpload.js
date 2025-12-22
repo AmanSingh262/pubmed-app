@@ -229,11 +229,6 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
         </div>
       )}
 
-      {is <span className="error-icon">⚠️</span>
-          <span>{error}</span>
-        </div>
-      )}
-
       {isUploading && (
         <div className="upload-progress">
           <div className="progress-bar">
