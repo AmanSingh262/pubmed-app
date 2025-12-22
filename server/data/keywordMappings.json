@@ -425,13 +425,23 @@
               "Pharmacokinetic and absorption",
               "Pharmacokinetic and absorbed",
               "Pharmacokinetic and Cmax",
+              "Pharmacokinetic and CMAX",
+              "Pharmacokinetic and C max",
               "Pharmacokinetic and tmax",
+              "Pharmacokinetic and TMAX",
+              "Pharmacokinetic and T max",
               "Pharmacokinetic and AUC",
               "Pharmacokinetic and maximum drug concentration",
+              "Pharmacokinetic and peak concentration",
+              "Pharmacokinetic and time to peak",
               "Pharmacokinetic and area under the curve",
               "Pharmacokinetic and area-under the curve",
               "Drug Absorption",
-              "First-Pass Effect"
+              "First-Pass Effect",
+              "CMAX",
+              "TMAX",
+              "Cmax",
+              "Tmax"
             ],
             "meshTerms": [
               "Biological Availability[MeSH]",
@@ -444,9 +454,17 @@
               "absorption[tiab]",
               "absorbed[tiab]",
               "Cmax[tiab]",
+              "CMAX[tiab]",
+              "C max[tiab]",
               "tmax[tiab]",
+              "TMAX[tiab]",
+              "T max[tiab]",
               "AUC[tiab]",
               "maximum drug concentration[tiab]",
+              "peak concentration[tiab]",
+              "peak plasma concentration[tiab]",
+              "time to peak[tiab]",
+              "time to maximum concentration[tiab]",
               "area under the curve[tiab]",
               "area-under the curve[tiab]"
             ]
@@ -1259,7 +1277,14 @@
               "Drug Solubility and Permeability",
               "P-glycoprotein",
               "Transporter Proteins",
-              "Formulation Effects"
+              "Formulation Effects",
+              "CMAX",
+              "TMAX",
+              "Cmax",
+              "Tmax",
+              "Peak Concentration",
+              "Time to Peak",
+              "Maximum Plasma Concentration"
             ],
             "meshTerms": [
               "Biological Availability[MeSH]",
@@ -1271,7 +1296,18 @@
               "First-pass Metabolism[tiab]",
               "Gastric pH[tiab]",
               "P-glycoprotein[tiab]",
-              "Formulation Effects[tiab]"
+              "Formulation Effects[tiab]",
+              "Cmax[tiab]",
+              "CMAX[tiab]",
+              "C max[tiab]",
+              "Tmax[tiab]",
+              "TMAX[tiab]",
+              "T max[tiab]",
+              "peak concentration[tiab]",
+              "peak plasma concentration[tiab]",
+              "maximum plasma concentration[tiab]",
+              "time to peak[tiab]",
+              "time to maximum concentration[tiab]"
             ]
           },
           "distribution": {
