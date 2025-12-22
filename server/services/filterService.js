@@ -310,6 +310,7 @@ class FilterService {
     let subheadingName = null;
     let isSubheadingSelected = false;
     let hasSubheadingMatch = false;
+    let hasSubheadingInTitle = false; // Track if subheading keywords in title
     
     if (categoryPath) {
       const pathParts = categoryPath.split('.');
@@ -383,6 +384,7 @@ class FilterService {
           titleMatchCount++;
           subheadingTitleMatchCount++;
           hasSubheadingMatch = true;
+          hasSubheadingInTitle = true; // Mark that subheading is in title
           console.log(`🎯🎯 SUBHEADING NAME IN TITLE: "${subheadingName}" (Score: +100)`);
         }
       }
@@ -405,6 +407,7 @@ class FilterService {
           if (isSubheadingKeyword) {
             subheadingTitleMatchCount++;
             hasSubheadingMatch = true;
+            hasSubheadingInTitle = true; // Mark that subheading keyword is in title
             console.log(`🎯 SUBHEADING KEYWORD IN TITLE: "${cleanKeyword}" (Score: +${titleScore})`);
           }
         }
@@ -556,6 +559,7 @@ class FilterService {
       drugMentionCount,
       filterScore,
       hasSubheadingMatch,
+      hasSubheadingInTitle,
       isSubheadingSelected
     };
   }
@@ -724,14 +728,15 @@ class FilterService {
         drugMentionCount: scoreData.drugMentionCount,
         filterScore: scoreData.filterScore,
         hasSubheadingMatch: scoreData.hasSubheadingMatch,
+        hasSubheadingInTitle: scoreData.hasSubheadingInTitle,
         isSubheadingSelected: scoreData.isSubheadingSelected
       };
     });
 
     // Filter and sort articles
+    // ULTRA STRICT: When child selected, MUST have child keywords in TITLE
     // STRICT: ONLY show articles with BOTH drug AND filters
-    // When child selected: MUST have child-specific keyword matches
-    // Exclude: drug only (no filters) OR filter only (no drug) OR no child keyword matches
+    // Exclude: drug only (no filters) OR filter only (no drug) OR no child keyword in title
     const filteredArticles = scoredArticles
       .filter(article => {
         // MUST have both drug AND filter matches
@@ -741,6 +746,13 @@ class FilterService {
           } else if (!article.hasDrug && article.filterScore > 0) {
             console.log(`❌ EXCLUDED (filters only, no drug): ${article.title?.substring(0, 60)}...`);
           }
+          return false;
+        }
+        
+        // CRITICAL: When child selected, article TITLE MUST contain child keywords
+        // This prevents "Pharmacokinetics of..." articles when "Distribution" is selected
+        if (article.isSubheadingSelected && !article.hasSubheadingInTitle) {
+          console.log(`❌ EXCLUDED (no child keyword in TITLE): ${article.title?.substring(0, 60)}...`);
           return false;
         }
         
