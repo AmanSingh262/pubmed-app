@@ -88,7 +88,7 @@ function AppContent() {
         studyType,
         categoryPath: categoryPaths.join(','), // Send comma-separated paths
         customKeywords: customKeywords || undefined, // Send custom keywords if any
-        maxResults: 200,
+        maxResults: 200, // Reduced from 300 to 200 for better performance
         topN: 30,
         ...searchFilters // Include all search filters
       });
