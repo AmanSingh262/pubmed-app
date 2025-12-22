@@ -157,10 +157,18 @@ class FilterService {
     if (!study) return '';
 
     const pathParts = categoryPath.split('.');
+    
+    // If child/subheading is selected, DON'T use parent heading keyword
+    // This prevents "Pharmacokinetics" from being used when "Distribution" is selected
+    if (pathParts.length >= 2) {
+      console.log(`🚫 CHILD SELECTED: Not using parent heading keyword in PubMed search`);
+      return ''; // Return empty to avoid parent keyword in search
+    }
+    
     let current = study.categories;
     let headingName = '';
 
-    // Get the first level heading name
+    // Get the first level heading name (only when main heading is selected)
     if (pathParts.length > 0 && current[pathParts[0]]) {
       headingName = current[pathParts[0]].name;
     }
@@ -722,8 +730,8 @@ class FilterService {
 
     // Filter and sort articles
     // STRICT: ONLY show articles with BOTH drug AND filters
-    // When child selected: Parent keywords already excluded from search
-    // Exclude: drug only (no filters) OR filter only (no drug)
+    // When child selected: MUST have child-specific keyword matches
+    // Exclude: drug only (no filters) OR filter only (no drug) OR no child keyword matches
     const filteredArticles = scoredArticles
       .filter(article => {
         // MUST have both drug AND filter matches
@@ -736,8 +744,15 @@ class FilterService {
           return false;
         }
         
-        // Only include articles with BOTH drug AND filters
-        return article.hasDrugAndFilter && article.relevanceScore > 0;
+        // CRITICAL: When subheading/child is selected, article MUST have filter matches
+        // This prevents generic parent-only articles from appearing
+        if (article.isSubheadingSelected && article.filterScore <= 0) {
+          console.log(`❌ EXCLUDED (no child keyword matches): ${article.title?.substring(0, 60)}...`);
+          return false;
+        }
+        
+        // Only include articles with BOTH drug AND filters (with actual filter keyword matches)
+        return article.hasDrugAndFilter && article.relevanceScore > 0 && article.filterScore > 0;
       })
       .sort((a, b) => {
         // Primary sort: BOTH drug and filters (scores 200-300+) rank first
