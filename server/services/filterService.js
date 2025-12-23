@@ -240,7 +240,18 @@ class FilterService {
     
     // Parent needs broader search, so return more keywords
     // Child needs narrow search, so return fewer keywords
-    return [...new Set(primaryKeywords)]; // Remove duplicates
+    const uniqueKeywords = [...new Set(primaryKeywords)];
+    
+    // DEBUG LOGGING
+    console.log(`\n🔍 getPrimarySearchKeywords DEBUG:`);
+    console.log(`   Category Path: ${categoryPath}`);
+    console.log(`   Path Length: ${pathParts.length} (${pathParts.length === 1 ? 'PARENT - BROAD' : 'CHILD - NARROW'})`);
+    console.log(`   Max Keywords: ${maxKeywords}`);
+    console.log(`   Total available MeSH: ${filterKeywords.meshTerms.length}`);
+    console.log(`   Total available Text: ${filterKeywords.textKeywords.length}`);
+    console.log(`   ✅ RETURNING ${uniqueKeywords.length} KEYWORDS: [${uniqueKeywords.join(', ')}]\n`);
+    
+    return uniqueKeywords;
   }
 
   /**

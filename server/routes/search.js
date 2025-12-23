@@ -76,9 +76,13 @@ router.post('/', async (req, res) => {
       }
     }
 
-    console.log(`Searching PubMed for: ${query}`);
-    console.log(`Heading keyword: ${headingKeyword}`);
-    console.log(`Primary keywords: ${primaryKeywords.slice(0, 5).join(', ')}`);
+    console.log(`\n🔎 SEARCH REQUEST DEBUG:`);
+    console.log(`   Drug Query: ${query}`);
+    console.log(`   Study Type: ${studyType}`);
+    console.log(`   Category Path: ${categoryPaths[0]}`);
+    console.log(`   Heading Keyword: ${headingKeyword}`);
+    console.log(`   Primary Keywords (${primaryKeywords.length}): [${primaryKeywords.join(', ')}]`);
+    console.log(`   ⚠️  ${categoryPaths[0].split('.').length === 1 ? 'PARENT CATEGORY - SHOULD HAVE 8+ KEYWORDS' : 'CHILD CATEGORY - SHOULD HAVE 3-5 KEYWORDS'}\n`);
 
     // Step 2: Search PubMed with enhanced query
     const searchResults = await pubmedService.searchArticles(query, {
