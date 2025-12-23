@@ -48,35 +48,53 @@ class FilterService {
       }
     }
 
-    // If only main heading is selected (e.g., "Pharmacokinetics"), 
-    // only use the heading name itself as the keyword
-    if (pathParts.length === 1 && current.name) {
-      return {
-        keywords: [current.name],
-        meshTerms: [],
-        textKeywords: [current.name]
-      };
-    }
-
-    // FIX: Only collect keywords from the CURRENT selected level (not all children)
-    // This ensures subcategory filters are narrow, not broad like parent
     const allKeywords = [];
     const allMeshTerms = [];
     const allTextKeywords = [];
 
-    // Collect keywords ONLY from the current node (not children)
-    if (current.keywords) allKeywords.push(...current.keywords);
-    if (current.meshTerms) allMeshTerms.push(...current.meshTerms);
-    if (current.textKeywords) allTextKeywords.push(...current.textKeywords);
+    // CORRECT BEHAVIOR:
+    // - Parent heading only (pathParts.length === 1): Collect from ALL children (BROAD search)
+    // - Child/grandchild selected (pathParts.length > 1): Collect ONLY from selected node (NARROW search)
 
-    // If this is a subcategory that has types, we need to collect from types too
-    // but ONLY if we're selecting at the subcategory level (not if we've selected a specific type)
-    if (current.types && pathParts.length === 2) {
-      Object.values(current.types).forEach(type => {
-        if (type.keywords) allKeywords.push(...type.keywords);
-        if (type.meshTerms) allMeshTerms.push(...type.meshTerms);
-        if (type.textKeywords) allTextKeywords.push(...type.textKeywords);
-      });
+    if (pathParts.length === 1) {
+      // PARENT HEADING ONLY: Collect ALL keywords from ALL subcategories (BROAD)
+      // This gives comprehensive results for the entire category
+      const collectAllKeywords = (obj) => {
+        if (obj.keywords) allKeywords.push(...obj.keywords);
+        if (obj.meshTerms) allMeshTerms.push(...obj.meshTerms);
+        if (obj.textKeywords) allTextKeywords.push(...obj.textKeywords);
+
+        if (obj.subcategories) {
+          Object.values(obj.subcategories).forEach(sub => collectAllKeywords(sub));
+        }
+        if (obj.types) {
+          Object.values(obj.types).forEach(type => collectAllKeywords(type));
+        }
+      };
+
+      collectAllKeywords(current);
+
+      // Also add the heading name itself
+      if (current.name) {
+        allKeywords.push(current.name);
+        allTextKeywords.push(current.name);
+      }
+    } else {
+      // CHILD/GRANDCHILD SELECTED: Collect ONLY from current node (NARROW)
+      // This gives specific results for just this subcategory
+      if (current.keywords) allKeywords.push(...current.keywords);
+      if (current.meshTerms) allMeshTerms.push(...current.meshTerms);
+      if (current.textKeywords) allTextKeywords.push(...current.textKeywords);
+
+      // If this is a subcategory with types, include type keywords too
+      // but ONLY if we're at the subcategory level (not if specific type selected)
+      if (current.types && pathParts.length === 2) {
+        Object.values(current.types).forEach(type => {
+          if (type.keywords) allKeywords.push(...type.keywords);
+          if (type.meshTerms) allMeshTerms.push(...type.meshTerms);
+          if (type.textKeywords) allTextKeywords.push(...type.textKeywords);
+        });
+      }
     }
 
     return {
