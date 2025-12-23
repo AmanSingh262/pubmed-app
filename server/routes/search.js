@@ -76,13 +76,27 @@ router.post('/', async (req, res) => {
       }
     }
 
+    const isParentOnly = categoryPaths[0].split('.').length === 1;
+    
     console.log(`\n🔎 SEARCH REQUEST DEBUG:`);
     console.log(`   Drug Query: ${query}`);
     console.log(`   Study Type: ${studyType}`);
     console.log(`   Category Path: ${categoryPaths[0]}`);
+    console.log(`   Filter Type: ${isParentOnly ? '📋 PARENT HEADING ONLY' : '🎯 SUBHEADING'}`);
     console.log(`   Heading Keyword: ${headingKeyword}`);
     console.log(`   Primary Keywords (${primaryKeywords.length}): [${primaryKeywords.join(', ')}]`);
-    console.log(`   ⚠️  ${categoryPaths[0].split('.').length === 1 ? 'PARENT CATEGORY - SHOULD HAVE 8+ KEYWORDS' : 'CHILD CATEGORY - SHOULD HAVE 3-5 KEYWORDS'}\n`);
+    
+    if (isParentOnly) {
+      console.log(`   \n✅ PARENT SEARCH PATTERN:`);
+      console.log(`      → Searches for: Drug "${query}" + Heading "${headingKeyword}"`);
+      console.log(`      → Example: "Aspirin pharmacokinetics" (broad results)`);
+    } else {
+      console.log(`   \n✅ SUBHEADING SEARCH PATTERN:`);
+      console.log(`      → Searches for: Drug "${query}" + Heading "${headingKeyword}" + Subheading keywords`);
+      console.log(`      → Keywords: ${primaryKeywords.slice(0, 3).join(', ')}${primaryKeywords.length > 3 ? '...' : ''}`);
+      console.log(`      → Example: "Aspirin absorption bioavailability" (specific results)`);
+    }
+    console.log(``);
 
     // Step 2: Search PubMed with enhanced query
     const searchResults = await pubmedService.searchArticles(query, {

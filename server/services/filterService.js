@@ -26,16 +26,22 @@ class FilterService {
    * @param {string} studyType - 'animal' or 'human'
    * @param {string} categoryPath - Dot-separated path (e.g., 'pharmacokinetics.absorption' or just 'pharmacokinetics')
    * @returns {Object} Keywords object with meshTerms, textKeywords, and all keywords
+   * 
+   * SEARCH PATTERN:
+   * - Parent heading ONLY (e.g., "pharmacokinetics"): Returns ONLY the heading name as keyword
+   * - Subheading (e.g., "pharmacokinetics.absorption"): Returns subheading-specific keywords (absorption, bioavailability, Cmax, etc.)
    */
   getKeywordsForCategory(studyType, categoryPath) {
     const studyKey = studyType === 'animal' ? 'animalStudies' : 'humanStudies';
     const study = this.keywordMappings[studyKey];
     
-    if (!study) return { keywords: [], meshTerms: [], textKeywords: [] };
+    if (!study) return { keywords: [], meshTerms: [], textKeywords: [], isParentOnly: false };
 
     const pathParts = categoryPath.split('.');
     let current = study.categories;
+    const isParentOnly = pathParts.length === 1;
 
+    // Navigate to the target category
     for (const part of pathParts) {
       if (current[part]) {
         current = current[part];
@@ -44,63 +50,55 @@ class FilterService {
       } else if (current.types && current.types[part]) {
         current = current.types[part];
       } else {
-        return { keywords: [], meshTerms: [], textKeywords: [] };
+        return { keywords: [], meshTerms: [], textKeywords: [], isParentOnly: false };
       }
     }
 
+    // PARENT HEADING ONLY: Return ONLY the heading name
+    // Example: "Pharmacokinetics" → search for "pharmacokinetics" keyword only
+    if (isParentOnly && current.name) {
+      console.log(`🔍 PARENT HEADING SEARCH: "${current.name}" - Using heading keyword ONLY`);
+      return {
+        keywords: [current.name],
+        meshTerms: [],
+        textKeywords: [current.name],
+        isParentOnly: true
+      };
+    }
+
+    // SUBHEADING: Collect subheading-specific keywords (NOT parent keywords)
+    // Example: "Pharmacokinetics > Absorption" → search for "absorption", "bioavailability", "Cmax", "Tmax", etc.
     const allKeywords = [];
     const allMeshTerms = [];
     const allTextKeywords = [];
 
-    // CORRECT BEHAVIOR:
-    // - Parent heading only (pathParts.length === 1): Collect from ALL children (BROAD search)
-    // - Child/grandchild selected (pathParts.length > 1): Collect ONLY from selected node (NARROW search)
+    const collectKeywords = (obj) => {
+      if (obj.keywords) allKeywords.push(...obj.keywords);
+      if (obj.meshTerms) allMeshTerms.push(...obj.meshTerms);
+      if (obj.textKeywords) allTextKeywords.push(...obj.textKeywords);
 
-    if (pathParts.length === 1) {
-      // PARENT HEADING ONLY: Collect ALL keywords from ALL subcategories (BROAD)
-      // This gives comprehensive results for the entire category
-      const collectAllKeywords = (obj) => {
-        if (obj.keywords) allKeywords.push(...obj.keywords);
-        if (obj.meshTerms) allMeshTerms.push(...obj.meshTerms);
-        if (obj.textKeywords) allTextKeywords.push(...obj.textKeywords);
-
-        if (obj.subcategories) {
-          Object.values(obj.subcategories).forEach(sub => collectAllKeywords(sub));
-        }
-        if (obj.types) {
-          Object.values(obj.types).forEach(type => collectAllKeywords(type));
-        }
-      };
-
-      collectAllKeywords(current);
-
-      // Also add the heading name itself
-      if (current.name) {
-        allKeywords.push(current.name);
-        allTextKeywords.push(current.name);
+      // Recursively collect from child categories
+      if (obj.subcategories) {
+        Object.values(obj.subcategories).forEach(sub => collectKeywords(sub));
       }
-    } else {
-      // CHILD/GRANDCHILD SELECTED: Collect ONLY from current node (NARROW)
-      // This gives specific results for just this subcategory
-      if (current.keywords) allKeywords.push(...current.keywords);
-      if (current.meshTerms) allMeshTerms.push(...current.meshTerms);
-      if (current.textKeywords) allTextKeywords.push(...current.textKeywords);
-
-      // If this is a subcategory with types, include type keywords too
-      // but ONLY if we're at the subcategory level (not if specific type selected)
-      if (current.types && pathParts.length === 2) {
-        Object.values(current.types).forEach(type => {
-          if (type.keywords) allKeywords.push(...type.keywords);
-          if (type.meshTerms) allMeshTerms.push(...type.meshTerms);
-          if (type.textKeywords) allTextKeywords.push(...type.textKeywords);
-        });
+      if (obj.types) {
+        Object.values(obj.types).forEach(type => collectKeywords(type));
       }
-    }
+    };
+
+    collectKeywords(current);
+
+    const uniqueKeywords = [...new Set(allKeywords)];
+    const uniqueMeshTerms = [...new Set(allMeshTerms)];
+    const uniqueTextKeywords = [...new Set(allTextKeywords)];
+
+    console.log(`🔍 SUBHEADING SEARCH: "${categoryPath}" - Using ${uniqueKeywords.length + uniqueMeshTerms.length + uniqueTextKeywords.length} specific keywords`);
 
     return {
-      keywords: [...new Set(allKeywords)], // Remove duplicates
-      meshTerms: [...new Set(allMeshTerms)],
-      textKeywords: [...new Set(allTextKeywords)]
+      keywords: uniqueKeywords,
+      meshTerms: uniqueMeshTerms,
+      textKeywords: uniqueTextKeywords,
+      isParentOnly: false
     };
   }
 
@@ -114,7 +112,7 @@ class FilterService {
     const studyKey = studyType === 'animal' ? 'animalStudies' : 'humanStudies';
     const study = this.keywordMappings[studyKey];
     
-    if (!study) return { parentName: '', childName: '', fullPath: '', isSubheading: false, innerKeywords: [] };
+    if (!study) return { parentName: '', childName: '', fullPath: '', isSubheading: false, innerKeywords: [], specificKeywords: [] };
 
     const pathParts = categoryPath.split('.');
     let parentName = '';
@@ -149,12 +147,29 @@ class FilterService {
     if (current.textKeywords) innerKeywords.push(...current.textKeywords);
     if (childName) innerKeywords.push(childName);
 
+    // CRITICAL: Filter out generic parent-level keywords for subheading searches
+    // These are too broad and will match irrelevant articles
+    const genericParentKeywords = [
+      'efficacy', 'safety', 'treatment outcome', 'therapeutic', 'drug therapy',
+      'pharmacokinetics', 'pharmacodynamics', 'toxicity', 'adverse',
+      'dose-response', 'therapeutic equivalence'
+    ];
+
+    // Create a list of SPECIFIC keywords (excluding generic ones)
+    const specificKeywords = innerKeywords
+      .map(k => k.replace(/\[(MeSH|tiab|Publication Type)\]$/i, '').trim().toLowerCase())
+      .filter(k => {
+        // Exclude generic keywords
+        return !genericParentKeywords.some(generic => k === generic);
+      });
+
     return {
       parentName,
       childName,
       fullPath,
       isSubheading,
-      innerKeywords: [...new Set(innerKeywords.map(k => k.replace(/\[(MeSH|tiab)\]$/i, '').trim().toLowerCase()))]
+      innerKeywords: [...new Set(innerKeywords.map(k => k.replace(/\[(MeSH|tiab|Publication Type)\]$/i, '').trim().toLowerCase()))],
+      specificKeywords: [...new Set(specificKeywords)] // NEW: Only specific, non-generic keywords
     };
   }
 
@@ -187,71 +202,63 @@ class FilterService {
    * @param {string} studyType - 'animal' or 'human'
    * @param {string} categoryPath - Category path
    * @returns {Array} Array of top keywords for search
+   * 
+   * SEARCH PATTERN:
+   * - Parent heading (e.g., "pharmacokinetics"): Returns EMPTY array (heading keyword used via getHeadingKeyword)
+   * - Subheading (e.g., "pharmacokinetics.absorption"): Returns 3-5 specific keywords for that subheading
    */
   getPrimarySearchKeywords(studyType, categoryPath) {
     const pathParts = categoryPath.split('.');
     
-    // Get all keywords for this category (respects parent vs child hierarchy)
+    // PARENT HEADING: Return empty array - only use heading keyword (via getHeadingKeyword)
+    // Example: "Pharmacokinetics" → search PubMed for drug + "pharmacokinetics" only
+    if (pathParts.length === 1) {
+      console.log(`🔍 PARENT SEARCH: Using heading keyword ONLY (via getHeadingKeyword)`);
+      return [];
+    }
+    
+    // SUBHEADING: Get subheading-specific keywords
+    // Example: "Pharmacokinetics > Absorption" → search for "absorption", "bioavailability", etc.
+    console.log(`🔍 SUBHEADING SEARCH: Getting specific keywords for "${categoryPath}"`);
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
-    // Get top keywords for PubMed search query
+    // Get top 3-5 most relevant keywords for search (reduced from 5-10 for better specificity)
     const primaryKeywords = [];
-    
-    // DIFFERENT BEHAVIOR for parent vs child:
-    // Parent (pathParts.length === 1): Use more keywords for BROAD search
-    // Child (pathParts.length > 1): Use fewer, more specific keywords for NARROW search
-    const maxKeywords = pathParts.length === 1 ? 8 : 3;
     
     // PRIORITIZE MeSH terms (most specific and reliable)
     if (filterKeywords.meshTerms.length > 0) {
-      const specificMeSH = filterKeywords.meshTerms
+      // Get unique MeSH terms, prioritize those that aren't in other categories
+      const specificMeshTerms = filterKeywords.meshTerms
         .filter(term => {
           const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
-          // Exclude overly generic terms
+          // Exclude overly generic terms that appear everywhere
           return !['efficacy', 'treatment outcome', 'drug therapy'].includes(cleanTerm);
         })
-        .slice(0, Math.ceil(maxKeywords * 0.6)); // 60% MeSH terms
+        .slice(0, 3); // Top 3 most specific MeSH terms
       
-      specificMeSH.forEach(term => {
+      specificMeshTerms.forEach(term => {
         const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
     }
     
-    // Add textKeywords to fill up to maxKeywords
-    if (primaryKeywords.length < maxKeywords && filterKeywords.textKeywords.length > 0) {
-      const specificText = filterKeywords.textKeywords
+    // Add specific textKeywords only if we have few MeSH terms
+    if (primaryKeywords.length < 3 && filterKeywords.textKeywords.length > 0) {
+      const specificTextKeywords = filterKeywords.textKeywords
         .filter(term => {
           const cleanTerm = term.replace(/\[tiab\]$/i, '').trim().toLowerCase();
-          // For parent, be more lenient; for child, be strict
-          if (pathParts.length === 1) {
-            return cleanTerm.length > 3;
-          } else {
-            return !['efficacy', 'safety', 'pharmacokinetics'].includes(cleanTerm) && cleanTerm.length > 5;
-          }
+          // Exclude generic terms
+          return !['efficacy', 'safety'].includes(cleanTerm) && cleanTerm.length > 5;
         })
-        .slice(0, maxKeywords - primaryKeywords.length);
+        .slice(0, 2); // Max 2 text keywords
       
-      specificText.forEach(term => {
+      specificTextKeywords.forEach(term => {
         const cleanTerm = term.replace(/\[tiab\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
     }
     
-    // Parent needs broader search, so return more keywords
-    // Child needs narrow search, so return fewer keywords
-    const uniqueKeywords = [...new Set(primaryKeywords)];
-    
-    // DEBUG LOGGING
-    console.log(`\n🔍 getPrimarySearchKeywords DEBUG:`);
-    console.log(`   Category Path: ${categoryPath}`);
-    console.log(`   Path Length: ${pathParts.length} (${pathParts.length === 1 ? 'PARENT - BROAD' : 'CHILD - NARROW'})`);
-    console.log(`   Max Keywords: ${maxKeywords}`);
-    console.log(`   Total available MeSH: ${filterKeywords.meshTerms.length}`);
-    console.log(`   Total available Text: ${filterKeywords.textKeywords.length}`);
-    console.log(`   ✅ RETURNING ${uniqueKeywords.length} KEYWORDS: [${uniqueKeywords.join(', ')}]\n`);
-    
-    return uniqueKeywords;
+    return [...new Set(primaryKeywords)]; // Remove duplicates
   }
 
   /**
@@ -342,6 +349,7 @@ class FilterService {
     // PRIORITY 2: Check for TITLE/HEADING matches with FULL FILTER PATH (highest priority)
     let titleHasFullPath = false;
     let titleHasInnerKeywords = false;
+    let titleHasInnerKeywordInTitle = false; // NEW: Track if inner keyword is specifically in TITLE
     let titleHasParentOnly = false;
     let shouldRejectParentOnly = false;
 
@@ -372,27 +380,88 @@ class FilterService {
         }
       }
 
-      // For subheading filters, check for inner keywords (child-specific terms)
+      // CRITICAL DISTINCTION: Parent vs Subheading filtering
       if (categoryInfo.isSubheading && !titleHasFullPath) {
+        // SUBHEADING FILTER: ULTRA STRICT - Use SPECIFIC keywords only (not generic like 'efficacy')
         const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
         const fullText = `${titleStr} ${abstractStr}`;
         
-        // Check if title OR abstract contains any inner keywords (child-specific)
-        titleHasInnerKeywords = categoryInfo.innerKeywords.some(keyword => fullText.includes(keyword));
+        // Use SPECIFIC keywords (excluding generic parent-level terms)
+        const specificKeywords = categoryInfo.specificKeywords && categoryInfo.specificKeywords.length > 0 
+                                  ? categoryInfo.specificKeywords 
+                                  : categoryInfo.innerKeywords;
         
-        if (titleHasInnerKeywords && hasDrug) {
-          score += 300; // High boost for drug + inner keywords
-          console.log(`🎯 INNER KEYWORDS MATCH: Drug "${drugQuery}" + child keywords found (Boost: +300)`);
+        // Check if TITLE contains SPECIFIC subheading keywords (REQUIRED for high scores)
+        const titleHasSpecificKeyword = specificKeywords.some(keyword => titleStr.includes(keyword));
+        titleHasInnerKeywordInTitle = titleHasSpecificKeyword; // Store for sorting
+        
+        // Check if anywhere contains specific keywords
+        titleHasInnerKeywords = specificKeywords.some(keyword => fullText.includes(keyword));
+        
+        console.log(`🔍 Checking for SPECIFIC keywords: [${specificKeywords.slice(0, 3).join(', ')}...] (${specificKeywords.length} total)`);
+        
+        // ULTRA STRICT: Prioritize TITLE matches with SPECIFIC keywords
+        if (titleHasSpecificKeyword && hasDrug && drugInTitle) {
+          // PERFECT: Drug + SPECIFIC subheading keyword BOTH in TITLE
+          score += 800; // MASSIVE boost
+          console.log(`🔥🔥🔥 PERFECT TITLE MATCH: Drug "${drugQuery}" + "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +800)`);
+        } else if (titleHasSpecificKeyword && hasDrug) {
+          // Drug + SPECIFIC subheading keyword in title
+          score += 500; // Very high boost
+          console.log(`🎯🎯 STRONG TITLE MATCH: Drug "${drugQuery}" + "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +500)`);
+        } else if (titleHasSpecificKeyword) {
+          // SPECIFIC subheading keyword in title (no drug or drug in abstract)
+          score += 200; // Good boost
+          console.log(`🎯 TITLE HAS SPECIFIC SUBHEADING: "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +200)`);
+        } else if (titleHasInnerKeywords && hasDrug) {
+          // Has keywords but ONLY in abstract (not title) - LOW PRIORITY
+          score = Math.floor(score * 0.15) + 10; // Reduce to 15% + tiny bonus
+          console.log(`⚠️⚠️ ABSTRACT ONLY: Drug + specific keywords in ABSTRACT only (not title) - HEAVILY DEMOTED`);
         } else if (titleHasInnerKeywords) {
-          score += 50; // Moderate boost for inner keywords
-          console.log(`🎯 INNER KEYWORDS: Child-specific terms found (Boost: +50)`);
+          // Has keywords in abstract only, no drug priority - VERY LOW
+          score = Math.floor(score * 0.05) + 2; // Reduce to 5%
+          console.log(`⚠️⚠️⚠️ ABSTRACT ONLY: Specific keywords in abstract only - VERY LOW PRIORITY`);
+        } else {
+          // NO specific subheading keywords anywhere - REJECT
+          score = 0;
+          shouldRejectParentOnly = true;
+          console.log(`❌❌❌ NO SPECIFIC KEYWORDS: Missing specific "${categoryInfo.childName}" terms - REJECTED`);
         }
 
-        // Check if ONLY has parent keyword (we'll decide rejection after calculating filterScore)
+        // Additional penalty for parent-only in title
+        if (categoryInfo.parentName && !titleHasSpecificKeyword) {
+          const parentLower = categoryInfo.parentName.toLowerCase();
+          const hasParentInTitle = titleStr.includes(parentLower);
+          const hasParent = fullText.includes(parentLower);
+          titleHasParentOnly = hasParent && !titleHasInnerKeywords;
+          
+          if (hasParentInTitle && !titleHasInnerKeywords) {
+            // Parent in title but NO specific keywords anywhere - STRONG REJECT
+            shouldRejectParentOnly = true;
+            score = 0;
+            console.log(`❌❌ PARENT-ONLY TITLE: "${categoryInfo.parentName}" in title but ZERO specific terms - REJECTED`);
+          } else if (hasParentInTitle && !titleHasSpecificKeyword && titleHasInnerKeywords) {
+            // Parent in title, specific keywords only in abstract - DEMOTE MORE
+            score = Math.floor(score * 0.1); // 90% reduction
+            console.log(`⚠️ PARENT IN TITLE: "${categoryInfo.parentName}" in title, specific keywords only in abstract - HEAVILY DEMOTED`);
+          }
+        }
+      } else if (!categoryInfo.isSubheading) {
+        // PARENT HEADING FILTER: Should match parent keyword only
+        const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
+        const fullText = `${titleStr} ${abstractStr}`;
+        
         if (categoryInfo.parentName) {
           const parentLower = categoryInfo.parentName.toLowerCase();
           const hasParent = fullText.includes(parentLower);
-          titleHasParentOnly = hasParent && !titleHasInnerKeywords;
+          
+          if (hasParent && hasDrug) {
+            score += 250; // High boost for drug + parent keyword
+            console.log(`📋 PARENT MATCH: Drug "${drugQuery}" + parent keyword "${categoryInfo.parentName}" found (Boost: +250)`);
+          } else if (hasParent) {
+            score += 40; // Moderate boost for parent keyword
+            console.log(`📋 PARENT KEYWORD: "${categoryInfo.parentName}" found (Boost: +40)`);
+          }
         }
       }
     }
@@ -599,6 +668,7 @@ class FilterService {
       filterScore,
       titleHasFullPath,
       titleHasInnerKeywords,
+      titleHasInnerKeywordInTitle, // NEW: Pass this to sorting
       shouldRejectParentOnly
     };
   }
@@ -768,20 +838,47 @@ class FilterService {
         filterScore: scoreData.filterScore,
         titleHasFullPath: scoreData.titleHasFullPath,
         titleHasInnerKeywords: scoreData.titleHasInnerKeywords,
+        titleHasInnerKeywordInTitle: scoreData.titleHasInnerKeywordInTitle, // NEW
         shouldRejectParentOnly: scoreData.shouldRejectParentOnly
       };
     });
 
     // Filter and sort articles
-    // VERY LENIENT: Trust PubMed's search results - just rank them by relevance
-    // If PubMed found them, they're likely relevant - we just prioritize the best ones
+    // For SUBHEADING searches: ULTRA STRICT - Prioritize TITLE matches, heavily demote abstract-only
+    // For PARENT searches: Accept broader matches
+    const categoryInfo = this.getCategoryNamesFromPath(studyType, categoryPath);
     const filteredArticles = scoredArticles
       .filter(article => {
         const titleStr = typeof article.title === 'string' ? article.title : (article.title ? String(article.title) : 'Unknown');
         
-        // Only reject if clearly wrong study type or parent-only with zero matches
-        if (article.shouldRejectParentOnly && article.filterScore === 0 && !article.hasDrug) {
-          console.log(`❌ EXCLUDED (parent-only, no drug, no keywords): ${titleStr.substring(0, 60)}...`);
+        // SUBHEADING FILTER: ULTRA STRICT - Prefer TITLE matches only
+        if (categoryInfo.isSubheading) {
+          const titleLower = titleStr.toLowerCase();
+          
+          // Check if title has subheading keywords
+          const titleHasSubheading = article.titleHasInnerKeywordInTitle ||
+                                     categoryInfo.innerKeywords.some(k => titleLower.includes(k));
+          
+          // PRIORITY 1: Articles with subheading keywords in TITLE (always accept)
+          if (titleHasSubheading) {
+            console.log(`✅ ACCEPTED (subheading in TITLE): ${titleStr.substring(0, 60)}...`);
+            return true;
+          }
+          
+          // PRIORITY 2: Articles with keywords in abstract only - ACCEPT only if score is decent
+          if (article.titleHasInnerKeywords && article.relevanceScore >= 80) {
+            console.log(`⚠️ ACCEPTED (subheading in abstract, good score): ${titleStr.substring(0, 60)}...`);
+            return true;
+          }
+          
+          // REJECT: No title match and low score
+          console.log(`❌ EXCLUDED (no subheading in title, low score ${article.relevanceScore}): ${titleStr.substring(0, 60)}...`);
+          return false;
+        }
+        
+        // Reject if marked as parent-only for subheading filters
+        if (article.shouldRejectParentOnly) {
+          console.log(`❌ EXCLUDED (parent-only, no subheading keywords): ${titleStr.substring(0, 60)}...`);
           return false;
         }
         
@@ -806,7 +903,16 @@ class FilterService {
         if ((a.titleHasFullPath && a.hasDrug) !== (b.titleHasFullPath && b.hasDrug)) {
           return (b.titleHasFullPath && b.hasDrug) ? 1 : -1;
         }
-        // Second priority: Title has inner keywords + drug (scores 450+)
+        // Second priority: For subheading searches, title has inner keywords IN TITLE + drug (scores 400-600+)
+        // This ensures articles with subheading terms in TITLE rank highest
+        if (categoryInfo.isSubheading) {
+          const aTitleHasSubheading = a.titleHasInnerKeywordInTitle && a.drugInTitle;
+          const bTitleHasSubheading = b.titleHasInnerKeywordInTitle && b.drugInTitle;
+          if (aTitleHasSubheading !== bTitleHasSubheading) {
+            return bTitleHasSubheading ? 1 : -1;
+          }
+        }
+        // Third priority: Title has inner keywords + drug (scores 200-400+)
         if ((a.titleHasInnerKeywords && a.hasDrug) !== (b.titleHasInnerKeywords && b.hasDrug)) {
           return (b.titleHasInnerKeywords && b.hasDrug) ? 1 : -1;
         }

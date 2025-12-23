@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Drug Search Filter Fix</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .test-controls {
+            display: grid;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        label {
+            font-weight: 600;
+            color: #34495e;
+            margin-bottom: 5px;
+            display: block;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e1e8ed;
+        }
+        .result-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            border-radius: 4px;
+        }
+        .result-item.parent {
+            border-left-color: #ffc107;
+        }
+        .result-item.subheading {
+            border-left-color: #28a745;
+        }
+        .result-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .result-meta {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .score {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c33;
+        }
+        .success {
+            background: #efe;
+            color: #363;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #363;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .comparison-box {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e1e8ed;
+        }
+        .comparison-box h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-parent {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-subheading {
+            background: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Drug Search Filter Fix - Test Tool</h1>
+        <p class="subtitle">Test the hierarchical filtering: Parent Heading vs Subheading searches</p>
+
+        <!-- Test Case 1: Parent Search -->
+        <div class="test-section">
+            <h3>📋 Test 1: Parent Heading Search</h3>
+            <p>Search for a drug with ONLY main heading (e.g., "Pharmacokinetics"). Should return BROAD results.</p>
+            <div class="test-controls">
+                <div>
+                    <label>Drug Name:</label>
+                    <input type="text" id="drug1" value="aspirin" placeholder="e.g., aspirin, cefixime">
+                </div>
+                <div>
+                    <label>Study Type:</label>
+                    <select id="studyType1">
+                        <option value="animal">Animal Studies</option>
+                        <option value="human">Human Studies</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Main Heading (Parent Only):</label>
+                    <select id="category1">
+                        <option value="pharmacokinetics">Pharmacokinetics</option>
+                        <option value="efficacy">Efficacy</option>
+                        <option value="safety">Safety/Toxicity</option>
+                    </select>
+                </div>
+                <button onclick="testParentSearch()">🔍 Test Parent Search</button>
+            </div>
+            <div id="results1" class="results" style="display: none;"></div>
+        </div>
+
+        <!-- Test Case 2: Subheading Search -->
+        <div class="test-section">
+            <h3>🎯 Test 2: Subheading Search</h3>
+            <p>Search for same drug with SUBHEADING (e.g., "Pharmacokinetics → Absorption"). Should return SPECIFIC results.</p>
+            <div class="test-controls">
+                <div>
+                    <label>Drug Name:</label>
+                    <input type="text" id="drug2" value="aspirin" placeholder="e.g., aspirin, cefixime">
+                </div>
+                <div>
+                    <label>Study Type:</label>
+                    <select id="studyType2">
+                        <option value="animal">Animal Studies</option>
+                        <option value="human">Human Studies</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Subheading Path:</label>
+                    <select id="category2">
+                        <option value="pharmacokinetics.absorption">Pharmacokinetics → Absorption</option>
+                        <option value="pharmacokinetics.distribution">Pharmacokinetics → Distribution</option>
+                        <option value="pharmacokinetics.metabolism">Pharmacokinetics → Metabolism</option>
+                        <option value="pharmacokinetics.excretion">Pharmacokinetics → Excretion</option>
+                        <option value="efficacy.therapeutic">Efficacy → Therapeutic Efficacy</option>
+                        <option value="safety.acute">Safety/Toxicity → Acute Toxicity</option>
+                    </select>
+                </div>
+                <button onclick="testSubheadingSearch()">🎯 Test Subheading Search</button>
+            </div>
+            <div id="results2" class="results" style="display: none;"></div>
+        </div>
+
+        <!-- Comparison View -->
+        <div class="test-section">
+            <h3>⚖️ Comparison: Parent vs Subheading</h3>
+            <p>Compare results from both searches to verify they are DIFFERENT</p>
+            <div id="comparison" class="comparison" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        let parentResults = null;
+        let subheadingResults = null;
+
+        async function testParentSearch() {
+            const drug = document.getElementById('drug1').value.trim();
+            const studyType = document.getElementById('studyType1').value;
+            const category = document.getElementById('category1').value;
+            
+            if (!drug) {
+                alert('Please enter a drug name');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('results1');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="loading">🔄 Searching PubMed...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: drug,
+                        studyType: studyType,
+                        categoryPath: category,
+                        maxResults: 150,
+                        topN: 10
+                    })
+                });
+
+                const data = await response.json();
+                parentResults = data;
+
+                let html = `<div class="success">
+                    ✅ <strong>Parent Search Complete</strong><br>
+                    <span class="badge badge-parent">Parent Heading</span> ${category}<br>
+                    Found: ${data.filteredArticles} articles out of ${data.totalArticles} total
+                </div>`;
+
+                if (data.articles && data.articles.length > 0) {
+                    html += '<h4>Top Results:</h4>';
+                    data.articles.slice(0, 5).forEach((article, idx) => {
+                        html += `
+                            <div class="result-item parent">
+                                <div class="result-title">
+                                    ${idx + 1}. ${article.title || 'Untitled'}
+                                    <span class="score">Score: ${article.relevanceScore || 0}</span>
+                                </div>
+                                <div class="result-meta">
+                                    PMID: ${article.pmid} | 
+                                    ${article.hasDrug ? '💊 Has Drug' : '❌ No Drug'} | 
+                                    ${article.hasDrugAndFilter ? '🔥 Drug+Filter' : 'Filter Only'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="error">No articles found</div>';
+                }
+
+                resultsDiv.innerHTML = html;
+                updateComparison();
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testSubheadingSearch() {
+            const drug = document.getElementById('drug2').value.trim();
+            const studyType = document.getElementById('studyType2').value;
+            const category = document.getElementById('category2').value;
+            
+            if (!drug) {
+                alert('Please enter a drug name');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('results2');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="loading">🔄 Searching PubMed...</div>';
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: drug,
+                        studyType: studyType,
+                        categoryPath: category,
+                        maxResults: 150,
+                        topN: 10
+                    })
+                });
+
+                const data = await response.json();
+                subheadingResults = data;
+
+                let html = `<div class="success">
+                    ✅ <strong>Subheading Search Complete</strong><br>
+                    <span class="badge badge-subheading">Subheading</span> ${category}<br>
+                    Found: ${data.filteredArticles} articles out of ${data.totalArticles} total
+                </div>`;
+
+                if (data.articles && data.articles.length > 0) {
+                    html += '<h4>Top Results:</h4>';
+                    data.articles.slice(0, 5).forEach((article, idx) => {
+                        html += `
+                            <div class="result-item subheading">
+                                <div class="result-title">
+                                    ${idx + 1}. ${article.title || 'Untitled'}
+                                    <span class="score">Score: ${article.relevanceScore || 0}</span>
+                                </div>
+                                <div class="result-meta">
+                                    PMID: ${article.pmid} | 
+                                    ${article.hasDrug ? '💊 Has Drug' : '❌ No Drug'} | 
+                                    ${article.hasDrugAndFilter ? '🔥 Drug+Filter' : 'Filter Only'} |
+                                    ${article.titleHasInnerKeywords ? '🎯 Inner Keywords' : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="error">No articles found</div>';
+                }
+
+                resultsDiv.innerHTML = html;
+                updateComparison();
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        function updateComparison() {
+            const comparisonDiv = document.getElementById('comparison');
+            
+            if (!parentResults || !subheadingResults) {
+                comparisonDiv.style.display = 'none';
+                return;
+            }
+
+            comparisonDiv.style.display = 'grid';
+
+            const parentPMIDs = new Set(parentResults.articles.map(a => a.pmid));
+            const subheadingPMIDs = new Set(subheadingResults.articles.map(a => a.pmid));
+            
+            const overlap = [...parentPMIDs].filter(pmid => subheadingPMIDs.has(pmid)).length;
+            const overlapPercentage = Math.round((overlap / Math.min(parentPMIDs.size, subheadingPMIDs.size)) * 100);
+
+            comparisonDiv.innerHTML = `
+                <div class="comparison-box">
+                    <h4><span class="badge badge-parent">Parent</span> Results</h4>
+                    <p><strong>Total Articles:</strong> ${parentResults.filteredArticles}</p>
+                    <p><strong>Category:</strong> ${parentResults.categoryPath}</p>
+                    <p><strong>Search Type:</strong> Broad (main heading only)</p>
+                </div>
+                <div class="comparison-box">
+                    <h4><span class="badge badge-subheading">Subheading</span> Results</h4>
+                    <p><strong>Total Articles:</strong> ${subheadingResults.filteredArticles}</p>
+                    <p><strong>Category:</strong> ${subheadingResults.categoryPath}</p>
+                    <p><strong>Search Type:</strong> Specific (subheading keywords)</p>
+                </div>
+                <div class="comparison-box" style="grid-column: 1 / -1;">
+                    <h4>📊 Analysis</h4>
+                    <p><strong>Overlap:</strong> ${overlap} articles (${overlapPercentage}%)</p>
+                    <p><strong>Expected:</strong> ${overlapPercentage < 50 ? '✅ PASS' : '⚠️ WARNING'} - Subheading should have <50% overlap with parent</p>
+                    <p><strong>Verdict:</strong> 
+                        ${overlapPercentage < 30 ? '✅ Excellent - Very specific subheading filtering' : 
+                          overlapPercentage < 50 ? '✅ Good - Subheading filtering working' :
+                          '❌ Issue - Results too similar, filtering may not be working properly'}
+                    </p>
+                </div>
+            `;
+        }
+
+        // Set same drug in both fields when changed
+        document.getElementById('drug1').addEventListener('input', (e) => {
+            document.getElementById('drug2').value = e.target.value;
+        });
+        document.getElementById('drug2').addEventListener('input', (e) => {
+            document.getElementById('drug1').value = e.target.value;
+        });
+    </script>
+</body>
+</html>
