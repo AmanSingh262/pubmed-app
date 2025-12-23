@@ -58,25 +58,26 @@ class FilterService {
       };
     }
 
-    // If subcategory or type is selected, collect all keywords from children
+    // FIX: Only collect keywords from the CURRENT selected level (not all children)
+    // This ensures subcategory filters are narrow, not broad like parent
     const allKeywords = [];
     const allMeshTerms = [];
     const allTextKeywords = [];
 
-    const collectKeywords = (obj) => {
-      if (obj.keywords) allKeywords.push(...obj.keywords);
-      if (obj.meshTerms) allMeshTerms.push(...obj.meshTerms);
-      if (obj.textKeywords) allTextKeywords.push(...obj.textKeywords);
+    // Collect keywords ONLY from the current node (not children)
+    if (current.keywords) allKeywords.push(...current.keywords);
+    if (current.meshTerms) allMeshTerms.push(...current.meshTerms);
+    if (current.textKeywords) allTextKeywords.push(...current.textKeywords);
 
-      if (obj.subcategories) {
-        Object.values(obj.subcategories).forEach(sub => collectKeywords(sub));
-      }
-      if (obj.types) {
-        Object.values(obj.types).forEach(type => collectKeywords(type));
-      }
-    };
-
-    collectKeywords(current);
+    // If this is a subcategory that has types, we need to collect from types too
+    // but ONLY if we're selecting at the subcategory level (not if we've selected a specific type)
+    if (current.types && pathParts.length === 2) {
+      Object.values(current.types).forEach(type => {
+        if (type.keywords) allKeywords.push(...type.keywords);
+        if (type.meshTerms) allMeshTerms.push(...type.meshTerms);
+        if (type.textKeywords) allTextKeywords.push(...type.textKeywords);
+      });
+    }
 
     return {
       keywords: [...new Set(allKeywords)], // Remove duplicates
