@@ -191,51 +191,55 @@ class FilterService {
   getPrimarySearchKeywords(studyType, categoryPath) {
     const pathParts = categoryPath.split('.');
     
-    // If only main heading is selected (e.g., "Pharmacokinetics"), return empty array
-    // The heading keyword itself will be used via getHeadingKeyword()
-    if (pathParts.length === 1) {
-      return [];
-    }
-    
-    // If subcategory or type is selected, get their specific keywords
+    // Get all keywords for this category (respects parent vs child hierarchy)
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
-    // Get top 3-5 most relevant keywords for search (reduced from 5-10 for better specificity)
+    // Get top keywords for PubMed search query
     const primaryKeywords = [];
+    
+    // DIFFERENT BEHAVIOR for parent vs child:
+    // Parent (pathParts.length === 1): Use more keywords for BROAD search
+    // Child (pathParts.length > 1): Use fewer, more specific keywords for NARROW search
+    const maxKeywords = pathParts.length === 1 ? 8 : 3;
     
     // PRIORITIZE MeSH terms (most specific and reliable)
     if (filterKeywords.meshTerms.length > 0) {
-      // Get unique MeSH terms, prioritize those that aren't in other categories
-      const specificMeshTerms = filterKeywords.meshTerms
+      const specificMeSH = filterKeywords.meshTerms
         .filter(term => {
           const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim().toLowerCase();
-          // Exclude overly generic terms that appear everywhere
+          // Exclude overly generic terms
           return !['efficacy', 'treatment outcome', 'drug therapy'].includes(cleanTerm);
         })
-        .slice(0, 3); // Top 3 most specific MeSH terms
+        .slice(0, Math.ceil(maxKeywords * 0.6)); // 60% MeSH terms
       
-      specificMeshTerms.forEach(term => {
+      specificMeSH.forEach(term => {
         const cleanTerm = term.replace(/\[MeSH\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
     }
     
-    // Add specific textKeywords only if we have few MeSH terms
-    if (primaryKeywords.length < 3 && filterKeywords.textKeywords.length > 0) {
-      const specificTextKeywords = filterKeywords.textKeywords
+    // Add textKeywords to fill up to maxKeywords
+    if (primaryKeywords.length < maxKeywords && filterKeywords.textKeywords.length > 0) {
+      const specificText = filterKeywords.textKeywords
         .filter(term => {
           const cleanTerm = term.replace(/\[tiab\]$/i, '').trim().toLowerCase();
-          // Exclude generic terms
-          return !['efficacy', 'safety'].includes(cleanTerm) && cleanTerm.length > 5;
+          // For parent, be more lenient; for child, be strict
+          if (pathParts.length === 1) {
+            return cleanTerm.length > 3;
+          } else {
+            return !['efficacy', 'safety', 'pharmacokinetics'].includes(cleanTerm) && cleanTerm.length > 5;
+          }
         })
-        .slice(0, 2); // Max 2 text keywords
+        .slice(0, maxKeywords - primaryKeywords.length);
       
-      specificTextKeywords.forEach(term => {
+      specificText.forEach(term => {
         const cleanTerm = term.replace(/\[tiab\]$/i, '').trim();
         primaryKeywords.push(cleanTerm);
       });
     }
     
+    // Parent needs broader search, so return more keywords
+    // Child needs narrow search, so return fewer keywords
     return [...new Set(primaryKeywords)]; // Remove duplicates
   }
 
