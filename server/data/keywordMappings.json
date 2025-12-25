@@ -1239,11 +1239,16 @@
     "categories": {
       "pharmacokinetics": {
         "name": "Pharmacokinetics",
+        "synonyms": ["PK", "kinetic", "kinetics", "ADME", "Pharmaco-kinetic", "Pharma-cokinetic"],
         "subcategories": {
           "methodOfAnalysis": {
             "name": "Method of Analysis",
             "keywords": [
               "LC-MS/MS",
+              "HPLC",
+              "LC-MS",
+              "LCMS",
+              "High-performance liquid chromatography",
               "Liquid Chromatography-Mass Spectrometry",
               "Bioanalytical Method Validation",
               "Chromatography Techniques",
@@ -1260,6 +1265,10 @@
             ],
             "textKeywords": [
               "LC-MS/MS[tiab]",
+              "HPLC[tiab]",
+              "LC-MS[tiab]",
+              "LCMS[tiab]",
+              "High-performance liquid chromatography[tiab]",
               "Bioanalytical Method Validation[tiab]",
               "Non-compartmental Analysis[tiab]",
               "Compartmental Modeling[tiab]",
@@ -1282,15 +1291,19 @@
               "TMAX",
               "Cmax",
               "Tmax",
+              "AUC",
+              "Area Under Curve",
               "Peak Concentration",
               "Time to Peak",
-              "Maximum Plasma Concentration"
+              "Maximum Plasma Concentration",
+              "Maximum drug concentration"
             ],
             "meshTerms": [
               "Biological Availability[MeSH]",
               "Gastrointestinal Transit[MeSH]",
               "ATP Binding Cassette Transporter, Subfamily B, Member 1[MeSH]",
-              "Intestinal Absorption[MeSH]"
+              "Intestinal Absorption[MeSH]",
+              "Drug Absorption[MeSH]"
             ],
             "textKeywords": [
               "First-pass Metabolism[tiab]",
@@ -1303,23 +1316,32 @@
               "Tmax[tiab]",
               "TMAX[tiab]",
               "T max[tiab]",
+              "AUC[tiab]",
+              "Area Under Curve[tiab]",
+              "Area under the curve[tiab]",
               "peak concentration[tiab]",
               "peak plasma concentration[tiab]",
               "maximum plasma concentration[tiab]",
+              "maximum drug concentration[tiab]",
               "time to peak[tiab]",
-              "time to maximum concentration[tiab]"
+              "time to maximum concentration[tiab]",
+              "bioavailability[tiab]"
             ]
           },
           "distribution": {
             "name": "Distribution",
             "keywords": [
               "Volume of Distribution",
+              "Vd",
               "Plasma Protein Binding",
               "Tissue Penetration",
               "Blood-Brain Barrier",
               "Lipophilicity",
               "Tissue Binding",
-              "Body Composition Effects"
+              "Body Composition Effects",
+              "Protein binding",
+              "Distribution",
+              "Cytochrome"
             ],
             "meshTerms": [
               "Tissue Distribution[MeSH]",
@@ -1328,9 +1350,15 @@
             ],
             "textKeywords": [
               "Volume of Distribution[tiab]",
+              "Vd[tiab]",
+              "V d[tiab]",
               "Tissue Penetration[tiab]",
               "Lipophilicity[tiab]",
-              "Body Composition[tiab]"
+              "Body Composition[tiab]",
+              "Protein binding[tiab]",
+              "Plasma protein binding[tiab]",
+              "Distribution[tiab]",
+              "Cytochrome[tiab]"
             ]
           },
           "metabolism": {
@@ -1339,11 +1367,14 @@
               "Hepatic Metabolism",
               "Cytochrome P450 Enzymes",
               "CYP450",
+              "CYP",
               "Phase I Metabolism",
               "Phase II Metabolism",
               "Enzyme Induction",
               "Enzyme Inhibition",
               "Metabolite Profiling",
+              "Metabolite",
+              "Biotransformation",
               "Genetic Polymorphisms"
             ],
             "meshTerms": [
@@ -1356,7 +1387,11 @@
             "textKeywords": [
               "Hepatic Metabolism[tiab]",
               "CYP450[tiab]",
-              "Metabolite Profiling[tiab]"
+              "CYP[tiab]",
+              "Metabolite Profiling[tiab]",
+              "Metabolite[tiab]",
+              "Biotransformation[tiab]",
+              "Cytochrome[tiab]"
             ]
           },
           "excretion": {
@@ -1369,6 +1404,9 @@
               "Tubular Secretion",
               "Tubular Reabsorption",
               "Half-life",
+              "t1/2",
+              "Elimination",
+              "Clearance",
               "Elimination Rate Constant"
             ],
             "meshTerms": [
@@ -1381,7 +1419,12 @@
               "Renal Clearance[tiab]",
               "Biliary Excretion[tiab]",
               "Tubular Secretion[tiab]",
-              "Elimination Rate[tiab]"
+              "Elimination Rate[tiab]",
+              "Elimination[tiab]",
+              "Clearance[tiab]",
+              "Half-life[tiab]",
+              "t1/2[tiab]",
+              "t½[tiab]"
             ]
           },
           "specialPopulations": {

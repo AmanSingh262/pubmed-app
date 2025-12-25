@@ -129,10 +129,34 @@ router.post('/', async (req, res) => {
     }
 
     console.log(`Found ${searchResults.ids.length} articles`);
+    
+    // AUTO-FETCH MORE: If less than 500 articles found, fetch 200 more
+    let allIds = [...searchResults.ids];
+    if (searchResults.ids.length < 500 && searchResults.ids.length < searchResults.totalCount) {
+      console.log(`⚠️ Only ${searchResults.ids.length} articles found, fetching 200 more to reach 500...`);
+      const additionalResults = await pubmedService.searchArticles(query, {
+        maxResults: 200,
+        categoryKeywords: primaryKeywords,
+        headingKeyword,
+        studyType,
+        categoryPath: categoryPaths[0],
+        yearFrom,
+        yearTo,
+        hasAbstract,
+        freeFullText,
+        fullText,
+        retStart: searchResults.ids.length // Start from where we left off
+      });
+      
+      if (additionalResults.ids && additionalResults.ids.length > 0) {
+        allIds = [...allIds, ...additionalResults.ids];
+        console.log(`✅ Fetched ${additionalResults.ids.length} more articles. Total: ${allIds.length}`);
+      }
+    }
 
     // Step 3: Fetch article details
     console.log('Fetching article details...');
-    const articles = await pubmedService.fetchArticleDetails(searchResults.ids);
+    const articles = await pubmedService.fetchArticleDetails(allIds);
     console.log(`Retrieved ${articles.length} article details`);
 
     // Validate articles have required fields

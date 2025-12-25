@@ -357,6 +357,73 @@
   font-style: italic;
 }
 
+/* Match Checks Section - New */
+.match-checks {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e0e7ff;
+}
+
+.match-checks-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #4338ca;
+  font-size: 14px;
+}
+
+.match-checks-header .check-icon {
+  color: #4338ca;
+  font-size: 16px;
+}
+
+.match-checks-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.check-item:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transform: translateX(2px);
+}
+
+.check-text {
+  flex: 1;
+  color: #374151;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Color coding for check items based on emoji */
+.check-item:has(.check-text:first-child:contains("✅")) {
+  border-left-color: #10b981;
+}
+
+.check-item:has(.check-text:first-child:contains("❌")) {
+  border-left-color: #ef4444;
+}
+
+.check-item:has(.check-text:first-child:contains("⚠️")) {
+  border-left-color: #f59e0b;
+}
+
 @media (max-width: 768px) {
   .article-card {
     padding: 16px;
@@ -389,5 +456,14 @@
   .match-type,
   .mesh-label {
     min-width: auto;
+  }
+  
+  .match-checks {
+    padding: 12px;
+  }
+  
+  .check-item {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 }

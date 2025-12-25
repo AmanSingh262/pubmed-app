@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const DrugSynonymService = require('./drugSynonymService');
 
 class FilterService {
   constructor() {
     this.keywordMappings = this.loadKeywordMappings();
+    this.drugSynonymService = new DrugSynonymService();
   }
 
   /**
@@ -282,10 +284,10 @@ class FilterService {
     
     // NEW: Detailed match tracking for transparency
     const matchDetails = {
-      drugNameMatch: { found: false, location: null, count: 0 },
-      headingMatch: { found: false, location: null, keyword: null },
-      subheadingMatch: { found: false, location: null, keywords: [] },
-      innerKeywordsMatch: { found: false, location: null, keywords: [] },
+      drugNameMatch: { found: false, location: null, count: 0, matchedTerms: [], queriedDrug: null },
+      headingMatch: { found: false, location: null, keyword: null, matchedTerms: [] },
+      subheadingMatch: { found: false, location: null, keywords: [], matchedTerms: [] },
+      innerKeywordsMatch: { found: false, location: null, keywords: [], matchedTerms: [] },
       studyDesignMatch: { found: false, type: null, confidence: 'none' }
     };
 
@@ -306,38 +308,28 @@ class FilterService {
       const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
       const fullText = `${titleStr} ${abstractStr}`;
       
-      // Check drug presence - RELAXED: allow partial matches for brand names and variations
-      // Try word boundary first (most accurate)
-      const drugRegex = new RegExp(`\\b${drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-      drugInTitle = drugRegex.test(titleStr);
-      drugInAbstract = drugRegex.test(abstractStr);
-      hasDrug = drugInTitle || drugInAbstract;
+      // NEW: Use drug synonym matching
+      const titleMatch = this.drugSynonymService.matchDrugSynonyms(titleStr, drugQuery);
+      const abstractMatch = this.drugSynonymService.matchDrugSynonyms(abstractStr, drugQuery);
+      const fullTextMatch = this.drugSynonymService.matchDrugSynonyms(fullText, drugQuery);
       
-      // If not found with word boundary, try substring match (catches "augmentin" in "augmentins" etc.)
-      if (!hasDrug && drugQueryLower.length >= 4) {
-        drugInTitle = titleStr.includes(drugQueryLower);
-        drugInAbstract = abstractStr.includes(drugQueryLower);
-        hasDrug = drugInTitle || drugInAbstract;
-        if (hasDrug) {
-          console.log(`💊 DRUG FOUND (partial match): "${drugQuery}" in ${drugInTitle ? 'title' : 'abstract'}`);
-        }
-      }
+      drugInTitle = titleMatch.found;
+      drugInAbstract = abstractMatch.found && !drugInTitle;
+      hasDrug = fullTextMatch.found;
+      drugMentionCount = fullTextMatch.count;
       
       if (hasDrug) {
-        // Count drug mentions for frequency scoring
-        drugMentionCount = (fullText.match(drugRegex) || []).length;
-        
-        // Track drug name match details
+        // Track drug name match details with synonyms
         matchDetails.drugNameMatch.found = true;
         matchDetails.drugNameMatch.location = drugInTitle ? 'title' : 'abstract';
         matchDetails.drugNameMatch.count = drugMentionCount;
+        matchDetails.drugNameMatch.matchedTerms = fullTextMatch.matchedTerms;
+        matchDetails.drugNameMatch.queriedDrug = drugQuery;
         
-        // If partial match, count manually
-        if (drugMentionCount === 0) {
-          const regex = new RegExp(drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-          drugMentionCount = (fullText.match(regex) || []).length;
-        }
         matches.drugMatches.push(drugQuery);
+        if (fullTextMatch.matchedTerms.length > 0) {
+          matches.drugMatches.push(...fullTextMatch.matchedTerms);
+        }
         
         // Detect study design from article content
         this.detectStudyDesign(article, matchDetails);
@@ -345,7 +337,10 @@ class FilterService {
         // MASSIVE BASE SCORE for drug presence - ensures drug articles rank highest
         if (drugInTitle) {
           score += 150; // Huge base score for drug in title
-          console.log(`💊 DRUG IN TITLE: "${drugQuery}" found in title (Base: +150)`);
+          console.log(`💊 DRUG IN TITLE: "${drugQuery}" (matched: ${titleMatch.matchedTerms.join(', ')}) found in title (Base: +150)`);
+        } else if (drugInAbstract) {
+          score += 80; // Strong base score for drug in abstract
+          console.log(`💊 DRUG IN ABSTRACT: "${drugQuery}" (matched: ${abstractMatch.matchedTerms.join(', ')}) found in abstract (Base: +80)`);
         } else if (drugInAbstract) {
           score += 80; // Strong base score for drug in abstract
           console.log(`💊 DRUG IN ABSTRACT: "${drugQuery}" found in abstract (Base: +80)`);
@@ -399,12 +394,14 @@ class FilterService {
           matchDetails.headingMatch.found = true;
           matchDetails.headingMatch.location = 'title';
           matchDetails.headingMatch.keyword = categoryInfo.parentName;
+          matchDetails.headingMatch.matchedTerms = [categoryInfo.parentName];
           
           // Track subheading match if exists
           if (categoryInfo.childName) {
             matchDetails.subheadingMatch.found = true;
             matchDetails.subheadingMatch.location = 'title';
             matchDetails.subheadingMatch.keywords.push(categoryInfo.childName);
+            matchDetails.subheadingMatch.matchedTerms = [categoryInfo.childName];
           }
         } else if (titleHasFullPath) {
           score += 100; // Strong boost for full path in title even without drug
@@ -444,27 +441,81 @@ class FilterService {
           matchDetails.subheadingMatch.found = true;
           matchDetails.subheadingMatch.location = 'title';
           matchDetails.subheadingMatch.keywords.push(matchedKeyword);
+          matchDetails.subheadingMatch.matchedTerms = [matchedKeyword];
           
           // Track inner keywords match
           matchDetails.innerKeywordsMatch.found = true;
           matchDetails.innerKeywordsMatch.location = 'title';
           matchDetails.innerKeywordsMatch.keywords = specificKeywords.filter(k => titleStr.includes(k));
+          matchDetails.innerKeywordsMatch.matchedTerms = specificKeywords.filter(k => titleStr.includes(k));
         } else if (titleHasSpecificKeyword && hasDrug) {
           // Drug + SPECIFIC subheading keyword in title
           score += 500; // Very high boost
           console.log(`🎯🎯 STRONG TITLE MATCH: Drug "${drugQuery}" + "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +500)`);
+          
+          // Track subheading match
+          const matchedInTitle = specificKeywords.filter(k => titleStr.includes(k));
+          matchDetails.subheadingMatch.found = true;
+          matchDetails.subheadingMatch.location = 'title';
+          matchDetails.subheadingMatch.keywords.push(...matchedInTitle);
+          matchDetails.subheadingMatch.matchedTerms = matchedInTitle;
+          
+          // Also track inner keywords match
+          matchDetails.innerKeywordsMatch.found = true;
+          matchDetails.innerKeywordsMatch.location = 'title';
+          matchDetails.innerKeywordsMatch.keywords = matchedInTitle;
+          matchDetails.innerKeywordsMatch.matchedTerms = matchedInTitle;
         } else if (titleHasSpecificKeyword) {
           // SPECIFIC subheading keyword in title (no drug or drug in abstract)
           score += 200; // Good boost
-          console.log(`🎯 TITLE HAS SPECIFIC SUBHEADING: "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +200)`);
+          const matchedInTitle = specificKeywords.filter(k => titleStr.includes(k));
+          console.log(`🎯 TITLE HAS SPECIFIC SUBHEADING: "${matchedInTitle[0]}" in TITLE (Boost: +200)`);
+          
+          // Track subheading match
+          matchDetails.subheadingMatch.found = true;
+          matchDetails.subheadingMatch.location = 'title';
+          matchDetails.subheadingMatch.keywords.push(...matchedInTitle);
+          matchDetails.subheadingMatch.matchedTerms = matchedInTitle;
+          
+          // Track inner keywords match
+          matchDetails.innerKeywordsMatch.found = true;
+          matchDetails.innerKeywordsMatch.location = 'title';
+          matchDetails.innerKeywordsMatch.keywords = matchedInTitle;
+          matchDetails.innerKeywordsMatch.matchedTerms = matchedInTitle;
         } else if (titleHasInnerKeywords && hasDrug) {
           // Has keywords but ONLY in abstract (not title) - LOW PRIORITY
           score = Math.floor(score * 0.15) + 10; // Reduce to 15% + tiny bonus
           console.log(`⚠️⚠️ ABSTRACT ONLY: Drug + specific keywords in ABSTRACT only (not title) - HEAVILY DEMOTED`);
+          
+          // Track inner keywords match in abstract
+          const matchedInAbstract = specificKeywords.filter(k => abstractStr.includes(k));
+          matchDetails.innerKeywordsMatch.found = true;
+          matchDetails.innerKeywordsMatch.location = 'abstract';
+          matchDetails.innerKeywordsMatch.keywords = matchedInAbstract;
+          matchDetails.innerKeywordsMatch.matchedTerms = matchedInAbstract;
+          
+          // Also mark subheading match (inner keywords ARE category keywords for subheadings)
+          matchDetails.subheadingMatch.found = true;
+          matchDetails.subheadingMatch.location = 'abstract';
+          matchDetails.subheadingMatch.keywords.push(...matchedInAbstract);
+          matchDetails.subheadingMatch.matchedTerms = matchedInAbstract;
         } else if (titleHasInnerKeywords) {
           // Has keywords in abstract only, no drug priority - VERY LOW
           score = Math.floor(score * 0.05) + 2; // Reduce to 5%
           console.log(`⚠️⚠️⚠️ ABSTRACT ONLY: Specific keywords in abstract only - VERY LOW PRIORITY`);
+          
+          // Track inner keywords match in abstract
+          const matchedInAbstract = specificKeywords.filter(k => abstractStr.includes(k));
+          matchDetails.innerKeywordsMatch.found = true;
+          matchDetails.innerKeywordsMatch.location = 'abstract';
+          matchDetails.innerKeywordsMatch.keywords = matchedInAbstract;
+          matchDetails.innerKeywordsMatch.matchedTerms = matchedInAbstract;
+          
+          // Also mark subheading match (inner keywords ARE category keywords for subheadings)
+          matchDetails.subheadingMatch.found = true;
+          matchDetails.subheadingMatch.location = 'abstract';
+          matchDetails.subheadingMatch.keywords.push(...matchedInAbstract);
+          matchDetails.subheadingMatch.matchedTerms = matchedInAbstract;
         } else {
           // NO specific subheading keywords anywhere - REJECT
           score = 0;
@@ -497,15 +548,38 @@ class FilterService {
         
         if (categoryInfo.parentName) {
           const parentLower = categoryInfo.parentName.toLowerCase();
-          const hasParent = fullText.includes(parentLower);
+          
+          // Check for word variations (e.g., "pharmacokinetic", "pharmacokinetics", "pk")
+          const parentRoot = parentLower.replace(/s$/, '').replace(/ics$/, '').replace(/ic$/, ''); // Get root: "pharmacokinet"
+          const hasParentInTitle = titleStr.includes(parentLower) || titleStr.includes(parentRoot);
+          const hasParentInAbstract = abstractStr.includes(parentLower) || abstractStr.includes(parentRoot);
+          const hasParent = hasParentInTitle || hasParentInAbstract;
+          
+          console.log(`🔍 PARENT CHECK: Looking for "${categoryInfo.parentName}" (root: "${parentRoot}") - Title: ${hasParentInTitle}, Abstract: ${hasParentInAbstract}, Drug: ${hasDrug}`);
           
           if (hasParent && hasDrug) {
             score += 250; // High boost for drug + parent keyword
             console.log(`📋 PARENT MATCH: Drug "${drugQuery}" + parent keyword "${categoryInfo.parentName}" found (Boost: +250)`);
+            
+            // Track heading match
+            matchDetails.headingMatch.found = true;
+            matchDetails.headingMatch.location = hasParentInTitle ? 'title' : 'abstract';
+            matchDetails.headingMatch.keyword = categoryInfo.parentName;
+            matchDetails.headingMatch.matchedTerms = [categoryInfo.parentName];
           } else if (hasParent) {
             score += 40; // Moderate boost for parent keyword
             console.log(`📋 PARENT KEYWORD: "${categoryInfo.parentName}" found (Boost: +40)`);
+            
+            // Track heading match
+            matchDetails.headingMatch.found = true;
+            matchDetails.headingMatch.location = hasParentInTitle ? 'title' : 'abstract';
+            matchDetails.headingMatch.keyword = categoryInfo.parentName;
+            matchDetails.headingMatch.matchedTerms = [categoryInfo.parentName];
+          } else {
+            console.log(`❌ PARENT NOT FOUND: "${categoryInfo.parentName}" not detected in title or abstract`);
           }
+        } else {
+          console.log(`⚠️ PARENT MISSING: categoryInfo.parentName is empty`);
         }
       }
     }
@@ -971,6 +1045,9 @@ class FilterService {
   filterAndRankArticles(articles, studyType, categoryPath, topN = 30, drugQuery = null) {
     const filterKeywords = this.getKeywordsForCategory(studyType, categoryPath);
     
+    // Log drug query for debugging
+    console.log(`\n🔍 FILTER STARTED: Drug="${drugQuery}", Category="${categoryPath}", Articles=${articles.length}`);
+    
     if (filterKeywords.keywords.length === 0) {
       console.warn(`No keywords found for ${studyType} > ${categoryPath}`);
       return articles.slice(0, topN);
@@ -984,6 +1061,10 @@ class FilterService {
     // Calculate scores for all articles, passing drugQuery for priority boosting
     const scoredArticles = typeFilteredArticles.map(article => {
       const scoreData = this.calculateRelevanceScore(article, filterKeywords, drugQuery, studyType, categoryPath);
+      
+      // Create visual match summary for frontend display
+      const matchSummary = this.createMatchSummary(scoreData.matchDetails, drugQuery);
+      
       return {
         ...article,
         relevanceScore: scoreData.score,
@@ -996,9 +1077,10 @@ class FilterService {
         filterScore: scoreData.filterScore,
         titleHasFullPath: scoreData.titleHasFullPath,
         titleHasInnerKeywords: scoreData.titleHasInnerKeywords,
-        titleHasInnerKeywordInTitle: scoreData.titleHasInnerKeywordInTitle, // NEW
+        titleHasInnerKeywordInTitle: scoreData.titleHasInnerKeywordInTitle,
         shouldRejectParentOnly: scoreData.shouldRejectParentOnly,
-        matchDetails: scoreData.matchDetails // NEW: Pass match details to response
+        matchDetails: scoreData.matchDetails,
+        matchSummary: matchSummary // NEW: Visual match indicators for display
       };
     });
 
@@ -1010,23 +1092,51 @@ class FilterService {
       .filter(article => {
         const titleStr = typeof article.title === 'string' ? article.title : (article.title ? String(article.title) : 'Unknown');
         
+        // CRITICAL: Check drug requirement FIRST before anything else
+        const hasDrugMatch = article.matchDetails?.drugNameMatch?.found || false;
+        const hasCategoryMatch = (article.matchDetails?.headingMatch?.found || article.matchDetails?.subheadingMatch?.found) || false;
+        const matchedDrugTerms = article.matchDetails?.drugNameMatch?.matchedTerms || [];
+        const drugMatchInfo = matchedDrugTerms.length > 0 ? ` (matched: ${matchedDrugTerms.join(', ')})` : '';
+        
+        // ABSOLUTE REQUIREMENT: If drug query exists, MUST have drug match (NO EXCEPTIONS)
+        if (drugQuery && drugQuery.trim().length > 0) {
+          if (!hasDrugMatch) {
+            console.log(`❌ EXCLUDED (STRICT: no drug "${drugQuery}"): ${titleStr.substring(0, 60)}...`);
+            return false;
+          }
+          if (!hasCategoryMatch) {
+            console.log(`❌ EXCLUDED (STRICT: no category, drug found${drugMatchInfo}): ${titleStr.substring(0, 60)}...`);
+            return false;
+          }
+          // Both checks passed - continue to scoring logic
+          console.log(`✅ BOTH CHECKS PASSED (drug${drugMatchInfo} + category): ${titleStr.substring(0, 60)}...`);
+        }
+        
         // SUBHEADING FILTER: ULTRA STRICT - Prefer TITLE matches only
         if (categoryInfo.isSubheading) {
           const titleLower = titleStr.toLowerCase();
+          
+          // NEW: Check if title contains PARENT keyword (exclude these for subheading-only searches)
+          const titleHasParentKeyword = categoryInfo.parentName && 
+                                       titleLower.includes(categoryInfo.parentName.toLowerCase());
+          
+          // If article has parent keyword in title, EXCLUDE it from subheading-only results
+          if (titleHasParentKeyword) {
+            console.log(`❌ EXCLUDED (parent keyword "${categoryInfo.parentName}" in title, subheading-only search): ${titleStr.substring(0, 60)}...`);
+            return false;
+          }
           
           // Check if title has subheading keywords
           const titleHasSubheading = article.titleHasInnerKeywordInTitle ||
                                      categoryInfo.innerKeywords.some(k => titleLower.includes(k));
           
-          // PRIORITY 1: Articles with subheading keywords in TITLE (always accept)
+          // PRIORITY 1: Articles with subheading keywords in TITLE
           if (titleHasSubheading) {
-            console.log(`✅ ACCEPTED (subheading in TITLE): ${titleStr.substring(0, 60)}...`);
             return true;
           }
           
           // PRIORITY 2: Articles with keywords in abstract only - ACCEPT only if score is decent
           if (article.titleHasInnerKeywords && article.relevanceScore >= 80) {
-            console.log(`⚠️ ACCEPTED (subheading in abstract, good score): ${titleStr.substring(0, 60)}...`);
             return true;
           }
           
@@ -1041,21 +1151,18 @@ class FilterService {
           return false;
         }
         
-        // Accept ALL articles that have the drug name (PubMed already filtered for relevance)
-        if (article.hasDrug) {
-          return true;
+        // If no drug query, use category-only filtering
+        if (!drugQuery || drugQuery.trim().length === 0) {
+          if (hasCategoryMatch) {
+            return true;
+          } else {
+            console.log(`❌ EXCLUDED (no category match): ${titleStr.substring(0, 60)}...`);
+            return false;
+          }
         }
         
-        // Also accept articles with strong filter matches even without explicit drug mention
-        // (drug might be a synonym or in different form)
-        if (article.filterScore >= 10 || article.matchTypes >= 2) {
-          console.log(`✅ INCLUDED (strong filter match, implicit drug): ${titleStr.substring(0, 60)}...`);
-          return true;
-        }
-        
-        // Exclude only if no drug AND weak/no filter matches
-        console.log(`❌ EXCLUDED (no drug, weak matches): ${titleStr.substring(0, 60)}...`);
-        return false;
+        // Drug query exists and both checks passed (verified at top) - accept article
+        return true;
       })
       .sort((a, b) => {
         // HIGHEST PRIORITY: Title has full filter path + drug (scores 650+)
@@ -1210,6 +1317,91 @@ class FilterService {
   escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+
+  /**
+   * Create visual match summary for frontend display
+   * @param {Object} matchDetails - Match details object
+   * @param {string} drugQuery - Drug query string
+   * @returns {Object} Visual match summary with formatted strings
+   */
+  createMatchSummary(matchDetails, drugQuery) {
+    const summary = {
+      drugName: '',
+      category: '',
+      innerKeywords: '',
+      studyDesign: ''
+    };
+
+    // Drug name match summary
+    if (matchDetails?.drugNameMatch?.found) {
+      const matched = matchDetails.drugNameMatch.matchedTerms || [];
+      const location = matchDetails.drugNameMatch.location || 'unknown';
+      const count = matchDetails.drugNameMatch.count || 0;
+      
+      let drugText = `✅ Drug: ${drugQuery || 'N/A'}`;
+      if (matched.length > 0 && matched[0] !== (drugQuery || '').toLowerCase()) {
+        drugText += ` (also: ${matched.join(', ')})`;
+      }
+      drugText += ` | ${location.toUpperCase()}`;
+      if (count > 1) {
+        drugText += `, ${count}×`;
+      }
+      summary.drugName = drugText;
+    } else {
+      summary.drugName = drugQuery ? `❌ Drug: ${drugQuery} not found` : `⚠️ No drug query`;
+    }
+
+    // Category (heading/subheading) match summary
+    // For subheadings, inner keywords (Cmax, Tmax, etc.) ARE the category keywords
+    if (matchDetails?.headingMatch?.found || matchDetails?.subheadingMatch?.found) {
+      const isSubheading = matchDetails.subheadingMatch?.found;
+      const type = isSubheading ? 'Category' : 'Heading';
+      const matched = isSubheading
+        ? (matchDetails.subheadingMatch.matchedTerms || [])
+        : (matchDetails.headingMatch?.matchedTerms || []);
+      const location = isSubheading
+        ? (matchDetails.subheadingMatch.location || 'unknown')
+        : (matchDetails.headingMatch?.location || 'unknown');
+      
+      if (matched.length > 0) {
+        summary.category = `✅ ${type}: ${matched.join(', ')} | ${location.toUpperCase()}`;
+      } else {
+        summary.category = `✅ ${type} matched | ${location.toUpperCase()}`;
+      }
+    } else {
+      summary.category = `❌ Category keywords not found`;
+    }
+
+    // Inner keywords match summary (show details for subheadings)
+    if (matchDetails?.innerKeywordsMatch?.found) {
+      const matched = matchDetails.innerKeywordsMatch.matchedTerms || [];
+      const location = matchDetails.innerKeywordsMatch.location || 'unknown';
+      
+      if (matched.length > 0) {
+        // Show specific matched terms
+        const displayTerms = matched.slice(0, 3); // Show max 3 terms
+        const moreCount = matched.length > 3 ? ` (+${matched.length - 3} more)` : '';
+        summary.innerKeywords = `✅ Specific Terms: ${displayTerms.join(', ')}${moreCount} | ${location.toUpperCase()}`;
+      } else {
+        summary.innerKeywords = `✅ Specific Terms matched | ${location.toUpperCase()}`;
+      }
+    } else {
+      summary.innerKeywords = `⚠️ No specific terms found`;
+    }
+
+    // Study design match summary
+    if (matchDetails?.studyDesignMatch?.found) {
+      const design = matchDetails.studyDesignMatch.design || 'Unknown';
+      const confidence = matchDetails.studyDesignMatch.confidence || 'low';
+      
+      summary.studyDesign = `✅ Study Design: ${design} (${confidence} confidence)`;
+    } else {
+      summary.studyDesign = `⚠️ Study design not detected`;
+    }
+
+    return summary;
+  }
+
 }
 
 module.exports = FilterService;

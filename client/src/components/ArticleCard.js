@@ -16,7 +16,9 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
     // keywords, // Not currently used in display
     url,
     relevanceScore,
-    matches
+    matches,
+    matchSummary,
+    matchDetails
   } = article;
 
   // Normalize PMID (handle both string and object formats)
@@ -151,6 +153,45 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
           </button>
         )}
       </div>
+
+      {/* NEW: Match Summary - All Check Functions */}
+      {matchSummary && (
+        <div className="match-checks">
+          <div className="match-checks-header">
+            <FaCheckCircle className="check-icon" />
+            <span>Match Validation</span>
+          </div>
+          <div className="match-checks-content">
+            {/* Drug Name Check */}
+            {matchSummary.drugName && (
+              <div className="check-item">
+                <span className="check-text">{matchSummary.drugName}</span>
+              </div>
+            )}
+            
+            {/* Category (Heading/Subheading) Check */}
+            {matchSummary.category && (
+              <div className="check-item">
+                <span className="check-text">{matchSummary.category}</span>
+              </div>
+            )}
+            
+            {/* Inner Keywords Check (shown if subheading selected) */}
+            {matchSummary.innerKeywords && (
+              <div className="check-item">
+                <span className="check-text">{matchSummary.innerKeywords}</span>
+              </div>
+            )}
+            
+            {/* Study Design Check */}
+            {matchSummary.studyDesign && (
+              <div className="check-item">
+                <span className="check-text">{matchSummary.studyDesign}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {matches && (
         <div className="article-matches">
