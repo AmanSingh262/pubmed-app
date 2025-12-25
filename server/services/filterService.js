@@ -279,6 +279,15 @@ class FilterService {
       keywordMatches: [],
       drugMatches: []
     };
+    
+    // NEW: Detailed match tracking for transparency
+    const matchDetails = {
+      drugNameMatch: { found: false, location: null, count: 0 },
+      headingMatch: { found: false, location: null, keyword: null },
+      subheadingMatch: { found: false, location: null, keywords: [] },
+      innerKeywordsMatch: { found: false, location: null, keywords: [] },
+      studyDesignMatch: { found: false, type: null, confidence: 'none' }
+    };
 
     // Safety check
     if (!article) {
@@ -317,12 +326,21 @@ class FilterService {
       if (hasDrug) {
         // Count drug mentions for frequency scoring
         drugMentionCount = (fullText.match(drugRegex) || []).length;
+        
+        // Track drug name match details
+        matchDetails.drugNameMatch.found = true;
+        matchDetails.drugNameMatch.location = drugInTitle ? 'title' : 'abstract';
+        matchDetails.drugNameMatch.count = drugMentionCount;
+        
         // If partial match, count manually
         if (drugMentionCount === 0) {
           const regex = new RegExp(drugQueryLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
           drugMentionCount = (fullText.match(regex) || []).length;
         }
         matches.drugMatches.push(drugQuery);
+        
+        // Detect study design from article content
+        this.detectStudyDesign(article, matchDetails);
         
         // MASSIVE BASE SCORE for drug presence - ensures drug articles rank highest
         if (drugInTitle) {
@@ -346,6 +364,9 @@ class FilterService {
       }
     }
 
+    // Detect study design from article content
+    this.detectStudyDesign(article, matchDetails);
+    
     // PRIORITY 2: Check for TITLE/HEADING matches with FULL FILTER PATH (highest priority)
     let titleHasFullPath = false;
     let titleHasInnerKeywords = false;
@@ -373,6 +394,18 @@ class FilterService {
           score += 500; // MASSIVE boost for drug + full filter path in title
           console.log(`🔥🔥🔥 PERFECT MATCH: Drug "${drugQuery}" + Full Path "${categoryInfo.fullPath}" in title (Boost: +500)`);
           matches.titleMatches.push(categoryInfo.fullPath);
+          
+          // Track heading match
+          matchDetails.headingMatch.found = true;
+          matchDetails.headingMatch.location = 'title';
+          matchDetails.headingMatch.keyword = categoryInfo.parentName;
+          
+          // Track subheading match if exists
+          if (categoryInfo.childName) {
+            matchDetails.subheadingMatch.found = true;
+            matchDetails.subheadingMatch.location = 'title';
+            matchDetails.subheadingMatch.keywords.push(categoryInfo.childName);
+          }
         } else if (titleHasFullPath) {
           score += 100; // Strong boost for full path in title even without drug
           console.log(`📋 FULL PATH IN TITLE: "${categoryInfo.fullPath}" found in title (Boost: +100)`);
@@ -404,7 +437,18 @@ class FilterService {
         if (titleHasSpecificKeyword && hasDrug && drugInTitle) {
           // PERFECT: Drug + SPECIFIC subheading keyword BOTH in TITLE
           score += 800; // MASSIVE boost
-          console.log(`🔥🔥🔥 PERFECT TITLE MATCH: Drug "${drugQuery}" + "${specificKeywords.filter(k => titleStr.includes(k))[0]}" in TITLE (Boost: +800)`);
+          const matchedKeyword = specificKeywords.filter(k => titleStr.includes(k))[0];
+          console.log(`🔥🔥🔥 PERFECT TITLE MATCH: Drug "${drugQuery}" + "${matchedKeyword}" in TITLE (Boost: +800)`);
+          
+          // Track subheading match
+          matchDetails.subheadingMatch.found = true;
+          matchDetails.subheadingMatch.location = 'title';
+          matchDetails.subheadingMatch.keywords.push(matchedKeyword);
+          
+          // Track inner keywords match
+          matchDetails.innerKeywordsMatch.found = true;
+          matchDetails.innerKeywordsMatch.location = 'title';
+          matchDetails.innerKeywordsMatch.keywords = specificKeywords.filter(k => titleStr.includes(k));
         } else if (titleHasSpecificKeyword && hasDrug) {
           // Drug + SPECIFIC subheading keyword in title
           score += 500; // Very high boost
@@ -669,8 +713,122 @@ class FilterService {
       titleHasFullPath,
       titleHasInnerKeywords,
       titleHasInnerKeywordInTitle, // NEW: Pass this to sorting
-      shouldRejectParentOnly
+      shouldRejectParentOnly,
+      matchDetails // NEW: Return detailed match information for UI display
     };
+  }
+  
+  /**
+   * Detect study design from article content
+   * @param {Object} article - Article object
+   * @param {Object} matchDetails - Match details object to update
+   */
+  detectStudyDesign(article, matchDetails) {
+    const titleStr = typeof article.title === 'string' ? article.title.toLowerCase() : '';
+    const abstractStr = typeof article.abstract === 'string' ? article.abstract.toLowerCase() : '';
+    const fullText = `${titleStr} ${abstractStr}`;
+    const meshTerms = (article.meshTerms || []).map(t => String(t).toLowerCase());
+    
+    // Study design patterns with confidence levels
+    const studyDesigns = [
+      // Randomized Controlled Trials
+      { pattern: /randomized controlled trial|rct|randomised controlled trial/i, type: 'Randomized Controlled Trial', confidence: 'high' },
+      { pattern: /double.?blind|double.masked/i, type: 'Double-Blind Study', confidence: 'high' },
+      { pattern: /single.?blind|single.masked/i, type: 'Single-Blind Study', confidence: 'high' },
+      { pattern: /placebo.?controlled/i, type: 'Placebo-Controlled Study', confidence: 'high' },
+      
+      // Controlled Studies
+      { pattern: /active.?controlled|comparator.?controlled/i, type: 'Active-Controlled Study', confidence: 'high' },
+      { pattern: /controlled.?trial|controlled.?study/i, type: 'Controlled Study', confidence: 'medium' },
+      
+      // Observational Studies
+      { pattern: /cohort.?study|cohort.?analysis/i, type: 'Cohort Study', confidence: 'high' },
+      { pattern: /case.?control.?study/i, type: 'Case-Control Study', confidence: 'high' },
+      { pattern: /cross.?sectional.?study/i, type: 'Cross-Sectional Study', confidence: 'high' },
+      { pattern: /prospective.?study/i, type: 'Prospective Study', confidence: 'medium' },
+      { pattern: /retrospective.?study|retrospective.?analysis/i, type: 'Retrospective Study', confidence: 'medium' },
+      
+      // Other Trial Types
+      { pattern: /open.?label/i, type: 'Open-Label Study', confidence: 'high' },
+      { pattern: /crossover.?study|crossover.?trial|cross.?over/i, type: 'Crossover Study', confidence: 'high' },
+      { pattern: /parallel.?group|parallel.?arm/i, type: 'Parallel Group Study', confidence: 'medium' },
+      { pattern: /dose.?ranging|dose.?finding|dose.?escalation/i, type: 'Dose-Ranging Study', confidence: 'high' },
+      
+      // Phase Studies
+      { pattern: /phase.?i(?!i|v)/i, type: 'Phase I Study', confidence: 'high' },
+      { pattern: /phase.?ii(?!i)/i, type: 'Phase II Study', confidence: 'high' },
+      { pattern: /phase.?iii/i, type: 'Phase III Study', confidence: 'high' },
+      { pattern: /phase.?iv/i, type: 'Phase IV Study', confidence: 'high' },
+      
+      // Reviews and Meta-analyses
+      { pattern: /systematic.?review/i, type: 'Systematic Review', confidence: 'high' },
+      { pattern: /meta.?analysis/i, type: 'Meta-Analysis', confidence: 'high' },
+      
+      // Case Studies
+      { pattern: /case.?series/i, type: 'Case Series', confidence: 'high' },
+      { pattern: /case.?report/i, type: 'Case Report', confidence: 'high' },
+      
+      // Special Studies
+      { pattern: /bioequivalence.?study|bioavailability.?study/i, type: 'Bioequivalence Study', confidence: 'high' },
+      { pattern: /pharmacokinetic.?study|pk.?study/i, type: 'Pharmacokinetic Study', confidence: 'medium' },
+      { pattern: /pharmacodynamic.?study|pd.?study/i, type: 'Pharmacodynamic Study', confidence: 'medium' },
+      { pattern: /safety.?study|tolerability.?study/i, type: 'Safety Study', confidence: 'medium' },
+      { pattern: /efficacy.?study/i, type: 'Efficacy Study', confidence: 'medium' }
+    ];
+    
+    // Check MeSH terms first (most reliable)
+    const meshDesigns = {
+      'randomized controlled trial': 'Randomized Controlled Trial',
+      'controlled clinical trial': 'Controlled Clinical Trial',
+      'double-blind method': 'Double-Blind Study',
+      'single-blind method': 'Single-Blind Study',
+      'cross-over studies': 'Crossover Study',
+      'cohort studies': 'Cohort Study',
+      'case-control studies': 'Case-Control Study',
+      'prospective studies': 'Prospective Study',
+      'retrospective studies': 'Retrospective Study',
+      'clinical trial, phase i': 'Phase I Study',
+      'clinical trial, phase ii': 'Phase II Study',
+      'clinical trial, phase iii': 'Phase III Study',
+      'clinical trial, phase iv': 'Phase IV Study',
+      'meta-analysis': 'Meta-Analysis',
+      'systematic review': 'Systematic Review'
+    };
+    
+    // Check MeSH terms
+    for (const [meshTerm, designType] of Object.entries(meshDesigns)) {
+      if (meshTerms.some(t => t.includes(meshTerm))) {
+        matchDetails.studyDesignMatch.found = true;
+        matchDetails.studyDesignMatch.type = designType;
+        matchDetails.studyDesignMatch.confidence = 'high';
+        return;
+      }
+    }
+    
+    // Check title first (most important)
+    for (const design of studyDesigns) {
+      if (design.pattern.test(titleStr)) {
+        matchDetails.studyDesignMatch.found = true;
+        matchDetails.studyDesignMatch.type = design.type;
+        matchDetails.studyDesignMatch.confidence = design.confidence;
+        return;
+      }
+    }
+    
+    // Check full text
+    for (const design of studyDesigns) {
+      if (design.pattern.test(fullText)) {
+        matchDetails.studyDesignMatch.found = true;
+        matchDetails.studyDesignMatch.type = design.type;
+        matchDetails.studyDesignMatch.confidence = design.confidence === 'high' ? 'medium' : 'low';
+        return;
+      }
+    }
+    
+    // No study design detected
+    matchDetails.studyDesignMatch.found = false;
+    matchDetails.studyDesignMatch.type = 'Not specified';
+    matchDetails.studyDesignMatch.confidence = 'none';
   }
 
   /**
@@ -839,7 +997,8 @@ class FilterService {
         titleHasFullPath: scoreData.titleHasFullPath,
         titleHasInnerKeywords: scoreData.titleHasInnerKeywords,
         titleHasInnerKeywordInTitle: scoreData.titleHasInnerKeywordInTitle, // NEW
-        shouldRejectParentOnly: scoreData.shouldRejectParentOnly
+        shouldRejectParentOnly: scoreData.shouldRejectParentOnly,
+        matchDetails: scoreData.matchDetails // NEW: Pass match details to response
       };
     });
 
