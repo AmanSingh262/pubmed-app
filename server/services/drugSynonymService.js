@@ -61,10 +61,6 @@ class DrugSynonymService {
       
       // Fallback to minimal hard-coded list if file not found
       return {
-      console.error('⚠️ Error loading drug database, using minimal fallback:', error.message);
-      
-      // Fallback to minimal hard-coded list if file not found
-      return {
         // Augmentin family
         'augmentin': [
           'amoxicillin-clavulanic acid', 
