@@ -1,15 +1,27 @@
 /**
  * Drug Synonym Service
  * Maps brand names to generic names and provides synonym matching
+ * Uses local database + RxNorm API fallback for production-grade coverage
  */
 
 const fs = require('fs');
 const path = require('path');
+const RxNormService = require('./rxNormService');
 
 class DrugSynonymService {
   constructor() {
     // Load comprehensive drug database from JSON file
     this.synonymMap = this.loadDrugDatabase();
+    
+    // Initialize RxNorm API service for production-grade fallback
+    this.rxNormService = new RxNormService();
+    
+    // Track API usage
+    this.apiUsageStats = {
+      localHits: 0,
+      apiCalls: 0,
+      apiHits: 0
+    };
   }
 
   /**
@@ -78,10 +90,66 @@ class DrugSynonymService {
 
   /**
    * Get all synonyms for a drug name
+   * First checks local database, then falls back to RxNorm API
    * @param {string} drugName - Drug name to find synonyms for
-   * @returns {Array} Array of synonyms including the original name
+   * @returns {Promise<Array>} Array of synonyms including the original name
    */
-  getSynonyms(drugName) {
+  async getSynonyms(drugName) {
+    if (!drugName) return [];
+    
+    const drugLower = drugName.toLowerCase().trim();
+    const synonyms = [drugLower];
+    
+    // Step 1: Check local database first (fastest)
+    if (this.synonymMap[drugLower]) {
+      this.apiUsageStats.localHits++;
+      synonyms.push(...this.synonymMap[drugLower]);
+      console.log(`💾 Local DB hit: ${drugName} (${synonyms.length - 1} synonyms)`);
+      return [...new Set(synonyms)];
+    }
+    
+    // Step 2: Check if this drug is a synonym of another in local DB
+    for (const [key, values] of Object.entries(this.synonymMap)) {
+      if (values.includes(drugLower) && !synonyms.includes(key)) {
+        this.apiUsageStats.localHits++;
+        synonyms.push(key);
+        console.log(`💾 Local DB reverse hit: ${drugName} -> ${key}`);
+        return [...new Set(synonyms)];
+      }
+    }
+    
+    // Step 3: Not in local database - query RxNorm API (production fallback)
+    try {
+      console.log(`🌐 Drug not in local DB, querying RxNorm API: ${drugName}`);
+      this.apiUsageStats.apiCalls++;
+      
+      const apiSynonyms = await this.rxNormService.getDrugSynonyms(drugName);
+      
+      if (apiSynonyms && apiSynonyms.length > 0) {
+        this.apiUsageStats.apiHits++;
+        synonyms.push(...apiSynonyms);
+        
+        // Cache in local map for future use
+        this.synonymMap[drugLower] = apiSynonyms;
+        
+        console.log(`✅ RxNorm API success: ${drugName} (${apiSynonyms.length} synonyms)`);
+        return [...new Set(synonyms)];
+      }
+    } catch (error) {
+      console.warn(`⚠️ RxNorm API error for ${drugName}:`, error.message);
+    }
+    
+    // Return at least the original drug name
+    console.log(`⚠️ No synonyms found for: ${drugName}`);
+    return synonyms;
+  }
+
+  /**
+   * Get all synonyms for a drug name (synchronous version for backwards compatibility)
+   * @param {string} drugName - Drug name to find synonyms for
+   * @returns {Array} Array of synonyms from local database only
+   */
+  getSynonymsSync(drugName) {
     if (!drugName) return [];
     
     const drugLower = drugName.toLowerCase().trim();
@@ -114,7 +182,10 @@ class DrugSynonymService {
     }
     
     const textLower = text.toLowerCase();
-    const synonyms = this.getSynonyms(drugName);
+    
+    // Use synchronous version for performance (check local DB only)
+    // RxNorm API will be queried during initial search, results cached
+    const synonyms = this.getSynonymsSync(drugName);
     const matchedTerms = [];
     let totalCount = 0;
     
@@ -153,6 +224,25 @@ class DrugSynonymService {
       queriedDrug: drugName,
       allSynonyms: synonyms
     };
+  }
+
+  /**
+   * Get API usage statistics
+   * @returns {Object} Usage stats
+   */
+  getStats() {
+    return {
+      ...this.apiUsageStats,
+      localDatabaseSize: Object.keys(this.synonymMap).length,
+      rxNormCacheSize: this.rxNormService.getCacheStats().size
+    };
+  }
+
+  /**
+   * Clear RxNorm cache
+   */
+  clearCache() {
+    this.rxNormService.clearCache();
   }
 
   /**

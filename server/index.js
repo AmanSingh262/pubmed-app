@@ -21,6 +21,7 @@ const templateV4Routes = require('./routes/templateV4');
 const templateFinalRoutes = require('./routes/templateFinal');
 const detailDocumentRoutes = require('./routes/detailDocument');
 const shortSummaryRoutes = require('./routes/shortSummaryDoc');
+const drugStatsRoutes = require('./routes/drugStats');
 
 // Initialize Express app
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/template-v4', templateV4Routes);
 app.use('/api/template-final', templateFinalRoutes);
 app.use('/api', detailDocumentRoutes);
 app.use('/api', shortSummaryRoutes);
+app.use('/api/drug-stats', drugStatsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
