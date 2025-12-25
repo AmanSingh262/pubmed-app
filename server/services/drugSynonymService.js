@@ -3,61 +3,77 @@
  * Maps brand names to generic names and provides synonym matching
  */
 
+const fs = require('fs');
+const path = require('path');
+
 class DrugSynonymService {
   constructor() {
-    // Common drug synonyms and brand names
-    this.synonymMap = {
-      // Augmentin family
-      'augmentin': [
-        'amoxicillin-clavulanic acid', 
-        'amoxicillin and clavulanic acid',  // NEW: added variant with "and"
-        'amoxycillin and clavulanic acid', 
-        'co-amoxiclav', 
-        'amoxicillin clavulanate', 
-        'amoxycillin clavulanic acid',
-        'amoxicillin/clavulanic acid',  // NEW: added variant with slash
-        'amoxicillin-clavulanate',
-        'amoxicillin and clavulanate'  // NEW: added variant
-      ],
-      'amoxicillin-clavulanic acid': ['augmentin', 'co-amoxiclav', 'amoxycillin and clavulanic acid', 'amoxicillin and clavulanic acid'],
-      'co-amoxiclav': ['augmentin', 'amoxicillin-clavulanic acid', 'amoxycillin and clavulanic acid', 'amoxicillin and clavulanic acid'],
+    // Load comprehensive drug database from JSON file
+    this.synonymMap = this.loadDrugDatabase();
+  }
+
+  /**
+   * Load drug synonym database from JSON file
+   * @returns {Object} Drug synonym mappings
+   */
+  loadDrugDatabase() {
+    try {
+      const filePath = path.join(__dirname, '../data/drugSynonyms.json');
+      const data = fs.readFileSync(filePath, 'utf8');
+      const drugCategories = JSON.parse(data);
       
-      // Cefixime family
-      'cefixime': ['suprax', 'cefixime trihydrate'],
-      'suprax': ['cefixime'],
+      // Flatten all categories into a single synonym map
+      const synonymMap = {};
       
-      // Aspirin family
-      'aspirin': ['acetylsalicylic acid', 'asa', 'acetyl salicylic acid'],
-      'acetylsalicylic acid': ['aspirin', 'asa'],
+      for (const category of Object.values(drugCategories)) {
+        for (const [drugName, synonyms] of Object.entries(category)) {
+          synonymMap[drugName.toLowerCase()] = synonyms.map(s => s.toLowerCase());
+          
+          // Also create reverse mappings (synonym -> original drug)
+          synonyms.forEach(synonym => {
+            const synLower = synonym.toLowerCase();
+            if (!synonymMap[synLower]) {
+              synonymMap[synLower] = [drugName.toLowerCase()];
+            } else if (!synonymMap[synLower].includes(drugName.toLowerCase())) {
+              synonymMap[synLower].push(drugName.toLowerCase());
+            }
+          });
+        }
+      }
       
-      // Paracetamol/Acetaminophen
-      'paracetamol': ['acetaminophen', 'tylenol', 'panadol'],
-      'acetaminophen': ['paracetamol', 'tylenol'],
-      'tylenol': ['paracetamol', 'acetaminophen'],
+      console.log(`✅ Loaded ${Object.keys(synonymMap).length} drugs from database`);
+      return synonymMap;
       
-      // Metformin
-      'metformin': ['glucophage', 'metformin hydrochloride'],
-      'glucophage': ['metformin'],
+    } catch (error) {
+      console.error('⚠️ Error loading drug database, using minimal fallback:', error.message);
       
-      // Ibuprofen
-      'ibuprofen': ['advil', 'motrin', 'nurofen'],
-      'advil': ['ibuprofen'],
-      'motrin': ['ibuprofen'],
+      // Fallback to minimal hard-coded list if file not found
+      return {
+      console.error('⚠️ Error loading drug database, using minimal fallback:', error.message);
       
-      // Omeprazole
-      'omeprazole': ['prilosec', 'losec'],
-      'prilosec': ['omeprazole'],
-      
-      // Ciprofloxacin
-      'ciprofloxacin': ['cipro', 'ciprofloxacin hydrochloride'],
-      'cipro': ['ciprofloxacin'],
-      
-      // Azithromycin
-      'azithromycin': ['zithromax', 'azithromycin dihydrate'],
-      'zithromax': ['azithromycin'],
-      
-      // Add more as needed...
-    };
+      // Fallback to minimal hard-coded list if file not found
+      return {
+        // Augmentin family
+        'augmentin': [
+          'amoxicillin-clavulanic acid', 
+          'amoxicillin and clavulanic acid',
+          'amoxycillin and clavulanic acid', 
+          'co-amoxiclav', 
+          'amoxicillin clavulanate', 
+          'amoxycillin clavulanic acid',
+          'amoxicillin/clavulanic acid',
+          'amoxicillin-clavulanate',
+          'amoxicillin and clavulanate'
+        ],
+        'amoxicillin-clavulanic acid': ['augmentin', 'co-amoxiclav'],
+        'co-amoxiclav': ['augmentin', 'amoxicillin-clavulanic acid'],
+        
+        // Basic drugs
+        'aspirin': ['acetylsalicylic acid', 'asa'],
+        'paracetamol': ['acetaminophen', 'tylenol'],
+        'ibuprofen': ['advil', 'motrin']
+      };
+    }
   }
 
   /**
