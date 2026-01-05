@@ -1,6 +1,6 @@
 import React from 'react';
 import './SearchFilters.css';
-import { FaCalendar, FaFileAlt, FaUnlock, FaBook } from 'react-icons/fa';
+import { FaCalendar, FaFileAlt, FaUnlock, FaBook, FaPaw, FaUserMd } from 'react-icons/fa';
 
 function SearchFilters({ filters, setFilters, disabled }) {
   const currentYear = new Date().getFullYear();
@@ -91,7 +91,31 @@ function SearchFilters({ filters, setFilters, disabled }) {
         </label>
       </div>
 
-      {(filters.yearFrom || filters.yearTo || filters.hasAbstract || filters.freeFullText || filters.fullText) && (
+      <div className="filter-group study-type-verification">
+        <label className="filter-label">Study Type Verification</label>
+        <label className="filter-checkbox">
+          <input
+            type="checkbox"
+            checked={filters.verifyAnimalStudy}
+            onChange={() => handleToggle('verifyAnimalStudy')}
+            disabled={disabled}
+          />
+          <FaPaw className="filter-icon animal" />
+          <span>Strict Animal Study Only</span>
+        </label>
+        <label className="filter-checkbox">
+          <input
+            type="checkbox"
+            checked={filters.verifyHumanStudy}
+            onChange={() => handleToggle('verifyHumanStudy')}
+            disabled={disabled}
+          />
+          <FaUserMd className="filter-icon human" />
+          <span>Strict Human Study Only</span>
+        </label>
+      </div>
+
+      {(filters.yearFrom || filters.yearTo || filters.hasAbstract || filters.freeFullText || filters.fullText || filters.verifyAnimalStudy || filters.verifyHumanStudy) && (
         <button
           className="btn-reset-filters"
           onClick={() => setFilters({
@@ -99,7 +123,9 @@ function SearchFilters({ filters, setFilters, disabled }) {
             yearTo: null,
             hasAbstract: false,
             freeFullText: false,
-            fullText: false
+            fullText: false,
+            verifyAnimalStudy: false,
+            verifyHumanStudy: false
           })}
           disabled={disabled}
         >

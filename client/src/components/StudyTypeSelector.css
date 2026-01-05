@@ -8,13 +8,17 @@
   margin-right: auto;
 }
 
-.study-type-btn {
+.study-type-card {
   flex: 1;
   max-width: 350px;
+}
+
+.study-type-btn {
+  width: 100%;
   padding: 20px;
   background: rgba(255, 255, 255, 0.95);
   border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border-radius: 12px 12px 0 0;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -23,6 +27,60 @@
   text-align: left;
   position: relative;
   overflow: hidden;
+}
+
+.study-type-card .study-type-btn.active {
+  border-radius: 12px 12px 0 0;
+}
+
+.study-type-card .study-type-btn:not(.active) {
+  border-radius: 12px;
+}
+
+.verification-checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 3px solid;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.study-type-card:first-child .verification-checkbox-inline {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.study-type-card:last-child .verification-checkbox-inline {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+  color: #4c1d95;
+}
+
+.verification-checkbox-inline input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.study-type-card:first-child .verification-checkbox-inline input[type="checkbox"] {
+  accent-color: #10b981;
+}
+
+.study-type-card:last-child .verification-checkbox-inline input[type="checkbox"] {
+  accent-color: #667eea;
+}
+
+.verification-checkbox-inline:hover {
+  filter: brightness(0.98);
 }
 
 .study-type-btn::before {

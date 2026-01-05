@@ -31,7 +31,9 @@ function AppContent() {
     yearTo: null,
     hasAbstract: false,
     freeFullText: false,
-    fullText: false
+    fullText: false,
+    verifyAnimalStudy: true,  // Auto-enabled by default for animal studies
+    verifyHumanStudy: false
   });
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -326,6 +328,8 @@ function AppContent() {
             studyType={studyType}
             setStudyType={setStudyType}
             disabled={loading}
+            searchFilters={searchFilters}
+            setSearchFilters={setSearchFilters}
           />
         </div>
 

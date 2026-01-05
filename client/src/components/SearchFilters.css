@@ -150,3 +150,32 @@
 .card.study-human .search-filters input[type="checkbox"] {
   accent-color: #667eea;
 }
+
+/* Study Type Verification Section */
+.study-type-verification {
+  border-top: 2px solid #e5e7eb;
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.study-type-verification .filter-label {
+  color: #1f2937;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.study-type-verification .filter-checkbox {
+  margin-bottom: 8px;
+}
+
+.filter-icon.animal {
+  color: #10b981;
+}
+
+.filter-icon.human {
+  color: #667eea;
+}
+
+.study-type-verification .filter-checkbox:hover:not(:has(input:disabled)) {
+  background-color: #f0f9ff;
+}

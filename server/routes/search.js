@@ -32,7 +32,9 @@ router.post('/', async (req, res) => {
       yearTo = null,
       hasAbstract = false,
       freeFullText = false,
-      fullText = false
+      fullText = false,
+      verifyAnimalStudy = false,
+      verifyHumanStudy = false
     } = req.body;
 
     // Validation
@@ -168,14 +170,55 @@ router.post('/', async (req, res) => {
     // Step 3.5: STRICT filtering based on study type - focus on TITLE for accuracy
     const studyTypeFilteredArticles = validArticles.filter(article => {
       const title = (typeof article.title === 'string' ? article.title : String(article.title || '')).toLowerCase();
+      const abstract = (typeof article.abstract === 'string' ? article.abstract : String(article.abstract || '')).toLowerCase();
       const meshTermsLower = (article.meshTerms || []).map(term => 
         (typeof term === 'string' ? term : String(term)).toLowerCase()
       );
 
-      // Animal species keywords for title checking
+      // Animal species keywords for title/abstract checking
       const animalSpeciesInTitle = ['in rats', 'in mice', 'in pigs', 'in rabbits', 'in dogs', 'in monkeys', 'in guinea pig', 'rat model', 'mouse model', 'animal model'];
       const strongAnimalWords = [' rat ', ' rats ', ' mouse ', ' mice ', ' pig ', ' pigs ', 'porcine', 'murine', 'in swine'];
+      const humanIndicators = ['patient', 'clinical trial', 'human volunteer', 'human subject', 'in humans', 'in healthy volunteers'];
       
+      // ENHANCED VERIFICATION MODE
+      if (verifyAnimalStudy && studyType === 'animal') {
+        // VERY STRICT: Must have clear animal indicators
+        const hasAnimalInTitle = animalSpeciesInTitle.some(phrase => title.includes(phrase)) ||
+                                 strongAnimalWords.some(word => title.includes(word));
+        const hasAnimalMeSH = meshTermsLower.some(term => term === 'animals');
+        const hasHumanIndicator = humanIndicators.some(phrase => title.includes(phrase) || abstract.includes(phrase));
+        const hasHumanMeSH = meshTermsLower.some(term => term.includes('human'));
+        
+        // Must have animal evidence AND no human evidence
+        if ((hasAnimalInTitle || hasAnimalMeSH) && !hasHumanIndicator && !hasHumanMeSH) {
+          console.log(`✅ VERIFIED ANIMAL STUDY: ${title.substring(0, 60)}...`);
+          article.studyTypeVerified = 'animal';
+          return true;
+        } else {
+          console.log(`❌ REJECTED (failed strict animal verification): ${title.substring(0, 60)}...`);
+          return false;
+        }
+      }
+      
+      if (verifyHumanStudy && studyType === 'human') {
+        // VERY STRICT: Must have clear human indicators
+        const hasHumanIndicator = humanIndicators.some(phrase => title.includes(phrase) || abstract.includes(phrase));
+        const hasHumanMeSH = meshTermsLower.some(term => term.includes('human'));
+        const hasAnimalInTitle = animalSpeciesInTitle.some(phrase => title.includes(phrase)) ||
+                                 strongAnimalWords.some(word => title.includes(word));
+        
+        // Must have human evidence AND no obvious animal evidence
+        if ((hasHumanIndicator || hasHumanMeSH) && !hasAnimalInTitle) {
+          console.log(`✅ VERIFIED HUMAN STUDY: ${title.substring(0, 60)}...`);
+          article.studyTypeVerified = 'human';
+          return true;
+        } else {
+          console.log(`❌ REJECTED (failed strict human verification): ${title.substring(0, 60)}...`);
+          return false;
+        }
+      }
+      
+      // STANDARD MODE (original logic)
       if (studyType === 'human') {
         // STRICT for human studies - check title for obvious animal species
         

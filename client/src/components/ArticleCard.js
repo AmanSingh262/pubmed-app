@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './ArticleCard.css';
-import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar, FaCheckCircle, FaCircle, FaShoppingCart, FaCheck } from 'react-icons/fa';
+import { FaExternalLinkAlt, FaTags, FaCalendar, FaBookOpen, FaChevronDown, FaChevronUp, FaStar, FaCheckCircle, FaCircle, FaShoppingCart, FaCheck, FaPaw, FaUserMd } from 'react-icons/fa';
 
 function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, onAddToCart, isInCart }) {
   const [expanded, setExpanded] = useState(false);
@@ -18,7 +18,8 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
     relevanceScore,
     matches,
     matchSummary,
-    matchDetails
+    matchDetails,
+    studyTypeVerified
   } = article;
 
   // Normalize PMID (handle both string and object formats)
@@ -162,6 +163,23 @@ function ArticleCard({ article, rank, isSelectable, isSelected, onToggleSelect, 
             <span>Match Validation</span>
           </div>
           <div className="match-checks-content">
+            {/* Study Type Verification Badge */}
+            {studyTypeVerified && (
+              <div className="check-item verification-badge">
+                {studyTypeVerified === 'animal' ? (
+                  <>
+                    <FaPaw className="verify-icon animal" />
+                    <span className="check-text verified">Verified Animal Study</span>
+                  </>
+                ) : (
+                  <>
+                    <FaUserMd className="verify-icon human" />
+                    <span className="check-text verified">Verified Human Study</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Drug Name Check */}
             {matchSummary.drugName && (
               <div className="check-item">
