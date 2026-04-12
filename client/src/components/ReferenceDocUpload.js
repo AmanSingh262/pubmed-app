@@ -10,9 +10,15 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   
   // New fields for enhanced search
   const [drugName, setDrugName] = useState('');
+  const [showPrevalenceOptions, setShowPrevalenceOptions] = useState(false);
+  const [prevalenceCountry, setPrevalenceCountry] = useState('');
+  const [prevalenceYear, setPrevalenceYear] = useState('');
+  const [prevalenceDiseaseName, setPrevalenceDiseaseName] = useState('');
   const [doseForm, setDoseForm] = useState('');
   const [indication, setIndication] = useState('');
   const [includeSubheadings, setIncludeSubheadings] = useState(true);
+
+  const yearOptions = Array.from({ length: 26 }, (_, index) => String(2000 + index)).reverse();
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -73,6 +79,15 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     // Add new optional fields
     if (drugName && drugName.trim()) {
       formData.append('drugName', drugName.trim());
+    }
+    if (prevalenceCountry && prevalenceCountry.trim()) {
+      formData.append('prevalenceCountry', prevalenceCountry.trim());
+    }
+    if (prevalenceYear && prevalenceYear.trim()) {
+      formData.append('prevalenceYear', prevalenceYear.trim());
+    }
+    if (prevalenceDiseaseName && prevalenceDiseaseName.trim()) {
+      formData.append('prevalenceDiseaseName', prevalenceDiseaseName.trim());
     }
     if (doseForm && doseForm !== 'not-applicable') {
       formData.append('doseForm', doseForm);
@@ -196,6 +211,86 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
             className="form-input"
           />
           <p className="field-hint">Specify the drug name to find more accurate similar articles</p>
+        </div>
+
+        <div className="prevalence-section">
+          <button
+            type="button"
+            className="prevalence-toggle"
+            onClick={() => setShowPrevalenceOptions(prev => !prev)}
+            disabled={isUploading}
+            aria-expanded={showPrevalenceOptions}
+          >
+            <span>📊 Prevalence</span>
+            <span className={`toggle-arrow ${showPrevalenceOptions ? 'expanded' : ''}`}>▾</span>
+          </button>
+
+          {showPrevalenceOptions && (
+            <div className="prevalence-fields">
+              <div className="form-group">
+                <label htmlFor="prevalenceCountry">
+                  Country <span className="optional-tag">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="prevalenceCountry"
+                  value={prevalenceCountry}
+                  onChange={(e) => setPrevalenceCountry(e.target.value)}
+                  placeholder="e.g., Germany, UK, France"
+                  disabled={isUploading}
+                  className="form-input"
+                  list="prevalence-country-list"
+                />
+                <datalist id="prevalence-country-list">
+                  <option value="Germany" />
+                  <option value="United Kingdom" />
+                  <option value="France" />
+                  <option value="Spain" />
+                  <option value="Italy" />
+                  <option value="Netherlands" />
+                  <option value="Sweden" />
+                  <option value="European Union" />
+                  <option value="Europe" />
+                </datalist>
+                <p className="field-hint">Used as an additional geographic filter for prevalence-focused search</p>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="prevalenceYear">
+                  Year <span className="optional-tag">(Optional)</span>
+                </label>
+                <select
+                  id="prevalenceYear"
+                  value={prevalenceYear}
+                  onChange={(e) => setPrevalenceYear(e.target.value)}
+                  disabled={isUploading}
+                  className="form-select"
+                >
+                  <option value="">Select year</option>
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+                <p className="field-hint">Publication year filter applied to PREVALENCE and ANOTHER keyword sets</p>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="prevalenceDiseaseName">
+                  Disease Name <span className="optional-tag">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="prevalenceDiseaseName"
+                  value={prevalenceDiseaseName}
+                  onChange={(e) => setPrevalenceDiseaseName(e.target.value)}
+                  placeholder="e.g., Psoriasis, Asthma, COPD"
+                  disabled={isUploading}
+                  className="form-input"
+                />
+                <p className="field-hint">Injects disease-specific prevalence templates for split-column results</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="form-group">

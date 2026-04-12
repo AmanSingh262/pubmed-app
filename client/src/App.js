@@ -158,46 +158,109 @@ function AppContent() {
     }
   };
 
-  const handleReferenceDocResults = (data) => {
-    // Normalize PMIDs in the results
-    const normalizePmid = (pmid) => {
-      if (typeof pmid === 'object' && pmid !== null) {
-        return pmid._ || pmid.i || String(pmid);
-      }
-      return String(pmid);
-    };
+  const normalizePmid = (pmid) => {
+    if (typeof pmid === 'object' && pmid !== null) {
+      return pmid._ || pmid.i || String(pmid);
+    }
+    return String(pmid);
+  };
 
-    // Normalize all articles in categorized results
+  const normalizeCategorizedArticles = (categorizedArticles = {}) => {
+    const normalized = {};
+    Object.keys(categorizedArticles).forEach(category => {
+      normalized[category] = categorizedArticles[category].map(article => ({
+        ...article,
+        pmid: normalizePmid(article.pmid)
+      }));
+    });
+    return normalized;
+  };
+
+  const buildInitialReferencePages = (normalizedData) => {
+    const initialPages = {};
+
+    if (normalizedData.dualColumnMode && normalizedData.columns) {
+      Object.entries(normalizedData.columns).forEach(([columnKey, columnData]) => {
+        Object.keys(columnData.categorizedArticles || {}).forEach(category => {
+          initialPages[`${columnKey}:${category}`] = 1;
+        });
+      });
+      return initialPages;
+    }
+
+    Object.keys(normalizedData.categorizedArticles || {}).forEach(category => {
+      initialPages[category] = 1;
+    });
+
+    return initialPages;
+  };
+
+  const getCategorySectionId = (pageKey) => {
+    return `category-${pageKey.replace(/[^a-zA-Z0-9-_]/g, '-')}`;
+  };
+
+  const handleReferenceDocResults = (data) => {
     const normalizedData = {
       ...data,
-      categorizedArticles: {}
+      categorizedArticles: normalizeCategorizedArticles(data.categorizedArticles || {})
     };
 
-    if (data.categorizedArticles) {
-      Object.keys(data.categorizedArticles).forEach(category => {
-        normalizedData.categorizedArticles[category] = data.categorizedArticles[category].map(article => ({
-          ...article,
-          pmid: normalizePmid(article.pmid)
-        }));
+    if (data.dualColumnMode && data.columns) {
+      normalizedData.columns = {};
+      Object.entries(data.columns).forEach(([columnKey, columnData]) => {
+        normalizedData.columns[columnKey] = {
+          ...columnData,
+          categorizedArticles: normalizeCategorizedArticles(columnData.categorizedArticles || {})
+        };
       });
     }
 
     setReferenceDocResults(normalizedData);
     setShowReferenceResults(true);
     setShowResults(false);
-    // Initialize pagination for each category
-    const initialPages = {};
-    Object.keys(normalizedData.categorizedArticles || {}).forEach(category => {
-      initialPages[category] = 1;
-    });
-    setCurrentPage(initialPages);
-    toast.success(`Found ${data.totalArticles} similar articles organized into ${Object.keys(data.categorizedArticles).length} categories`);
+    setCurrentPage(buildInitialReferencePages(normalizedData));
+
+    if (normalizedData.dualColumnMode && normalizedData.columns) {
+      const prevalenceCount = normalizedData.columns.prevalence?.totalArticles || 0;
+      const anotherCount = normalizedData.columns.another?.totalArticles || 0;
+      toast.success(`Found ${prevalenceCount} PREVALENCE and ${anotherCount} ANOTHER references`);
+    } else {
+      toast.success(`Found ${data.totalArticles} similar articles organized into ${Object.keys(normalizedData.categorizedArticles).length} categories`);
+    }
   };
 
   const handleToggleReferenceArticle = (pmid) => {
     setReferenceDocResults(prev => {
       if (!prev) return prev;
-      
+
+      if (prev.dualColumnMode && prev.columns) {
+        const updatedColumns = {};
+
+        Object.keys(prev.columns).forEach(columnKey => {
+          const columnData = prev.columns[columnKey];
+          const updatedCategories = {};
+
+          Object.keys(columnData.categorizedArticles || {}).forEach(category => {
+            updatedCategories[category] = columnData.categorizedArticles[category].map(article => {
+              if (article.pmid === pmid) {
+                return { ...article, selected: !article.selected };
+              }
+              return article;
+            });
+          });
+
+          updatedColumns[columnKey] = {
+            ...columnData,
+            categorizedArticles: updatedCategories
+          };
+        });
+
+        return {
+          ...prev,
+          columns: updatedColumns
+        };
+      }
+
       const updatedCategories = {};
       Object.keys(prev.categorizedArticles).forEach(category => {
         updatedCategories[category] = prev.categorizedArticles[category].map(article => {
@@ -253,15 +316,31 @@ function AppContent() {
       return;
     }
 
-    // Collect all selected articles
     const selectedArticles = [];
-    Object.entries(referenceDocResults.categorizedArticles).forEach(([category, articles]) => {
-      articles.forEach(article => {
-        if (article.selected) {
-          selectedArticles.push({ ...article, category });
-        }
+
+    if (referenceDocResults.dualColumnMode && referenceDocResults.columns) {
+      Object.entries(referenceDocResults.columns).forEach(([columnKey, columnData]) => {
+        Object.entries(columnData.categorizedArticles || {}).forEach(([category, articles]) => {
+          articles.forEach(article => {
+            if (article.selected) {
+              selectedArticles.push({
+                ...article,
+                category: `${columnData.label}: ${category}`,
+                columnKey
+              });
+            }
+          });
+        });
       });
-    });
+    } else {
+      Object.entries(referenceDocResults.categorizedArticles).forEach(([category, articles]) => {
+        articles.forEach(article => {
+          if (article.selected) {
+            selectedArticles.push({ ...article, category });
+          }
+        });
+      });
+    }
 
     if (selectedArticles.length === 0) {
       toast.warning('Please select at least one article to export');
@@ -269,7 +348,6 @@ function AppContent() {
     }
 
     try {
-      // Auto-detect categories from the selected articles
       const detectedCategories = [...new Set(selectedArticles.map(a => a.category))];
       
       await api.exportResults(format, {
@@ -285,6 +363,148 @@ function AppContent() {
       toast.error('Failed to export results');
       console.error('Export error:', error);
     }
+  };
+
+  const renderReferenceCategorySections = (categorizedArticles = {}, columnKey = null, columnLabel = null) => {
+    return Object.entries(categorizedArticles).map(([category, articles]) => {
+      const pageKey = columnKey ? `${columnKey}:${category}` : category;
+      const sectionId = getCategorySectionId(pageKey);
+      const currentPageNum = currentPage[pageKey] || 1;
+      const indexOfLastArticle = currentPageNum * articlesPerPage;
+      const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
+      const currentArticles = articles.slice(indexOfFirstArticle, indexOfLastArticle);
+      const totalPages = Math.ceil(articles.length / articlesPerPage);
+      const cartCategory = columnLabel ? `${columnLabel}: ${category}` : category;
+
+      const handlePageChange = (pageNumber) => {
+        setCurrentPage(prev => ({
+          ...prev,
+          [pageKey]: pageNumber
+        }));
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      return (
+        <div key={pageKey} className="category-results-section" id={sectionId}>
+          <div className="category-header-with-pagination">
+            <h3 className="category-heading">{category} ({articles.length} articles)</h3>
+            <div className="pagination-info">
+              Showing {indexOfFirstArticle + 1}-{Math.min(indexOfLastArticle, articles.length)} of {articles.length}
+            </div>
+          </div>
+
+          <div className="articles-grid">
+            {currentArticles.map((article, idx) => {
+              const inCart = isInCart(article.pmid);
+              return (
+                <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
+                  <div className="article-select-header">
+                    <input
+                      type="checkbox"
+                      checked={article.selected || false}
+                      onChange={() => handleToggleReferenceArticle(article.pmid)}
+                      className="article-checkbox"
+                    />
+                    <span className="relevance-score">Similarity: {article.similarityScore}%</span>
+                  </div>
+                  {article.mandatoryMatch && (
+                    <div className="mandatory-match-row">
+                      {article.mandatoryMatch.drugName && (
+                        <span className="mandatory-chip">Drug: {article.mandatoryMatch.drugName}</span>
+                      )}
+                      {article.mandatoryMatch.diseaseName && (
+                        <span className="mandatory-chip">Disease: {article.mandatoryMatch.diseaseName}</span>
+                      )}
+                      <span className="mandatory-chip">
+                        Prevalence: {(article.mandatoryMatch.prevalenceKeywords || []).slice(0, 3).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  <h4 className="article-title">{article.title}</h4>
+                  <div className="article-meta">
+                    <span className="article-pmid">PMID: {article.pmid}</span>
+                    {article.authors && article.authors.length > 0 && (
+                      <span className="article-authors">
+                        {article.authors.slice(0, 3).join(', ')}
+                        {article.authors.length > 3 ? ', et al.' : ''}
+                      </span>
+                    )}
+                  </div>
+                  {article.journal && (
+                    <div className="article-journal">{article.journal}</div>
+                  )}
+                  {article.publicationDate && (
+                    <div className="article-date">{article.publicationDate}</div>
+                  )}
+                  <div className="article-actions">
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="article-link"
+                    >
+                      View on PubMed →
+                    </a>
+                    <button
+                      className={`btn-add-to-cart ${inCart ? 'in-cart' : ''}`}
+                      onClick={() => handleAddReferenceToCart(article, cartCategory)}
+                      disabled={inCart}
+                    >
+                      {inCart ? '✓ In Cart' : '🛒 Add to Cart'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(currentPageNum - 1)}
+                disabled={currentPageNum === 1}
+              >
+                ← Previous
+              </button>
+
+              <div className="pagination-numbers">
+                {[...Array(totalPages)].map((_, index) => {
+                  const pageNum = index + 1;
+                  if (
+                    pageNum === 1 ||
+                    pageNum === totalPages ||
+                    (pageNum >= currentPageNum - 1 && pageNum <= currentPageNum + 1)
+                  ) {
+                    return (
+                      <button
+                        key={pageNum}
+                        className={`pagination-number ${currentPageNum === pageNum ? 'active' : ''}`}
+                        onClick={() => handlePageChange(pageNum)}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  }
+                  if (pageNum === currentPageNum - 2 || pageNum === currentPageNum + 2) {
+                    return <span key={pageNum} className="pagination-ellipsis">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+
+              <button
+                className="pagination-btn"
+                onClick={() => handlePageChange(currentPageNum + 1)}
+                disabled={currentPageNum === totalPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
@@ -465,6 +685,19 @@ function AppContent() {
                     <p><strong>File:</strong> {referenceDocResults.fileName}</p>
                     <p><strong>Total Articles:</strong> {referenceDocResults.totalArticles}</p>
                     <p><strong>Key Terms Used:</strong> {referenceDocResults.keyTerms?.join(', ')}</p>
+                    {referenceDocResults.dualColumnMode && (
+                      <p><strong>Mode:</strong> PREVALENCE | ANOTHER</p>
+                    )}
+                    {referenceDocResults.dualColumnMode && referenceDocResults.prevalenceContext && (
+                      <p>
+                        <strong>Prevalence Filters:</strong>{' '}
+                        {[
+                          referenceDocResults.prevalenceContext.country && `Country: ${referenceDocResults.prevalenceContext.country}`,
+                          referenceDocResults.prevalenceContext.year && `Year: ${referenceDocResults.prevalenceContext.year}`,
+                          referenceDocResults.prevalenceContext.diseaseName && `Disease: ${referenceDocResults.prevalenceContext.diseaseName}`
+                        ].filter(Boolean).join(' | ') || 'Not specified'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -473,134 +706,40 @@ function AppContent() {
                   disabled={false}
                 />
 
-                {Object.entries(referenceDocResults.categorizedArticles).map(([category, articles]) => {
-                  const currentPageNum = currentPage[category] || 1;
-                  const indexOfLastArticle = currentPageNum * articlesPerPage;
-                  const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
-                  const currentArticles = articles.slice(indexOfFirstArticle, indexOfLastArticle);
-                  const totalPages = Math.ceil(articles.length / articlesPerPage);
-
-                  const handlePageChange = (pageNumber) => {
-                    setCurrentPage(prev => ({
-                      ...prev,
-                      [category]: pageNumber
-                    }));
-                    // Scroll to category section
-                    document.getElementById(`category-${category}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  };
-
-                  return (
-                  <div key={category} className="category-results-section" id={`category-${category}`}>
-                    <div className="category-header-with-pagination">
-                      <h3 className="category-heading">{category} ({articles.length} articles)</h3>
-                      <div className="pagination-info">
-                        Showing {indexOfFirstArticle + 1}-{Math.min(indexOfLastArticle, articles.length)} of {articles.length}
-                      </div>
-                    </div>
-                    
-                    <div className="articles-grid">
-                      {currentArticles.map((article, idx) => {
-                        const inCart = isInCart(article.pmid);
-                        return (
-                          <div key={idx} className={`article-card-ref ${article.selected ? 'selected' : ''}`}>
-                            <div className="article-select-header">
-                              <input
-                                type="checkbox"
-                                checked={article.selected || false}
-                                onChange={() => handleToggleReferenceArticle(article.pmid)}
-                                className="article-checkbox"
-                              />
-                              <span className="relevance-score">Similarity: {article.similarityScore}%</span>
-                            </div>
-                            <h4 className="article-title">{article.title}</h4>
-                            <div className="article-meta">
-                              <span className="article-pmid">PMID: {article.pmid}</span>
-                              {article.authors && article.authors.length > 0 && (
-                                <span className="article-authors">
-                                  {article.authors.slice(0, 3).join(', ')}
-                                  {article.authors.length > 3 ? ', et al.' : ''}
-                                </span>
-                              )}
-                            </div>
-                            {article.journal && (
-                              <div className="article-journal">{article.journal}</div>
-                            )}
-                            {article.publicationDate && (
-                              <div className="article-date">{article.publicationDate}</div>
-                            )}
-                            <div className="article-actions">
-                              <a
-                                href={article.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="article-link"
-                              >
-                                View on PubMed →
-                              </a>
-                              <button
-                                className={`btn-add-to-cart ${inCart ? 'in-cart' : ''}`}
-                                onClick={() => handleAddReferenceToCart(article, category)}
-                                disabled={inCart}
-                              >
-                                {inCart ? '✓ In Cart' : '🛒 Add to Cart'}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                {referenceDocResults.dualColumnMode && referenceDocResults.columns ? (
+                  <div className="reference-dual-layout">
+                    <div className="reference-dual-header">
+                      <div className="reference-dual-header-cell">PREVALENCE</div>
+                      <div className="reference-dual-header-cell">ANOTHER</div>
                     </div>
 
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                      <div className="pagination-controls">
-                        <button
-                          className="pagination-btn"
-                          onClick={() => handlePageChange(currentPageNum - 1)}
-                          disabled={currentPageNum === 1}
-                        >
-                          ← Previous
-                        </button>
-                        
-                        <div className="pagination-numbers">
-                          {[...Array(totalPages)].map((_, index) => {
-                            const pageNum = index + 1;
-                            // Show first page, last page, current page, and pages around current
-                            if (
-                              pageNum === 1 ||
-                              pageNum === totalPages ||
-                              (pageNum >= currentPageNum - 1 && pageNum <= currentPageNum + 1)
-                            ) {
-                              return (
-                                <button
-                                  key={pageNum}
-                                  className={`pagination-number ${currentPageNum === pageNum ? 'active' : ''}`}
-                                  onClick={() => handlePageChange(pageNum)}
-                                >
-                                  {pageNum}
-                                </button>
-                              );
-                            } else if (
-                              pageNum === currentPageNum - 2 ||
-                              pageNum === currentPageNum + 2
-                            ) {
-                              return <span key={pageNum} className="pagination-ellipsis">...</span>;
-                            }
-                            return null;
-                          })}
-                        </div>
-
-                        <button
-                          className="pagination-btn"
-                          onClick={() => handlePageChange(currentPageNum + 1)}
-                          disabled={currentPageNum === totalPages}
-                        >
-                          Next →
-                        </button>
+                    <div className="reference-dual-columns">
+                      <div className="reference-dual-column">
+                        {(Object.keys(referenceDocResults.columns.prevalence?.categorizedArticles || {}).length > 0)
+                          ? renderReferenceCategorySections(
+                            referenceDocResults.columns.prevalence.categorizedArticles,
+                            'prevalence',
+                            referenceDocResults.columns.prevalence.label || 'PREVALENCE'
+                          )
+                          : <p className="column-empty-message">No PREVALENCE matches found for the selected filters.</p>
+                        }
                       </div>
-                    )}
+
+                      <div className="reference-dual-column">
+                        {(Object.keys(referenceDocResults.columns.another?.categorizedArticles || {}).length > 0)
+                          ? renderReferenceCategorySections(
+                            referenceDocResults.columns.another.categorizedArticles,
+                            'another',
+                            referenceDocResults.columns.another.label || 'ANOTHER'
+                          )
+                          : <p className="column-empty-message">No ANOTHER matches found for the selected filters.</p>
+                        }
+                      </div>
+                    </div>
                   </div>
-                );
-                })}
+                ) : (
+                  renderReferenceCategorySections(referenceDocResults.categorizedArticles || {})
+                )}
               </div>
             )}
           </div>

@@ -307,12 +307,785 @@ function categorizeArticles(articles, includeSubheadings = true) {
     }
   });
   
-  // Sort each category by similarity score
+  // Sort by ranking score when provided; otherwise fallback to similarity score.
   Object.keys(categorized).forEach(category => {
-    categorized[category].sort((a, b) => b.similarityScore - a.similarityScore);
+    categorized[category].sort((a, b) => {
+      const rankingDelta = (b.rankingScore ?? b.similarityScore) - (a.rankingScore ?? a.similarityScore);
+      if (rankingDelta !== 0) {
+        return rankingDelta;
+      }
+
+      return b.similarityScore - a.similarityScore;
+    });
   });
   
   return categorized;
+}
+
+const MINIMUM_SIMILARITY_THRESHOLD = 10;
+
+function sanitizeQueryValue(value) {
+  return String(value || '').replace(/"/g, '').trim();
+}
+
+function countPhraseHits(text, phrases) {
+  return phrases.reduce((count, phrase) => (text.includes(phrase) ? count + 1 : count), 0);
+}
+
+function calculatePrevalencePriorityBoost(title, abstract) {
+  const titleLower = String(title || '').toLowerCase();
+  const abstractLower = String(abstract || '').toLowerCase();
+
+  const systematicReviewSignals = ['systematic review', 'meta-analysis', 'meta analysis', 'pooled analysis'];
+  const registrySignals = ['registry', 'national registry', 'disease registry', 'patient registry', 'population registry'];
+  const populationStudySignals = ['population-based', 'cross-sectional', 'cohort study', 'cohort', 'survey'];
+  const epidemiologySignals = ['epidemiology', 'epidemiologic', 'incidence', 'prevalence', 'prevalence rate', 'disease burden'];
+  const sourceAuthoritySignals = ['who europe', 'ecdc', 'eurostat', 'global burden of disease', 'gbd', 'ihme'];
+
+  const systematicTitleHits = countPhraseHits(titleLower, systematicReviewSignals);
+  const systematicAbstractHits = countPhraseHits(abstractLower, systematicReviewSignals);
+  const registryTitleHits = countPhraseHits(titleLower, registrySignals);
+  const registryAbstractHits = countPhraseHits(abstractLower, registrySignals);
+  const populationTitleHits = countPhraseHits(titleLower, populationStudySignals);
+  const populationAbstractHits = countPhraseHits(abstractLower, populationStudySignals);
+  const epidemiologyTitleHits = countPhraseHits(titleLower, epidemiologySignals);
+  const epidemiologyAbstractHits = countPhraseHits(abstractLower, epidemiologySignals);
+  const authorityTitleHits = countPhraseHits(titleLower, sourceAuthoritySignals);
+  const authorityAbstractHits = countPhraseHits(abstractLower, sourceAuthoritySignals);
+
+  let boost = 0;
+
+  if (systematicTitleHits > 0) {
+    boost += 32 + (systematicTitleHits - 1) * 4;
+  } else if (systematicAbstractHits > 0) {
+    boost += 20 + (systematicAbstractHits - 1) * 2;
+  }
+
+  if (registryTitleHits > 0) {
+    boost += 30 + (registryTitleHits - 1) * 3;
+  } else if (registryAbstractHits > 0) {
+    boost += 18 + (registryAbstractHits - 1) * 2;
+  }
+
+  boost += Math.min(populationTitleHits * 8 + populationAbstractHits * 4, 16);
+  boost += Math.min(epidemiologyTitleHits * 5 + epidemiologyAbstractHits * 2, 14);
+  boost += Math.min(authorityTitleHits * 6 + authorityAbstractHits * 3, 12);
+
+  const hasSystematicSignal = (systematicTitleHits + systematicAbstractHits) > 0;
+  const hasRegistrySignal = (registryTitleHits + registryAbstractHits) > 0;
+  if (hasSystematicSignal && hasRegistrySignal) {
+    boost += 16;
+  }
+
+  if ((hasSystematicSignal || hasRegistrySignal) && titleLower.includes('prevalence')) {
+    boost += 8;
+  }
+
+  return Math.min(90, Math.round(boost * 10) / 10);
+}
+
+function detectPotentialDrugNames(extractedText) {
+  const drugNamePattern = /\b([A-Z][A-Za-z]+(?:[-][A-Z][a-z]+)?)\b/g;
+  const matches = extractedText.match(drugNamePattern);
+
+  if (!matches) {
+    return [];
+  }
+
+  const uniqueDrugs = [...new Set(matches)].filter(name =>
+    name.length > 3 &&
+    !['The', 'This', 'That', 'With', 'From', 'Table', 'Figure'].includes(name)
+  );
+
+  return uniqueDrugs.slice(0, 3);
+}
+
+function buildDefaultReferenceSearchQuery({ keyTerms, userDrugName, drugNames, doseForm, indication }) {
+  let searchQuery = '';
+  const boostTerms = [];
+
+  if (userDrugName && userDrugName.trim().length > 0) {
+    searchQuery = `"${sanitizeQueryValue(userDrugName)}"[Title/Abstract]`;
+
+    if (doseForm && doseForm !== 'not-applicable') {
+      boostTerms.push(`"${sanitizeQueryValue(doseForm)}"[Title/Abstract]`);
+    }
+
+    if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+      boostTerms.push(`"${sanitizeQueryValue(indication)}"[Title/Abstract]`);
+    }
+
+    const topTerms = keyTerms.slice(0, 8).map(term => `${sanitizeQueryValue(term)}[Title/Abstract]`).join(' OR ');
+    if (boostTerms.length > 0) {
+      searchQuery = `(${searchQuery}) AND ((${topTerms}) OR (${boostTerms.join(' OR ')}))`;
+    } else {
+      searchQuery = `(${searchQuery}) AND (${topTerms})`;
+    }
+
+    return searchQuery;
+  }
+
+  if (drugNames.length > 0) {
+    searchQuery = drugNames.map(name => `"${sanitizeQueryValue(name)}"[Title/Abstract]`).join(' OR ');
+
+    if (doseForm && doseForm !== 'not-applicable') {
+      boostTerms.push(`"${sanitizeQueryValue(doseForm)}"[Title/Abstract]`);
+    }
+
+    if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+      boostTerms.push(`"${sanitizeQueryValue(indication)}"[Title/Abstract]`);
+    }
+
+    const topTerms = keyTerms.slice(0, 8).map(term => `${sanitizeQueryValue(term)}[Title/Abstract]`).join(' OR ');
+    if (boostTerms.length > 0) {
+      searchQuery = `(${searchQuery}) OR (${topTerms}) OR (${boostTerms.join(' OR ')})`;
+    } else {
+      searchQuery = `(${searchQuery}) OR (${topTerms})`;
+    }
+
+    return searchQuery;
+  }
+
+  searchQuery = keyTerms.slice(0, 15).map(term => `${sanitizeQueryValue(term)}[Title/Abstract]`).join(' OR ');
+
+  if (doseForm && doseForm !== 'not-applicable') {
+    boostTerms.push(`"${sanitizeQueryValue(doseForm)}"[Title/Abstract]`);
+  }
+
+  if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
+    boostTerms.push(`"${sanitizeQueryValue(indication)}"[Title/Abstract]`);
+  }
+
+  if (boostTerms.length > 0) {
+    searchQuery = `(${searchQuery}) OR (${boostTerms.join(' OR ')})`;
+  }
+
+  return searchQuery;
+}
+
+function buildPrevalenceKeywordTemplates(diseaseName, drugName) {
+  const templates = [
+    '"disease prevalence" "Europe" "systematic review"',
+    '"epidemiology" "Europe" "population-based study"',
+    '"prevalence" "European Union" "EU27" "meta-analysis"',
+    '"prevalence" "Europe" "inhabitants" "per 100"',
+    '"disease burden" "Europe" "epidemiological data"',
+    '"patient population" "Europe" "prevalence estimate"',
+    '"prevalence rate" "European region" "cross-sectional"',
+    '"incidence" "prevalence" "Europe" "cohort study"',
+    '"national registry" "Europe" "disease statistics"',
+    '"WHO Europe" prevalence epidemiology report',
+    '"ECDC" prevalence "European" disease surveillance',
+    '"Eurostat" health statistics prevalence Europe',
+    '"GBD" "Global Burden of Disease" prevalence Europe',
+    '"IHME" prevalence "European" disease estimate',
+    '"systematic review" "meta-analysis" "prevalence" "Europe"',
+    '"population-based" "prevalence" "EU Member State"',
+    '"observational study" "prevalence" "European" "adults"',
+    '"survey" "prevalence" "European population" epidemiology',
+    '"registry data" "prevalence" "European" patients',
+    '"peer-reviewed" "prevalence" "Europe" "independent source"',
+    '"reliable source" "prevalence" "European" "recent data"',
+    '"one-year prevalence" "Europe" disease',
+    '"annual prevalence" "Europe" "per inhabitant"',
+    '"prevalence" "United Kingdom" "population-based"',
+    '"disease prevalence" "England" "adults" "NHS"',
+    '"CPRD" "prevalence" "United Kingdom" disease',
+    '"QResearch" "prevalence" "England" primary care',
+    '"ONS" "Office for National Statistics" "prevalence" disease',
+    '"Public Health England" OR "UKHSA" prevalence surveillance',
+    '"NHS Digital" "prevalence" "England" disease statistics',
+    '"NICE" "epidemiology" "prevalence" UK guideline',
+    '"Health Survey for England" "prevalence" disease'
+  ];
+
+  const prioritizedTemplates = [];
+  const safeDisease = diseaseName ? sanitizeQueryValue(diseaseName) : '';
+  const safeDrug = drugName ? sanitizeQueryValue(drugName) : '';
+
+  if (safeDrug && safeDisease) {
+    prioritizedTemplates.push(
+      `"${safeDrug}" "${safeDisease}" prevalence`,
+      `"${safeDrug}" "${safeDisease}" epidemiology`,
+      `"${safeDrug}" "${safeDisease}" incidence prevalence`,
+      `"${safeDrug}" "${safeDisease}" "prevalence rate"`,
+      `"${safeDrug}" "${safeDisease}" "population-based" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "cross-sectional" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "systematic review" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "meta-analysis" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "per 100,000" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "disease burden" prevalence`
+    );
+  } else if (safeDrug) {
+    prioritizedTemplates.push(
+      `"${safeDrug}" prevalence epidemiology`,
+      `"${safeDrug}" prevalence "systematic review"`
+    );
+  }
+
+  if (diseaseName) {
+    templates.push(
+      `"${safeDisease}" "prevalence" "Europe" "systematic review"`,
+      `"${safeDisease}" "prevalence" "EU" "meta-analysis"`,
+      `"${safeDisease}" "epidemiology" "Europe" "population-based"`,
+      `"${safeDisease}" "prevalence" "European population" "adults"`,
+      `"${safeDisease}" "disease burden" "Europe" "DALY"`,
+      `"${safeDisease}" "per 100 inhabitants" OR "per 100,000" Europe`,
+      `"${safeDisease}" "prevalence" "ECDC" "European Centre" disease`,
+      `"${safeDisease}" "prevalence" "WHO Europe" "World Health Organization"`,
+      `"${safeDisease}" "prevalence" "Global Burden of Disease" "GBD" Europe`,
+      `"${safeDisease}" "prevalence" "United Kingdom"`,
+      `"${safeDisease}" "prevalence" "England" "NHS"`,
+      `"${safeDisease}" "prevalence" "UK" "population-based study"`,
+      `"${safeDisease}" "prevalence" "UK" "primary care" "GP"`,
+      `"${safeDisease}" "prevalence" "CPRD" "Clinical Practice Research Datalink"`,
+      `"${safeDisease}" "prevalence" "QResearch" "England"`,
+      `"${safeDisease}" "prevalence" "UK Biobank" "population"`,
+      `"${safeDisease}" "prevalence" "ONS" "Office for National Statistics"`,
+      `"${safeDisease}" "NICE" "epidemiology" "prevalence" guideline UK`,
+      `"${safeDisease}" AND "prevalence" AND "Europe" AND "systematic review"`,
+      `"${safeDisease}" AND "epidemiology" AND "EU" AND ("adults" OR "population")`,
+      `"${safeDisease}" AND "one-year prevalence" AND "Europe"`,
+      `"${safeDisease}" AND "prevalence" AND ("WHO" OR "Global Burden of Disease" OR "GBD") AND ("Europe" OR "UK")`,
+      `"${safeDisease}" AND "prevalence" AND ("CPRD" OR "QResearch" OR "THIN") AND "England"`
+    );
+  }
+
+  return [...new Set([...prioritizedTemplates, ...templates])];
+}
+
+function buildAnotherKeywordTemplates(drugName, diseaseName, indication) {
+  const templates = [
+    '"environmental risk assessment" "medicinal products for human use"',
+    '"pharmaceutical ERA" "EMA guideline" "EMEA/CHMP/SWP/4447/00"',
+    '"Module 1.6" "marketing authorisation" ERA pharmaceutical',
+    '"pharmaceutical environmental contamination" review',
+    '"FPEN refinement" "disease prevalence" pharmaceutical ERA',
+    '"treatment regimen" FPEN "environmental exposure" pharmaceutical',
+    '"tTREATMENT" "nTREATMENT" pharmaceutical ERA refinement',
+    '"predicted environmental concentration surface water" pharmaceutical',
+    '"market penetration factor" FPEN pharmaceutical ERA',
+    '"PECsw calculation" "default FPEN 0.01" pharmaceutical',
+    '"action limit 0.01 µg/L" pharmaceutical ERA',
+    '"wastewater pharmaceutical" "200 L inhabitant" ERA',
+    '"water solubility" "OECD 105" pharmaceutical environment',
+    '"log Kow" "OECD 107" pharmaceutical "octanol water partition"',
+    '"pKa" "dissociation constant" "OECD 112" pharmaceutical',
+    '"KFOC" "Freundlich adsorption" "OECD 106" pharmaceutical',
+    '"ready biodegradability" "OECD 301" pharmaceutical',
+    '"STP removal" pharmaceutical "activated sludge"',
+    '"SimpleTreat" "STPWIN" pharmaceutical wastewater removal',
+    '"algae growth inhibition" "OECD 201" pharmaceutical',
+    '"Daphnia magna" "acute immobilisation" "OECD 202" pharmaceutical',
+    '"fish acute toxicity" "OECD 203" "LC50" pharmaceutical',
+    '"Daphnia magna reproduction" "OECD 211" "NOEC" pharmaceutical',
+    '"fish early life stage" "OECD 210" "NOEC" pharmaceutical',
+    '"activated sludge respiration inhibition" "OECD 209" pharmaceutical',
+    '"PNEC" "assessment factor" "AF 1000" QSAR pharmaceutical',
+    '"ECOSAR" ecotoxicity prediction pharmaceutical QSAR',
+    '"PBT criteria" "REACH Annex XIII" pharmaceutical environment',
+    '"persistence" "DT50 > 60 days" pharmaceutical P criterion',
+    '"bioaccumulation" "BCF > 2000" pharmaceutical B criterion',
+    '"vPvB" "very persistent very bioaccumulative" pharmaceutical',
+    '"OECD 308" "water sediment" "DT50" pharmaceutical persistence',
+    '"BCFBAF" "EPI Suite" bioaccumulation pharmaceutical QSAR',
+    '"PNECsw" "chronic NOEC" "three trophic levels" pharmaceutical',
+    '"surface water risk quotient" "RQsw" pharmaceutical ERA',
+    '"PECsed" "equilibrium partitioning" pharmaceutical sediment',
+    '"Chironomus riparius" "OECD 218" pharmaceutical sediment',
+    '"PECgw" "bank filtration" "0.25" "PECsw" pharmaceutical',
+    '"drinking water directive" "0.1 µg/L" pharmaceutical groundwater',
+    '"secondary poisoning" "BCF" "biomagnification" pharmaceutical ERA',
+    '"CRED method" "ecotoxicity data" reliability Moermond 2016',
+    '"Klimisch score" pharmaceutical ecotoxicity data reliability',
+    '"GLP" "OECD guideline" pharmaceutical environmental study quality'
+  ];
+
+  const prioritizedTemplates = [];
+
+  const safeDrug = drugName ? sanitizeQueryValue(drugName) : '';
+  const safeDisease = diseaseName ? sanitizeQueryValue(diseaseName) : '';
+
+  if (safeDrug && safeDisease) {
+    prioritizedTemplates.push(
+      `"${safeDrug}" "${safeDisease}" prevalence`,
+      `"${safeDrug}" "${safeDisease}" epidemiology`,
+      `"${safeDrug}" "${safeDisease}" incidence`,
+      `"${safeDrug}" "${safeDisease}" "systematic review" prevalence`,
+      `"${safeDrug}" "${safeDisease}" "population-based study"`,
+      `"${safeDrug}" AND "${safeDisease}" AND ("prevalence" OR "incidence" OR "epidemiology")`,
+      `"${safeDrug}" "${safeDisease}" "disease burden"`
+    );
+  }
+
+  if (diseaseName) {
+    prioritizedTemplates.push(
+      `"${safeDisease} prevalence" "Europe" epidemiology "systematic review"`,
+      `"${safeDisease}" prevalence epidemiology Europe`
+    );
+  }
+
+  const resolvedIndication = indication ? sanitizeQueryValue(indication) : '';
+  if (resolvedIndication) {
+    prioritizedTemplates.push(`"European prevalence" "${resolvedIndication}" "peer-reviewed" population`);
+  }
+
+  prioritizedTemplates.push('"PREGION" "highest prevalence" pharmaceutical ERA');
+
+  if (safeDrug) {
+    prioritizedTemplates.push(
+      `"${safeDrug} treatment duration" "treatment episodes" posology`,
+      `"${safeDrug} PBT assessment" persistence bioaccumulation toxicity`
+    );
+  }
+
+  return [...new Set([...prioritizedTemplates, ...templates])];
+}
+
+function getMandatoryMatchDetails(title, abstract, mandatoryTerms) {
+  if (!mandatoryTerms || !mandatoryTerms.enforce) {
+    return {
+      isMatch: true,
+      matchedPrevalenceKeywords: [],
+      hasDrug: true,
+      hasDisease: true,
+      hasPrevalence: true
+    };
+  }
+
+  const text = `${String(title || '')} ${String(abstract || '')}`.toLowerCase();
+  const requiredDrug = sanitizeQueryValue(mandatoryTerms.drugName || '').toLowerCase();
+  const requiredDisease = sanitizeQueryValue(mandatoryTerms.diseaseName || '').toLowerCase();
+  const prevalenceKeywords = (mandatoryTerms.prevalenceKeywords || []).map(k => String(k || '').toLowerCase()).filter(Boolean);
+
+  const hasDrug = requiredDrug ? text.includes(requiredDrug) : true;
+  const hasDisease = requiredDisease ? text.includes(requiredDisease) : true;
+  const matchedPrevalenceKeywords = prevalenceKeywords.filter(keyword => text.includes(keyword));
+  const hasPrevalence = matchedPrevalenceKeywords.length > 0;
+
+  return {
+    isMatch: hasDrug && hasDisease && hasPrevalence,
+    matchedPrevalenceKeywords,
+    hasDrug,
+    hasDisease,
+    hasPrevalence
+  };
+}
+
+function buildColumnSearchQuery({
+  templates,
+  country,
+  year,
+  diseaseName,
+  maxTemplates = 20,
+  maxQueryLength = 2200
+}) {
+  const normalizedTemplates = templates
+    .map(template => template && template.trim())
+    .filter(Boolean);
+
+  const filters = [];
+  const safeCountry = sanitizeQueryValue(country);
+  const safeYear = sanitizeQueryValue(year);
+  const safeDisease = sanitizeQueryValue(diseaseName);
+
+  if (safeCountry) {
+    filters.push(`("${safeCountry}"[Title/Abstract] OR "${safeCountry}"[Affiliation])`);
+  }
+
+  if (safeYear) {
+    filters.push(`(${safeYear}[PDAT])`);
+  }
+
+  if (safeDisease) {
+    filters.push(`("${safeDisease}"[Title/Abstract])`);
+  }
+
+  const selectedClauses = [];
+  for (const template of normalizedTemplates) {
+    if (selectedClauses.length >= maxTemplates) {
+      break;
+    }
+
+    const candidateClauses = [...selectedClauses, `(${template})`];
+    const candidateTemplateQuery = candidateClauses.join(' OR ');
+    const candidateQuery = filters.length === 0
+      ? candidateTemplateQuery
+      : `(${candidateTemplateQuery}) AND (${filters.join(' AND ')})`;
+
+    if (candidateQuery.length > maxQueryLength && selectedClauses.length > 0) {
+      break;
+    }
+
+    if (candidateQuery.length > maxQueryLength && selectedClauses.length === 0) {
+      selectedClauses.push(`(${template})`);
+      break;
+    }
+
+    selectedClauses.push(`(${template})`);
+  }
+
+  const templateQuery = selectedClauses.join(' OR ');
+
+  if (filters.length === 0) {
+    return templateQuery;
+  }
+
+  return `(${templateQuery}) AND (${filters.join(' AND ')})`;
+}
+
+function applyStudyTypeFilter(searchQuery, studyType) {
+  if (studyType === 'animal') {
+    return `(${searchQuery}) AND (Animals[MeSH Terms])`;
+  }
+
+  if (studyType === 'human') {
+    return `(${searchQuery}) AND (Humans[MeSH Terms])`;
+  }
+
+  return searchQuery;
+}
+
+function buildReferenceStatistics(articles, filteredArticles, categorizedArticles) {
+  return {
+    totalSearched: articles.length,
+    totalFound: filteredArticles.length,
+    filteredOut: articles.length - filteredArticles.length,
+    threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+    categoryCounts: Object.fromEntries(
+      Object.entries(categorizedArticles).map(([cat, arts]) => [cat, arts.length])
+    ),
+    averageSimilarity: filteredArticles.length > 0
+      ? (filteredArticles.reduce((sum, a) => sum + a.similarityScore, 0) / filteredArticles.length).toFixed(1) + '%'
+      : '0%',
+    topMatchScore: filteredArticles.length > 0 ? filteredArticles[0].similarityScore.toFixed(1) + '%' : '0%',
+    lowestMatchScore: filteredArticles.length > 0
+      ? filteredArticles[filteredArticles.length - 1].similarityScore.toFixed(1) + '%'
+      : '0%',
+    qualityDistribution: {
+      excellent: filteredArticles.filter(a => a.similarityScore >= 70).length,
+      good: filteredArticles.filter(a => a.similarityScore >= 50 && a.similarityScore < 70).length,
+      fair: filteredArticles.filter(a => a.similarityScore >= 30 && a.similarityScore < 50).length,
+      acceptable: filteredArticles.filter(a => a.similarityScore >= 20 && a.similarityScore < 30).length
+    }
+  };
+}
+
+async function requestPubMedWithRetry(requestFn, maxRetries = 2) {
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      const status = error.response?.status;
+      const code = error.code;
+      const retryable = status === 429 || code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ECONNABORTED';
+
+      if (!retryable || attempt === maxRetries) {
+        throw error;
+      }
+
+      const waitMs = 700 * (attempt + 1);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      attempt += 1;
+    }
+  }
+
+  throw new Error('PubMed request failed after retries');
+}
+
+async function executeReferenceSearch({
+  searchQuery,
+  keyTerms,
+  studyType,
+  userDrugName,
+  drugNames,
+  includeSubheadings,
+  mandatoryTerms = null,
+  rankingProfile = 'default'
+}) {
+  const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  const SEARCH_RETMAX = 80;
+  const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi`;
+  const searchPayload = new URLSearchParams({
+    db: 'pubmed',
+    term: searchQuery,
+    retmax: String(SEARCH_RETMAX),
+    retmode: 'json',
+    sort: 'relevance'
+  });
+
+  let searchResponse;
+  try {
+    searchResponse = await requestPubMedWithRetry(() =>
+      axios.post(searchUrl, searchPayload.toString(), {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      })
+    );
+  } catch (error) {
+    try {
+      searchResponse = await requestPubMedWithRetry(() =>
+        axios.get(searchUrl, {
+          timeout: 30000,
+          params: {
+            db: 'pubmed',
+            term: searchQuery,
+            retmax: SEARCH_RETMAX,
+            retmode: 'json',
+            sort: 'relevance'
+          }
+        })
+      );
+    } catch (fallbackError) {
+      const fallbackStatus = fallbackError.response?.status;
+      const fallbackStatusText = fallbackError.response?.statusText || 'Unknown status';
+      const fallbackData = typeof fallbackError.response?.data === 'string'
+        ? fallbackError.response.data
+        : JSON.stringify(fallbackError.response?.data || {});
+
+      const wrappedError = new Error('Failed to search PubMed');
+      wrappedError.details = fallbackStatus
+        ? `PubMed search failed (${fallbackStatus} ${fallbackStatusText}): ${fallbackData.slice(0, 300)}`
+        : (fallbackError.message || error.message || 'PubMed API is not responding. Please try again later.');
+      wrappedError.original = fallbackError;
+      throw wrappedError;
+    }
+
+    if (!searchResponse) {
+      const wrappedError = new Error('Failed to search PubMed');
+      wrappedError.details = 'PubMed search did not return a response.';
+      wrappedError.original = error;
+      throw wrappedError;
+    }
+
+    // Successful GET fallback path reaches here.
+  }
+
+  if (!searchResponse) {
+    const wrappedError = new Error('Failed to search PubMed');
+    wrappedError.details = 'PubMed search returned no response.';
+    throw wrappedError;
+  }
+
+  const pmids = (searchResponse.data.esearchresult?.idlist || []).slice(0, SEARCH_RETMAX);
+
+  if (pmids.length === 0) {
+    return {
+      searchQuery,
+      categorizedArticles: {},
+      totalArticles: 0,
+      statistics: {
+        totalSearched: 0,
+        totalFound: 0,
+        filteredOut: 0,
+        threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+        categoryCounts: {},
+        averageSimilarity: '0%',
+        topMatchScore: '0%',
+        lowestMatchScore: '0%',
+        qualityDistribution: {
+          excellent: 0,
+          good: 0,
+          fair: 0,
+          acceptable: 0
+        }
+      },
+      message: 'No similar articles found'
+    };
+  }
+
+  const normalizePmid = (pmid) => {
+    if (typeof pmid === 'object' && pmid !== null) {
+      return String(pmid._ || pmid.i || pmid);
+    }
+    return String(pmid);
+  };
+
+  const articles = [];
+  const fetchUrl = `${PUBMED_API_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&rettype=abstract`;
+
+  try {
+    const fetchResponse = await requestPubMedWithRetry(() =>
+      axios.get(fetchUrl, { timeout: 30000 })
+    );
+    const xml2js = require('xml2js');
+    const parser = new xml2js.Parser({ explicitArray: false });
+    const result = await parser.parseStringPromise(fetchResponse.data);
+
+    const pubmedArticles = result.PubmedArticleSet?.PubmedArticle;
+    if (!pubmedArticles) {
+      return {
+        searchQuery,
+        categorizedArticles: {},
+        totalArticles: 0,
+        statistics: {
+          totalSearched: 0,
+          totalFound: 0,
+          filteredOut: 0,
+          threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+          categoryCounts: {},
+          averageSimilarity: '0%',
+          topMatchScore: '0%',
+          lowestMatchScore: '0%',
+          qualityDistribution: {
+            excellent: 0,
+            good: 0,
+            fair: 0,
+            acceptable: 0
+          }
+        },
+        message: 'No similar articles found'
+      };
+    }
+
+    const articleArray = Array.isArray(pubmedArticles) ? pubmedArticles : [pubmedArticles];
+
+    articleArray.forEach(pubmedArticle => {
+      if (!pubmedArticle) return;
+
+      const article = pubmedArticle.MedlineCitation?.Article;
+      if (!article) return;
+
+      const rawPmid = pubmedArticle.MedlineCitation?.PMID;
+      const pmid = normalizePmid(rawPmid);
+
+      let title = article.ArticleTitle || '';
+      if (typeof title === 'object' && title !== null) {
+        title = title._ || String(title);
+      }
+      title = String(title || '');
+
+      let abstract = '';
+      if (article.Abstract?.AbstractText) {
+        const abstractText = article.Abstract.AbstractText;
+        if (typeof abstractText === 'string') {
+          abstract = abstractText;
+        } else if (Array.isArray(abstractText)) {
+          abstract = abstractText.map(part => {
+            if (typeof part === 'string') return part;
+            if (typeof part === 'object' && part !== null) return part._ || '';
+            return String(part || '');
+          }).join(' ');
+        } else if (typeof abstractText === 'object' && abstractText !== null) {
+          abstract = abstractText._ || String(abstractText);
+        }
+      }
+      abstract = String(abstract || '');
+
+      let meshTerms = [];
+      if (pubmedArticle.MedlineCitation?.MeshHeadingList?.MeshHeading) {
+        const meshList = Array.isArray(pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading)
+          ? pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading
+          : [pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading];
+        meshTerms = meshList.map(mesh => {
+          if (typeof mesh === 'string') return mesh;
+          if (mesh.DescriptorName) {
+            return typeof mesh.DescriptorName === 'string'
+              ? mesh.DescriptorName
+              : (mesh.DescriptorName._ || String(mesh.DescriptorName));
+          }
+          return '';
+        }).filter(Boolean);
+      }
+
+      if (studyType === 'animal' || studyType === 'human') {
+        const titleLower = title.toLowerCase();
+        const meshLower = meshTerms.map(m => m.toLowerCase());
+
+        const animalIndicators = ['in rats', 'in mice', 'in pigs', 'in rabbits', 'in dogs', ' rat ', ' rats ', ' mouse ', ' mice ', ' pig ', ' pigs '];
+        const hasAnimalInTitle = animalIndicators.some(ind => titleLower.includes(ind));
+        const hasAnimalsMeSH = meshLower.some(m => m === 'animals' || m.includes('animal'));
+
+        const hasHumansMeSH = meshLower.some(m => m === 'humans' || m === 'human');
+        const hasClinicalInTitle = titleLower.includes('clinical trial') || titleLower.includes('patient');
+
+        if (studyType === 'animal') {
+          if (!hasAnimalsMeSH && !hasAnimalInTitle) return;
+          if (hasHumansMeSH && !hasAnimalsMeSH) return;
+          if (hasClinicalInTitle) return;
+        } else {
+          if (hasAnimalInTitle) return;
+          if (hasAnimalsMeSH && !hasHumansMeSH) return;
+        }
+      }
+
+      const mandatoryMatchDetails = getMandatoryMatchDetails(title, abstract, mandatoryTerms);
+      if (mandatoryTerms?.enforce && !mandatoryMatchDetails.isMatch) {
+        return;
+      }
+
+      const drugNameForScoring = userDrugName || (drugNames.length > 0 ? drugNames[0] : null);
+      const similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
+      const prevalenceBoost = rankingProfile === 'prevalence'
+        ? calculatePrevalencePriorityBoost(title, abstract)
+        : 0;
+      const rankingScore = Math.round((similarityScore + prevalenceBoost) * 10) / 10;
+
+      articles.push({
+        pmid,
+        title,
+        authors: article.AuthorList?.Author
+          ? (Array.isArray(article.AuthorList.Author)
+            ? article.AuthorList.Author
+            : [article.AuthorList.Author]
+          ).map(a => `${a.LastName || ''} ${a.ForeName || ''}`.trim()).filter(Boolean)
+          : [],
+        journal: pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '',
+        publicationDate: article.Journal?.JournalIssue?.PubDate?.Year || '',
+        abstract,
+        url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+        similarityScore,
+        rankingScore,
+        meshTerms,
+        mandatoryMatch: mandatoryTerms?.enforce ? {
+          drugName: mandatoryTerms.drugName || null,
+          diseaseName: mandatoryTerms.diseaseName || null,
+          prevalenceKeywords: mandatoryMatchDetails.matchedPrevalenceKeywords
+        } : undefined,
+        selected: false
+      });
+    });
+  } catch (error) {
+    const wrappedError = new Error('Failed to fetch article details from PubMed');
+    wrappedError.details = error.message;
+    wrappedError.original = error;
+    throw wrappedError;
+  }
+
+  const filteredArticles = articles.filter(a => a.similarityScore >= MINIMUM_SIMILARITY_THRESHOLD);
+  filteredArticles.sort((a, b) => {
+    const rankingDelta = (b.rankingScore ?? b.similarityScore) - (a.rankingScore ?? a.similarityScore);
+    if (rankingDelta !== 0) {
+      return rankingDelta;
+    }
+
+    return b.similarityScore - a.similarityScore;
+  });
+
+  const categorizedArticles = categorizeArticles(filteredArticles, includeSubheadings);
+  const statistics = buildReferenceStatistics(articles, filteredArticles, categorizedArticles);
+
+  if (filteredArticles.length === 0) {
+    return {
+      searchQuery,
+      categorizedArticles,
+      totalArticles: 0,
+      statistics,
+      message: `No highly relevant articles found (minimum ${MINIMUM_SIMILARITY_THRESHOLD}% similarity required).`
+    };
+  }
+
+  return {
+    searchQuery,
+    categorizedArticles,
+    totalArticles: filteredArticles.length,
+    statistics,
+    message: 'Reference document processed successfully'
+  };
 }
 
 /**
@@ -324,364 +1097,196 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    
-    // Get parameters from request
+
     const studyType = req.body.studyType || 'all';
     const userDrugName = req.body.drugName || null;
     const doseForm = req.body.doseForm || null;
     const indication = req.body.indication || null;
-    const includeSubheadings = req.body.includeSubheadings !== 'false'; // Default true
-    
-    console.log('User-specified parameters:', { userDrugName, doseForm, indication, includeSubheadings });
-    
-    // Extract text from uploaded file
+    const includeSubheadings = req.body.includeSubheadings !== 'false';
+
+    const prevalenceCountry = sanitizeQueryValue(req.body.prevalenceCountry || '');
+    const prevalenceYear = sanitizeQueryValue(req.body.prevalenceYear || '');
+    const prevalenceDiseaseName = sanitizeQueryValue(req.body.prevalenceDiseaseName || '');
+    const hasPrevalenceInputs = Boolean(prevalenceCountry || prevalenceYear || prevalenceDiseaseName);
+
+    console.log('User-specified parameters:', {
+      userDrugName,
+      doseForm,
+      indication,
+      includeSubheadings,
+      prevalenceCountry,
+      prevalenceYear,
+      prevalenceDiseaseName,
+      hasPrevalenceInputs
+    });
+
     const extractedText = await extractTextFromFile(req.file.buffer, req.file.mimetype);
-    
+
     if (!extractedText || extractedText.trim().length === 0) {
       return res.status(400).json({ error: 'Could not extract text from document' });
     }
-    
-    // Extract key medical terms from the text
+
     const keyTerms = extractKeyTerms(extractedText);
-    
+
     if (keyTerms.length === 0) {
       return res.status(400).json({ error: 'Could not extract meaningful terms from document' });
     }
-    
-    // Try to detect drug names (usually capitalized words or brand names)
-    const drugNamePattern = /\b([A-Z][A-Za-z]+(?:[-][A-Z][a-z]+)?)\b/g;
-    const drugNames = [];
-    const matches = extractedText.match(drugNamePattern);
-    if (matches) {
-      const uniqueDrugs = [...new Set(matches)].filter(name => 
-        name.length > 3 && 
-        !['The', 'This', 'That', 'With', 'From', 'Table', 'Figure'].includes(name)
-      );
-      drugNames.push(...uniqueDrugs.slice(0, 3)); // Top 3 potential drug names
-    }
-    
+
+    const drugNames = detectPotentialDrugNames(extractedText);
+
     console.log('Extracted drug names:', drugNames);
     console.log('Key terms:', keyTerms.slice(0, 10));
-    
-    // Build search query prioritizing drug names
-    let searchQuery = '';
-    let boostTerms = []; // Terms to boost in search, not require
-    
-    // PRIORITY 1: Use user-specified drug name if provided
-    if (userDrugName && userDrugName.trim().length > 0) {
-      searchQuery = `"${userDrugName.trim()}"[Title/Abstract]`;
-      console.log('Using user-specified drug name:', userDrugName);
-      
-      // Add dose form as boost, not requirement (to avoid zero results)
-      if (doseForm && doseForm !== 'not-applicable') {
-        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
-        console.log('Boosting with dose form:', doseForm);
-      }
-      
-      // Add indication as boost, not requirement
-      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
-        console.log('Boosting with indication:', indication);
-      }
-      
-      // Add key terms as additional context
-      const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
-      if (boostTerms.length > 0) {
-        searchQuery = `(${searchQuery}) AND ((${topTerms}) OR (${boostTerms.join(' OR ')}))`;
-      } else {
-        searchQuery = `(${searchQuery}) AND (${topTerms})`;
-      }
-    }
-    // FALLBACK: Auto-detect drug names from document
-    else if (drugNames.length > 0) {
-      // Primary search with drug names
-      searchQuery = drugNames.map(name => `"${name}"[Title/Abstract]`).join(' OR ');
-      
-      // Add dose form as boost
-      if (doseForm && doseForm !== 'not-applicable') {
-        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
-      }
-      
-      // Add indication as boost
-      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
-      }
-      
-      // Add key terms as secondary search
-      const topTerms = keyTerms.slice(0, 8).map(term => `${term}[Title/Abstract]`).join(' OR ');
-      if (boostTerms.length > 0) {
-        searchQuery = `(${searchQuery}) OR (${topTerms}) OR (${boostTerms.join(' OR ')})`;
-      } else {
-        searchQuery = `(${searchQuery}) OR (${topTerms})`;
-      }
-    } else {
-      // Fallback to key terms only
-      searchQuery = keyTerms.slice(0, 15).map(term => `${term}[Title/Abstract]`).join(' OR ');
-      
-      // Add dose form and indication as boost if specified
-      if (doseForm && doseForm !== 'not-applicable') {
-        boostTerms.push(`"${doseForm}"[Title/Abstract]`);
-      }
-      
-      if (indication && indication.trim().length > 0 && indication.toLowerCase() !== 'not applicable') {
-        boostTerms.push(`"${indication.trim()}"[Title/Abstract]`);
-      }
-      
-      if (boostTerms.length > 0) {
-        searchQuery = `(${searchQuery}) OR (${boostTerms.join(' OR ')})`;
-      }
-    }
-    
-    // Add study type filter to search query - LENIENT filtering to avoid zero results
-    if (studyType === 'animal') {
-      // Lenient animal filter - include animal studies
-      searchQuery = `(${searchQuery}) AND (Animals[MeSH Terms])`;
-    } else if (studyType === 'human') {
-      // Lenient human filter - include human studies
-      searchQuery = `(${searchQuery}) AND (Humans[MeSH Terms])`;
-    }
-    // If studyType is 'all', no filter is added
-    
-    // Search PubMed using the extracted terms
-    const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-    
-    // Step 1: Search for articles - fetch top 150 results for better coverage
-    console.log(`Searching PubMed with ${keyTerms.length} key terms...`);
-    console.log('Search query:', searchQuery.substring(0, 500) + '...');
-    
-    const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=150&retmode=json&sort=relevance`;
-    
-    let searchResponse;
-    try {
-      searchResponse = await axios.get(searchUrl, { timeout: 30000 });
-    } catch (error) {
-      console.error('PubMed search API error:', error.message);
-      return res.status(500).json({ 
-        error: 'Failed to search PubMed',
-        details: 'PubMed API is not responding. Please try again later.',
-        keyTerms: keyTerms.slice(0, 10)
-      });
-    }
-    
-    const pmids = searchResponse.data.esearchresult?.idlist || [];
-    
-    console.log(`Found ${pmids.length} articles from PubMed for reference document search`);
-    
-    // No need for batching with 100 articles - PubMed allows up to 200 per request
-    // No need for batching with 100 articles - PubMed allows up to 200 per request
-    
-    if (pmids.length === 0) {
-      return res.json({
-        message: 'No similar articles found',
-        keyTerms,
-        categorizedArticles: {},
-        totalArticles: 0,
+
+    if (hasPrevalenceInputs) {
+      const resolvedDrugName = sanitizeQueryValue(userDrugName || (drugNames[0] || ''));
+      const mandatoryTerms = {
+        enforce: true,
+        drugName: resolvedDrugName,
+        diseaseName: prevalenceDiseaseName,
+        prevalenceKeywords: [
+          'prevalence',
+          'prevalence rate',
+          'epidemiology',
+          'epidemiologic',
+          'incidence',
+          'incidence rate',
+          'disease burden',
+          'population-based',
+          'population prevalence',
+          'cross-sectional',
+          'registry',
+          'survey',
+          'per 100',
+          'per 100,000',
+          'one-year prevalence',
+          'annual prevalence'
+        ]
+      };
+
+      const prevalenceTemplates = buildPrevalenceKeywordTemplates(prevalenceDiseaseName, resolvedDrugName);
+      const anotherTemplates = buildAnotherKeywordTemplates(resolvedDrugName, prevalenceDiseaseName, indication);
+
+      const prevalenceSearchQuery = applyStudyTypeFilter(
+        buildColumnSearchQuery({
+          templates: prevalenceTemplates,
+          country: prevalenceCountry,
+          year: prevalenceYear,
+          diseaseName: prevalenceDiseaseName,
+          maxTemplates: 30,
+          maxQueryLength: 3200
+        }),
         studyType
-      });
-    }
-    
-    // Step 2: Fetch article details with abstracts (using efetch for complete data)
-    const articles = [];
-    
-    // Helper function to normalize PMID
-    const normalizePmid = (pmid) => {
-      if (typeof pmid === 'object' && pmid !== null) {
-        return String(pmid._ || pmid.i || pmid);
-      }
-      return String(pmid);
-    };
-    
-    console.log(`Fetching abstracts for ${pmids.length} articles...`);
-    
-    // Use efetch to get full abstracts (not just summaries)
-    const fetchUrl = `${PUBMED_API_BASE}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&rettype=abstract`;
-    
-    try {
-      const fetchResponse = await axios.get(fetchUrl);
-      const xml2js = require('xml2js');
-      const parser = new xml2js.Parser({ explicitArray: false });
-      const result = await parser.parseStringPromise(fetchResponse.data);
-      
-      const pubmedArticles = result.PubmedArticleSet?.PubmedArticle;
-      const articleArray = Array.isArray(pubmedArticles) ? pubmedArticles : [pubmedArticles];
-      
-      articleArray.forEach(pubmedArticle => {
-        if (!pubmedArticle) return;
-        
-        const article = pubmedArticle.MedlineCitation?.Article;
-        if (!article) return;
-        
-        const rawPmid = pubmedArticle.MedlineCitation?.PMID;
-        const pmid = normalizePmid(rawPmid);
-        
-        // Ensure title is a string
-        let title = article.ArticleTitle || '';
-        if (typeof title === 'object' && title !== null) {
-          title = title._ || String(title);
-        }
-        title = String(title || '');
-        
-        // Extract abstract text
-        let abstract = '';
-        if (article.Abstract?.AbstractText) {
-          const abstractText = article.Abstract.AbstractText;
-          if (typeof abstractText === 'string') {
-            abstract = abstractText;
-          } else if (Array.isArray(abstractText)) {
-            abstract = abstractText.map(part => {
-              if (typeof part === 'string') return part;
-              if (typeof part === 'object' && part !== null) return part._ || '';
-              return String(part || '');
-            }).join(' ');
-          } else if (typeof abstractText === 'object' && abstractText !== null) {
-            abstract = abstractText._ || String(abstractText);
-          }
-        }
-        abstract = String(abstract || '');
-        
-        // Extract MeSH terms for filtering
-        let meshTerms = [];
-        if (pubmedArticle.MedlineCitation?.MeshHeadingList?.MeshHeading) {
-          const meshList = Array.isArray(pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading)
-            ? pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading
-            : [pubmedArticle.MedlineCitation.MeshHeadingList.MeshHeading];
-          meshTerms = meshList.map(mesh => {
-            if (typeof mesh === 'string') return mesh;
-            if (mesh.DescriptorName) {
-              return typeof mesh.DescriptorName === 'string' 
-                ? mesh.DescriptorName 
-                : (mesh.DescriptorName._ || String(mesh.DescriptorName));
-            }
-            return '';
-          }).filter(Boolean);
-        }
-        
-        // Apply strict study type filtering based on title and MeSH
-        if (studyType === 'animal' || studyType === 'human') {
-          const titleLower = title.toLowerCase();
-          const meshLower = meshTerms.map(m => m.toLowerCase());
-          const meshText = meshLower.join(' ');
-          
-          // Animal species indicators
-          const animalIndicators = ['in rats', 'in mice', 'in pigs', 'in rabbits', 'in dogs', ' rat ', ' rats ', ' mouse ', ' mice ', ' pig ', ' pigs '];
-          const hasAnimalInTitle = animalIndicators.some(ind => titleLower.includes(ind));
-          const hasAnimalsMeSH = meshLower.some(m => m === 'animals' || m.includes('animal'));
-          
-          // Human indicators
-          const hasHumansMeSH = meshLower.some(m => m === 'humans' || m === 'human');
-          const hasClinicalInTitle = titleLower.includes('clinical trial') || titleLower.includes('patient');
-          
-          // Skip article if it doesn't match the study type
-          if (studyType === 'animal') {
-            // For animal studies: must have animal indicators and NOT be clinical
-            if (!hasAnimalsMeSH && !hasAnimalInTitle) return; // Skip if no animal indicators
-            if (hasHumansMeSH && !hasAnimalsMeSH) return; // Skip if human-only
-            if (hasClinicalInTitle) return; // Skip clinical trials
-          } else if (studyType === 'human') {
-            // For human studies: must NOT have animal-only indicators
-            if (hasAnimalInTitle) return; // Skip if animals mentioned in title
-            if (hasAnimalsMeSH && !hasHumansMeSH) return; // Skip if animal-only MeSH
-          }
-        }
-        
-        // Calculate similarity score using BOTH title and abstract
-        // PRIORITY: Pass drug name to boost articles that have BOTH drug AND keywords
-        const drugNameForScoring = userDrugName || (drugNames.length > 0 ? drugNames[0] : null);
-        const similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
-        
-        articles.push({
-          pmid: pmid,
-          title: title,
-          authors: article.AuthorList?.Author ? 
-            (Array.isArray(article.AuthorList.Author) ? 
-              article.AuthorList.Author : [article.AuthorList.Author]
-            ).map(a => `${a.LastName || ''} ${a.ForeName || ''}`.trim()).filter(Boolean) : [],
-          journal: pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '',
-          publicationDate: article.Journal?.JournalIssue?.PubDate?.Year || '',
-          abstract: abstract,
-          url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
-          similarityScore: similarityScore,
-          meshTerms: meshTerms,
-          selected: false
-        });
-      });
-    } catch (error) {
-      console.error(`Error fetching articles:`, error.message);
-      return res.status(500).json({ 
-        error: 'Failed to fetch article details from PubMed', 
-        details: error.message 
-      });
-    }    console.log(`Fetched ${articles.length} articles with abstracts`);
-    
-    // Filter out articles with very low similarity - LOWERED threshold to show more results
-    const MINIMUM_SIMILARITY_THRESHOLD = 10; // Lowered from 20 to 10
-    const filteredArticles = articles.filter(a => a.similarityScore >= MINIMUM_SIMILARITY_THRESHOLD);
-    
-    console.log(`Filtered to ${filteredArticles.length} articles above ${MINIMUM_SIMILARITY_THRESHOLD}% similarity threshold (removed ${articles.length - filteredArticles.length} low-quality matches)`);
-    
-    if (filteredArticles.length === 0) {
+      );
+
+      const anotherSearchQuery = applyStudyTypeFilter(
+        buildColumnSearchQuery({
+          templates: anotherTemplates,
+          country: prevalenceCountry,
+          year: prevalenceYear,
+          diseaseName: prevalenceDiseaseName,
+          maxTemplates: 12,
+          maxQueryLength: 1700
+        }),
+        studyType
+      );
+
+      const [prevalenceResult, anotherResult] = await Promise.all([
+        executeReferenceSearch({
+          searchQuery: prevalenceSearchQuery,
+          keyTerms,
+          studyType,
+          userDrugName,
+          drugNames,
+          includeSubheadings,
+          mandatoryTerms,
+          rankingProfile: 'prevalence'
+        }),
+        executeReferenceSearch({
+          searchQuery: anotherSearchQuery,
+          keyTerms,
+          studyType,
+          userDrugName,
+          drugNames,
+          includeSubheadings,
+          mandatoryTerms,
+          rankingProfile: 'another'
+        })
+      ]);
+
+      const totalCombinedArticles = prevalenceResult.totalArticles + anotherResult.totalArticles;
+
       return res.json({
-        message: `No highly relevant articles found (minimum ${MINIMUM_SIMILARITY_THRESHOLD}% similarity required). Your document may need more specific medical/pharmaceutical content, or try a different document.`,
-        keyTerms,
-        categorizedArticles: {},
-        totalArticles: 0,
+        message: 'Reference document processed successfully',
+        fileName: req.file.originalname,
         studyType,
-        statistics: {
-          totalSearched: articles.length,
-          aboveThreshold: 0,
-          belowThreshold: articles.length,
-          threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
-          averageSimilarity: articles.length > 0 ? (articles.reduce((sum, a) => sum + a.similarityScore, 0) / articles.length).toFixed(1) + '%' : '0%',
-          topMatchScore: articles.length > 0 ? Math.max(...articles.map(a => a.similarityScore)).toFixed(1) + '%' : '0%'
-        }
+        drugName: userDrugName || (drugNames.length > 0 ? drugNames.join(', ') : 'Auto-detected'),
+        doseForm: doseForm || 'Not specified',
+        indication: indication || 'Not specified',
+        includeSubheadings,
+        keyTerms: keyTerms.slice(0, 20),
+        dualColumnMode: true,
+        prevalenceContext: {
+          country: prevalenceCountry || null,
+          year: prevalenceYear || null,
+          diseaseName: prevalenceDiseaseName || null
+        },
+        columns: {
+          prevalence: {
+            label: 'PREVALENCE',
+            searchQuery: prevalenceSearchQuery,
+            categorizedArticles: prevalenceResult.categorizedArticles,
+            totalArticles: prevalenceResult.totalArticles,
+            statistics: prevalenceResult.statistics,
+            message: prevalenceResult.message
+          },
+          another: {
+            label: 'ANOTHER',
+            searchQuery: anotherSearchQuery,
+            categorizedArticles: anotherResult.categorizedArticles,
+            totalArticles: anotherResult.totalArticles,
+            statistics: anotherResult.statistics,
+            message: anotherResult.message
+          }
+        },
+        categorizedArticles: {},
+        totalArticles: totalCombinedArticles
       });
     }
-    
-    // Sort articles by similarity score (highest first)
-    filteredArticles.sort((a, b) => b.similarityScore - a.similarityScore);
-    
-    // Step 3: Categorize articles (only high-quality matches)
-    const categorizedArticles = categorizeArticles(filteredArticles, includeSubheadings);
-    
-    res.json({
-      message: 'Reference document processed successfully',
+
+    const searchQuery = applyStudyTypeFilter(
+      buildDefaultReferenceSearchQuery({ keyTerms, userDrugName, drugNames, doseForm, indication }),
+      studyType
+    );
+
+    const searchResult = await executeReferenceSearch({
+      searchQuery,
+      keyTerms,
+      studyType,
+      userDrugName,
+      drugNames,
+      includeSubheadings
+    });
+
+    return res.json({
+      message: searchResult.message,
       fileName: req.file.originalname,
-      studyType: studyType,
+      studyType,
       drugName: userDrugName || (drugNames.length > 0 ? drugNames.join(', ') : 'Auto-detected'),
       doseForm: doseForm || 'Not specified',
       indication: indication || 'Not specified',
-      includeSubheadings: includeSubheadings,
-      keyTerms: keyTerms.slice(0, 20), // Show top 20 key terms including phrases
+      includeSubheadings,
+      keyTerms: keyTerms.slice(0, 20),
+      dualColumnMode: false,
       searchQuery,
-      categorizedArticles,
-      totalArticles: filteredArticles.length,
-      statistics: {
-        totalSearched: articles.length,
-        totalFound: filteredArticles.length,
-        filteredOut: articles.length - filteredArticles.length,
-        threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
-        categoryCounts: Object.fromEntries(
-          Object.entries(categorizedArticles).map(([cat, arts]) => [cat, arts.length])
-        ),
-        averageSimilarity: filteredArticles.length > 0 
-          ? (filteredArticles.reduce((sum, a) => sum + a.similarityScore, 0) / filteredArticles.length).toFixed(1) + '%'
-          : '0%',
-        topMatchScore: filteredArticles.length > 0 ? filteredArticles[0].similarityScore.toFixed(1) + '%' : '0%',
-        lowestMatchScore: filteredArticles.length > 0 ? filteredArticles[filteredArticles.length - 1].similarityScore.toFixed(1) + '%' : '0%',
-        qualityDistribution: {
-          excellent: filteredArticles.filter(a => a.similarityScore >= 70).length,
-          good: filteredArticles.filter(a => a.similarityScore >= 50 && a.similarityScore < 70).length,
-          fair: filteredArticles.filter(a => a.similarityScore >= 30 && a.similarityScore < 50).length,
-          acceptable: filteredArticles.filter(a => a.similarityScore >= 20 && a.similarityScore < 30).length
-        }
-      }
+      categorizedArticles: searchResult.categorizedArticles,
+      totalArticles: searchResult.totalArticles,
+      statistics: searchResult.statistics
     });
-    
   } catch (error) {
     console.error('Reference document upload error:', error);
     res.status(500).json({ 
-      error: 'Failed to process reference document', 
-      details: error.message 
+      error: error.message || 'Failed to process reference document', 
+      details: error.details || error.message 
     });
   }
 });
