@@ -19,6 +19,59 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const [includeSubheadings, setIncludeSubheadings] = useState(true);
 
   const yearOptions = Array.from({ length: 26 }, (_, index) => String(2000 + index)).reverse();
+  const prevalenceCountryOptions = [
+    'Albania',
+    'Andorra',
+    'Armenia',
+    'Austria',
+    'Azerbaijan',
+    'Belarus',
+    'Belgium',
+    'Bosnia and Herzegovina',
+    'Bulgaria',
+    'Croatia',
+    'Cyprus',
+    'Czech Republic',
+    'Denmark',
+    'Estonia',
+    'Finland',
+    'France',
+    'Georgia',
+    'Germany',
+    'Greece',
+    'Hungary',
+    'Iceland',
+    'India',
+    'Ireland',
+    'Italy',
+    'Kosovo',
+    'Latvia',
+    'Liechtenstein',
+    'Lithuania',
+    'Luxembourg',
+    'Malta',
+    'Moldova',
+    'Monaco',
+    'Montenegro',
+    'Netherlands',
+    'North Macedonia',
+    'Norway',
+    'Poland',
+    'Portugal',
+    'Romania',
+    'Russia',
+    'San Marino',
+    'Serbia',
+    'Slovakia',
+    'Slovenia',
+    'Spain',
+    'Sweden',
+    'Switzerland',
+    'Turkey',
+    'Ukraine',
+    'United Kingdom',
+    'Vatican City'
+  ];
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -231,27 +284,20 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
                 <label htmlFor="prevalenceCountry">
                   Country <span className="optional-tag">(Optional)</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   id="prevalenceCountry"
                   value={prevalenceCountry}
                   onChange={(e) => setPrevalenceCountry(e.target.value)}
-                  placeholder="e.g., Germany, UK, France"
                   disabled={isUploading}
-                  className="form-input"
-                  list="prevalence-country-list"
-                />
-                <datalist id="prevalence-country-list">
-                  <option value="Germany" />
-                  <option value="United Kingdom" />
-                  <option value="France" />
-                  <option value="Spain" />
-                  <option value="Italy" />
-                  <option value="Netherlands" />
-                  <option value="Sweden" />
-                  <option value="European Union" />
-                  <option value="Europe" />
-                </datalist>
+                  className="form-select"
+                >
+                  <option value="">Select country</option>
+                  {prevalenceCountryOptions.map((country) => (
+                    <option key={country} value={country}>
+                      {country === 'United Kingdom' ? 'United Kingdom (UK)' : country}
+                    </option>
+                  ))}
+                </select>
                 <p className="field-hint">Used as an additional geographic filter for prevalence-focused search</p>
               </div>
 
