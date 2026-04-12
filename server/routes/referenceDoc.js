@@ -328,6 +328,44 @@ function sanitizeQueryValue(value) {
   return String(value || '').replace(/"/g, '').trim();
 }
 
+function parseSelectedYears(rawYears) {
+  if (!rawYears) {
+    return [];
+  }
+
+  let candidateYears = [];
+
+  if (Array.isArray(rawYears)) {
+    candidateYears = rawYears;
+  } else if (typeof rawYears === 'string') {
+    const trimmed = rawYears.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsedYears = JSON.parse(trimmed);
+        if (Array.isArray(parsedYears)) {
+          candidateYears = parsedYears;
+        }
+      } catch (error) {
+        candidateYears = [trimmed];
+      }
+    } else {
+      candidateYears = trimmed.split(',');
+    }
+  } else {
+    candidateYears = [rawYears];
+  }
+
+  return [...new Set(
+    candidateYears
+      .map(year => sanitizeQueryValue(year))
+      .filter(year => /^(19|20)\d{2}$/.test(year))
+  )];
+}
+
 function countPhraseHits(text, phrases) {
   return phrases.reduce((count, phrase) => (text.includes(phrase) ? count + 1 : count), 0);
 }
@@ -676,6 +714,7 @@ function buildColumnSearchQuery({
   templates,
   country,
   year,
+  years = [],
   diseaseName,
   maxTemplates = 20,
   maxQueryLength = 2200
@@ -686,15 +725,22 @@ function buildColumnSearchQuery({
 
   const filters = [];
   const safeCountry = sanitizeQueryValue(country);
-  const safeYear = sanitizeQueryValue(year);
+  const safeYears = [...new Set([
+    ...(Array.isArray(years) ? years : []),
+    ...(year ? [year] : [])
+  ]
+    .map(yearValue => sanitizeQueryValue(yearValue))
+    .filter(yearValue => /^(19|20)\d{2}$/.test(yearValue)))];
   const safeDisease = sanitizeQueryValue(diseaseName);
 
   if (safeCountry) {
     filters.push(`("${safeCountry}"[Title/Abstract] OR "${safeCountry}"[Affiliation])`);
   }
 
-  if (safeYear) {
-    filters.push(`(${safeYear}[PDAT])`);
+  if (safeYears.length === 1) {
+    filters.push(`(${safeYears[0]}[PDAT])`);
+  } else if (safeYears.length > 1) {
+    filters.push(`(${safeYears.map(yearValue => `${yearValue}[PDAT]`).join(' OR ')})`);
   }
 
   if (safeDisease) {
@@ -1105,9 +1151,9 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const includeSubheadings = req.body.includeSubheadings !== 'false';
 
     const prevalenceCountry = sanitizeQueryValue(req.body.prevalenceCountry || '');
-    const prevalenceYear = sanitizeQueryValue(req.body.prevalenceYear || '');
+    const prevalenceYears = parseSelectedYears(req.body.prevalenceYears || req.body.prevalenceYear || '');
     const prevalenceDiseaseName = sanitizeQueryValue(req.body.prevalenceDiseaseName || '');
-    const hasPrevalenceInputs = Boolean(prevalenceCountry || prevalenceYear || prevalenceDiseaseName);
+    const hasPrevalenceInputs = Boolean(prevalenceCountry || prevalenceYears.length > 0 || prevalenceDiseaseName);
 
     console.log('User-specified parameters:', {
       userDrugName,
@@ -1115,7 +1161,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       indication,
       includeSubheadings,
       prevalenceCountry,
-      prevalenceYear,
+      prevalenceYears,
       prevalenceDiseaseName,
       hasPrevalenceInputs
     });
@@ -1170,7 +1216,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         buildColumnSearchQuery({
           templates: prevalenceTemplates,
           country: prevalenceCountry,
-          year: prevalenceYear,
+          years: prevalenceYears,
           diseaseName: prevalenceDiseaseName,
           maxTemplates: 30,
           maxQueryLength: 3200
@@ -1182,7 +1228,6 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         buildColumnSearchQuery({
           templates: anotherTemplates,
           country: prevalenceCountry,
-          year: prevalenceYear,
           diseaseName: prevalenceDiseaseName,
           maxTemplates: 12,
           maxQueryLength: 1700
@@ -1227,7 +1272,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         dualColumnMode: true,
         prevalenceContext: {
           country: prevalenceCountry || null,
-          year: prevalenceYear || null,
+          years: prevalenceYears.length > 0 ? prevalenceYears : null,
           diseaseName: prevalenceDiseaseName || null
         },
         columns: {

@@ -351,6 +351,50 @@
   color: #9ca3af;
 }
 
+.year-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.year-checkbox-grid:focus-within {
+  border-color: #9333ea;
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+
+.year-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.year-checkbox-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #9333ea;
+}
+
+.year-checkbox-item.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.year-checkbox-item.disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
 .field-hint {
   font-size: 12px;
   color: #6b7280;

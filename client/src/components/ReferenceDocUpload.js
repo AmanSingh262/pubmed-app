@@ -12,7 +12,7 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const [drugName, setDrugName] = useState('');
   const [showPrevalenceOptions, setShowPrevalenceOptions] = useState(false);
   const [prevalenceCountry, setPrevalenceCountry] = useState('');
-  const [prevalenceYear, setPrevalenceYear] = useState('');
+  const [prevalenceYears, setPrevalenceYears] = useState([]);
   const [prevalenceDiseaseName, setPrevalenceDiseaseName] = useState('');
   const [doseForm, setDoseForm] = useState('');
   const [indication, setIndication] = useState('');
@@ -20,58 +20,20 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
   const yearOptions = Array.from({ length: 26 }, (_, index) => String(2000 + index)).reverse();
   const prevalenceCountryOptions = [
-    'Albania',
-    'Andorra',
-    'Armenia',
-    'Austria',
-    'Azerbaijan',
-    'Belarus',
-    'Belgium',
-    'Bosnia and Herzegovina',
-    'Bulgaria',
-    'Croatia',
-    'Cyprus',
-    'Czech Republic',
-    'Denmark',
-    'Estonia',
-    'Finland',
-    'France',
-    'Georgia',
-    'Germany',
-    'Greece',
-    'Hungary',
-    'Iceland',
-    'India',
-    'Ireland',
-    'Italy',
-    'Kosovo',
-    'Latvia',
-    'Liechtenstein',
-    'Lithuania',
-    'Luxembourg',
-    'Malta',
-    'Moldova',
-    'Monaco',
-    'Montenegro',
-    'Netherlands',
-    'North Macedonia',
-    'Norway',
-    'Poland',
-    'Portugal',
-    'Romania',
-    'Russia',
-    'San Marino',
-    'Serbia',
-    'Slovakia',
-    'Slovenia',
-    'Spain',
-    'Sweden',
-    'Switzerland',
-    'Turkey',
-    'Ukraine',
-    'United Kingdom',
-    'Vatican City'
+    { value: 'Europe', label: 'Entire Europe (All European countries)' },
+    { value: 'United Kingdom', label: 'United Kingdom (UK)' },
+    { value: 'India', label: 'India' }
   ];
+
+  const handlePrevalenceYearToggle = (year) => {
+    setPrevalenceYears((prevYears) => {
+      if (prevYears.includes(year)) {
+        return prevYears.filter((selectedYear) => selectedYear !== year);
+      }
+
+      return [...prevYears, year];
+    });
+  };
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -136,8 +98,8 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     if (prevalenceCountry && prevalenceCountry.trim()) {
       formData.append('prevalenceCountry', prevalenceCountry.trim());
     }
-    if (prevalenceYear && prevalenceYear.trim()) {
-      formData.append('prevalenceYear', prevalenceYear.trim());
+    if (prevalenceYears.length > 0) {
+      formData.append('prevalenceYears', JSON.stringify(prevalenceYears));
     }
     if (prevalenceDiseaseName && prevalenceDiseaseName.trim()) {
       formData.append('prevalenceDiseaseName', prevalenceDiseaseName.trim());
@@ -293,8 +255,8 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
                 >
                   <option value="">Select country</option>
                   {prevalenceCountryOptions.map((country) => (
-                    <option key={country} value={country}>
-                      {country === 'United Kingdom' ? 'United Kingdom (UK)' : country}
+                    <option key={country.value} value={country.value}>
+                      {country.label}
                     </option>
                   ))}
                 </select>
@@ -302,22 +264,31 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="prevalenceYear">
+                <label>
                   Year <span className="optional-tag">(Optional)</span>
                 </label>
-                <select
-                  id="prevalenceYear"
-                  value={prevalenceYear}
-                  onChange={(e) => setPrevalenceYear(e.target.value)}
-                  disabled={isUploading}
-                  className="form-select"
-                >
-                  <option value="">Select year</option>
-                  {yearOptions.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-                <p className="field-hint">Publication year filter applied to PREVALENCE and ANOTHER keyword sets</p>
+                <div className="year-checkbox-grid" role="group" aria-label="Select prevalence years">
+                  {yearOptions.map((year) => {
+                    const inputId = `prevalenceYear-${year}`;
+                    return (
+                      <label
+                        key={year}
+                        htmlFor={inputId}
+                        className={`year-checkbox-item ${isUploading ? 'disabled' : ''}`}
+                      >
+                        <input
+                          id={inputId}
+                          type="checkbox"
+                          checked={prevalenceYears.includes(year)}
+                          onChange={() => handlePrevalenceYearToggle(year)}
+                          disabled={isUploading}
+                        />
+                        <span>{year}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="field-hint">Tick one or more years. Year filtering applies only to PREVALENCE.</p>
               </div>
 
               <div className="form-group">

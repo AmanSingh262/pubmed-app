@@ -199,6 +199,18 @@ function AppContent() {
     return `category-${pageKey.replace(/[^a-zA-Z0-9-_]/g, '-')}`;
   };
 
+  const getPrevalenceYearLabel = (prevalenceContext) => {
+    if (!prevalenceContext) {
+      return '';
+    }
+
+    if (Array.isArray(prevalenceContext.years) && prevalenceContext.years.length > 0) {
+      return prevalenceContext.years.join(', ');
+    }
+
+    return prevalenceContext.year || '';
+  };
+
   const handleReferenceDocResults = (data) => {
     const normalizedData = {
       ...data,
@@ -693,7 +705,10 @@ function AppContent() {
                         <strong>Prevalence Filters:</strong>{' '}
                         {[
                           referenceDocResults.prevalenceContext.country && `Country: ${referenceDocResults.prevalenceContext.country}`,
-                          referenceDocResults.prevalenceContext.year && `Year: ${referenceDocResults.prevalenceContext.year}`,
+                          (() => {
+                            const yearLabel = getPrevalenceYearLabel(referenceDocResults.prevalenceContext);
+                            return yearLabel ? `Year: ${yearLabel}` : null;
+                          })(),
                           referenceDocResults.prevalenceContext.diseaseName && `Disease: ${referenceDocResults.prevalenceContext.diseaseName}`
                         ].filter(Boolean).join(' | ') || 'Not specified'}
                       </p>
