@@ -323,6 +323,7 @@ function categorizeArticles(articles, includeSubheadings = true) {
 }
 
 const MINIMUM_SIMILARITY_THRESHOLD = 10;
+const MINIMUM_ANOTHER_SIMILARITY_THRESHOLD = 3;
 
 function sanitizeQueryValue(value) {
   return String(value || '').replace(/"/g, '').trim();
@@ -364,6 +365,109 @@ function parseSelectedYears(rawYears) {
       .map(year => sanitizeQueryValue(year))
       .filter(year => /^(19|20)\d{2}$/.test(year))
   )];
+}
+
+function extractColumnKeyTermsFromTemplates(templates, maxTerms = 45) {
+  if (!Array.isArray(templates) || templates.length === 0) {
+    return [];
+  }
+
+  const stopWords = new Set([
+    'and', 'or', 'not', 'with', 'from', 'that', 'this', 'those', 'these',
+    'study', 'studies', 'review', 'data', 'results', 'using', 'used', 'between'
+  ]);
+
+  const phraseTerms = [];
+  const singleTerms = [];
+
+  templates.forEach(template => {
+    const raw = String(template || '').trim();
+    if (!raw) {
+      return;
+    }
+
+    const quotedPhrases = raw.match(/"([^"]+)"/g) || [];
+    quotedPhrases.forEach(phrase => {
+      const cleanPhrase = phrase.replace(/"/g, '').trim().toLowerCase();
+      if (cleanPhrase.length >= 4 && !stopWords.has(cleanPhrase)) {
+        phraseTerms.push(cleanPhrase);
+      }
+    });
+
+    const cleaned = raw
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/[()",]/g, ' ')
+      .replace(/\bAND\b|\bOR\b|\bNOT\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    cleaned.split(' ').forEach(term => {
+      if (term.length < 4 || /^\d+$/.test(term) || stopWords.has(term)) {
+        return;
+      }
+      singleTerms.push(term);
+    });
+  });
+
+  return [...new Set([...phraseTerms, ...singleTerms])].slice(0, maxTerms);
+}
+
+function extractSingleKeywordsFromTemplates(templates, maxKeywords = 180) {
+  if (!Array.isArray(templates) || templates.length === 0) {
+    return [];
+  }
+
+  const stopWords = new Set([
+    'and', 'or', 'not', 'with', 'from', 'that', 'this', 'those', 'these',
+    'study', 'studies', 'review', 'data', 'results', 'using', 'used', 'between'
+  ]);
+
+  const keywords = [];
+
+  templates.forEach(template => {
+    const cleaned = String(template || '')
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/[()",]/g, ' ')
+      .replace(/\bAND\b|\bOR\b|\bNOT\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    if (!cleaned) {
+      return;
+    }
+
+    cleaned.split(' ').forEach(term => {
+      const normalized = term.replace(/\*/g, '').trim();
+      if (!normalized || normalized.length < 4 || /^\d+$/.test(normalized) || stopWords.has(normalized)) {
+        return;
+      }
+      keywords.push(normalized);
+    });
+  });
+
+  return [...new Set(keywords)].slice(0, maxKeywords);
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function keywordExistsInText(text, keyword) {
+  const safeText = String(text || '').toLowerCase();
+  const safeKeyword = String(keyword || '').toLowerCase().trim();
+
+  if (!safeText || !safeKeyword) {
+    return false;
+  }
+
+  if (safeKeyword.includes(' ')) {
+    return safeText.includes(safeKeyword);
+  }
+
+  const pattern = new RegExp(`\\b${escapeRegex(safeKeyword)}\\b`, 'i');
+  return pattern.test(safeText);
 }
 
 function countPhraseHits(text, phrases) {
@@ -423,19 +527,46 @@ function calculatePrevalencePriorityBoost(title, abstract) {
 }
 
 function detectPotentialDrugNames(extractedText) {
-  const drugNamePattern = /\b([A-Z][A-Za-z]+(?:[-][A-Z][a-z]+)?)\b/g;
-  const matches = extractedText.match(drugNamePattern);
-
-  if (!matches) {
+  const text = String(extractedText || '');
+  if (!text.trim()) {
     return [];
   }
 
-  const uniqueDrugs = [...new Set(matches)].filter(name =>
-    name.length > 3 &&
-    !['The', 'This', 'That', 'With', 'From', 'Table', 'Figure'].includes(name)
-  );
+  const medicationContextPattern = /\b(drug|medication|therapy|treatment|dose|dosage|administered|tablet|capsule|injection|solution|suspension|regimen|posology|pharmaceutical|compound|active ingredient)\b/i;
+  const nonDrugTerms = new Set([
+    'the', 'this', 'that', 'with', 'from', 'table', 'figure', 'introduction', 'methods', 'results',
+    'conclusion', 'conclusions', 'discussion', 'background', 'study', 'studies', 'review', 'europe',
+    'england', 'uk', 'disease', 'diseases', 'syndrome', 'infection', 'infections', 'virus', 'viral',
+    'bacterial', 'fever', 'prevalence', 'epidemiology', 'incidence', 'population', 'registry', 'survey'
+  ]);
 
-  return uniqueDrugs.slice(0, 3);
+  const candidates = [];
+
+  text.split(/[.!?\n]+/).forEach(fragment => {
+    const sentence = fragment.trim();
+    if (!sentence || !medicationContextPattern.test(sentence)) {
+      return;
+    }
+
+    const matches = sentence.match(/\b([A-Z][A-Za-z0-9-]{2,})\b/g) || [];
+    matches.forEach(match => {
+      const normalized = String(match || '').trim();
+      const lower = normalized.toLowerCase();
+
+      if (!normalized || nonDrugTerms.has(lower)) {
+        return;
+      }
+
+      // Avoid random alphanumeric tokens unless they look like common dosage notations.
+      if (/\d/.test(normalized) && !/\d+(mg|mcg|g|ml)$/i.test(normalized)) {
+        return;
+      }
+
+      candidates.push(normalized);
+    });
+  });
+
+  return [...new Set(candidates)].slice(0, 3);
 }
 
 function buildDefaultReferenceSearchQuery({ keyTerms, userDrugName, drugNames, doseForm, indication }) {
@@ -501,179 +632,178 @@ function buildDefaultReferenceSearchQuery({ keyTerms, userDrugName, drugNames, d
   return searchQuery;
 }
 
-function buildPrevalenceKeywordTemplates(diseaseName, drugName) {
+function buildPrevalenceKeywordTemplates(diseaseName, country, drugName = '') {
+  const prioritizedTemplates = [];
+
   const templates = [
-    '"disease prevalence" "Europe" "systematic review"',
-    '"epidemiology" "Europe" "population-based study"',
-    '"prevalence" "European Union" "EU27" "meta-analysis"',
-    '"prevalence" "Europe" "inhabitants" "per 100"',
-    '"disease burden" "Europe" "epidemiological data"',
-    '"patient population" "Europe" "prevalence estimate"',
-    '"prevalence rate" "European region" "cross-sectional"',
-    '"incidence" "prevalence" "Europe" "cohort study"',
-    '"national registry" "Europe" "disease statistics"',
-    '"WHO Europe" prevalence epidemiology report',
-    '"ECDC" prevalence "European" disease surveillance',
-    '"Eurostat" health statistics prevalence Europe',
-    '"GBD" "Global Burden of Disease" prevalence Europe',
-    '"IHME" prevalence "European" disease estimate',
-    '"systematic review" "meta-analysis" "prevalence" "Europe"',
-    '"population-based" "prevalence" "EU Member State"',
-    '"observational study" "prevalence" "European" "adults"',
-    '"survey" "prevalence" "European population" epidemiology',
-    '"registry data" "prevalence" "European" patients',
-    '"peer-reviewed" "prevalence" "Europe" "independent source"',
-    '"reliable source" "prevalence" "European" "recent data"',
-    '"one-year prevalence" "Europe" disease',
-    '"annual prevalence" "Europe" "per inhabitant"',
-    '"prevalence" "United Kingdom" "population-based"',
-    '"disease prevalence" "England" "adults" "NHS"',
-    '"CPRD" "prevalence" "United Kingdom" disease',
-    '"QResearch" "prevalence" "England" primary care',
-    '"ONS" "Office for National Statistics" "prevalence" disease',
-    '"Public Health England" OR "UKHSA" prevalence surveillance',
-    '"NHS Digital" "prevalence" "England" disease statistics',
-    '"NICE" "epidemiology" "prevalence" UK guideline',
-    '"Health Survey for England" "prevalence" disease'
+    '("prevalence"[tiab] OR "epidemiology"[tiab]) AND "Europe"[tiab] AND "systematic review"[pt]',
+    '("disease prevalence"[tiab] OR "population-based study"[tiab]) AND "Europe"[tiab]',
+    '"prevalence"[tiab] AND ("European Union"[tiab] OR "EU27"[tiab]) AND "meta-analysis"[pt]',
+    '"prevalence"[tiab] AND "Europe"[tiab] AND ("per 100 inhabitants"[tiab] OR "per 100,000"[tiab])',
+    '"disease burden"[tiab] AND "Europe"[tiab] AND "epidemiological data"[tiab]',
+    '"patient population"[tiab] AND "Europe"[tiab] AND "prevalence estimate"[tiab]',
+    '"prevalence rate"[tiab] AND "European"[tiab] AND "cross-sectional"[tiab]',
+    '("incidence"[tiab] AND "prevalence"[tiab]) AND "Europe"[tiab] AND "cohort study"[tiab]',
+    '"national registry"[tiab] AND "Europe"[tiab] AND "disease statistics"[tiab]',
+    '("WHO Europe"[tiab] OR "World Health Organization Europe"[tiab]) AND "prevalence"[tiab] AND "epidemiology"[tiab]',
+    '("ECDC"[tiab] OR "European Centre for Disease Prevention"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]',
+    '"Eurostat"[tiab] AND "health statistics"[tiab] AND "prevalence"[tiab]',
+    '("GBD"[tiab] OR "Global Burden of Disease"[tiab]) AND "prevalence"[tiab] AND "Europe"[tiab]',
+    '("IHME"[tiab] OR "Institute for Health Metrics"[tiab]) AND "prevalence"[tiab] AND "European"[tiab]',
+    '("systematic review"[pt] OR "meta-analysis"[pt]) AND "prevalence"[tiab] AND "Europe"[tiab]',
+    '"population-based"[tiab] AND "prevalence"[tiab] AND ("EU Member State"[tiab] OR "European"[tiab])',
+    '"observational study"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "adults"[tiab]',
+    '("survey"[tiab] OR "health survey"[tiab]) AND "prevalence"[tiab] AND "European population"[tiab]',
+    '"registry data"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "patients"[tiab]',
+    '"prevalence"[tiab] AND "United Kingdom"[tiab] AND "population-based"[tiab]',
+    '"disease prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab]) AND "NHS"[tiab]',
+    '("CPRD"[tiab] OR "Clinical Practice Research Datalink"[tiab]) AND "prevalence"[tiab]',
+    '("QResearch"[tiab] OR "primary care"[tiab]) AND "prevalence"[tiab] AND "England"[tiab]',
+    '("ONS"[tiab] OR "Office for National Statistics"[tiab]) AND "prevalence"[tiab]',
+    '("Public Health England"[tiab] OR "UKHSA"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]',
+    '"NHS Digital"[tiab] AND "prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab])',
+    '"NICE"[tiab] AND "epidemiology"[tiab] AND "prevalence"[tiab] AND "UK"[tiab]',
+    '"Health Survey for England"[tiab] AND "prevalence"[tiab]'
   ];
 
-  const prioritizedTemplates = [];
-  const safeDisease = diseaseName ? sanitizeQueryValue(diseaseName) : '';
-  const safeDrug = drugName ? sanitizeQueryValue(drugName) : '';
+  const safeDisease = sanitizeQueryValue(diseaseName);
+  const safeCountry = sanitizeQueryValue(country);
+  const safeDrug = sanitizeQueryValue(drugName);
 
   if (safeDrug && safeDisease) {
     prioritizedTemplates.push(
-      `"${safeDrug}" "${safeDisease}" prevalence`,
-      `"${safeDrug}" "${safeDisease}" epidemiology`,
-      `"${safeDrug}" "${safeDisease}" incidence prevalence`,
-      `"${safeDrug}" "${safeDisease}" "prevalence rate"`,
-      `"${safeDrug}" "${safeDisease}" "population-based" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "cross-sectional" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "systematic review" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "meta-analysis" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "per 100,000" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "disease burden" prevalence`
+      `"${safeDrug}"[tiab] AND "${safeDisease}"[tiab] AND ("prevalence"[tiab] OR "epidemiology"[tiab])`,
+      `"${safeDrug}"[tiab] AND "${safeDisease}"[tiab] AND ("population-based"[tiab] OR "cross-sectional"[tiab] OR "registry"[tiab])`,
+      `"${safeDrug}"[tiab] AND "${safeDisease}"[tiab] AND ("Europe"[tiab] OR "United Kingdom"[tiab]) AND ("prevalence"[tiab] OR "epidemiology"[tiab])`
     );
+
+    if (safeCountry) {
+      prioritizedTemplates.push(
+        `"${safeDrug}"[tiab] AND "${safeDisease}"[tiab] AND "${safeCountry}"[tiab] AND ("prevalence"[tiab] OR "epidemiology"[tiab])`
+      );
+    }
   } else if (safeDrug) {
     prioritizedTemplates.push(
-      `"${safeDrug}" prevalence epidemiology`,
-      `"${safeDrug}" prevalence "systematic review"`
+      `"${safeDrug}"[tiab] AND ("prevalence"[tiab] OR "epidemiology"[tiab]) AND "Europe"[tiab]`,
+      `"${safeDrug}"[tiab] AND "disease burden"[tiab] AND "Europe"[tiab]`
     );
   }
 
-  if (diseaseName) {
+  if (safeDisease) {
     templates.push(
-      `"${safeDisease}" "prevalence" "Europe" "systematic review"`,
-      `"${safeDisease}" "prevalence" "EU" "meta-analysis"`,
-      `"${safeDisease}" "epidemiology" "Europe" "population-based"`,
-      `"${safeDisease}" "prevalence" "European population" "adults"`,
-      `"${safeDisease}" "disease burden" "Europe" "DALY"`,
-      `"${safeDisease}" "per 100 inhabitants" OR "per 100,000" Europe`,
-      `"${safeDisease}" "prevalence" "ECDC" "European Centre" disease`,
-      `"${safeDisease}" "prevalence" "WHO Europe" "World Health Organization"`,
-      `"${safeDisease}" "prevalence" "Global Burden of Disease" "GBD" Europe`,
-      `"${safeDisease}" "prevalence" "United Kingdom"`,
-      `"${safeDisease}" "prevalence" "England" "NHS"`,
-      `"${safeDisease}" "prevalence" "UK" "population-based study"`,
-      `"${safeDisease}" "prevalence" "UK" "primary care" "GP"`,
-      `"${safeDisease}" "prevalence" "CPRD" "Clinical Practice Research Datalink"`,
-      `"${safeDisease}" "prevalence" "QResearch" "England"`,
-      `"${safeDisease}" "prevalence" "UK Biobank" "population"`,
-      `"${safeDisease}" "prevalence" "ONS" "Office for National Statistics"`,
-      `"${safeDisease}" "NICE" "epidemiology" "prevalence" guideline UK`,
-      `"${safeDisease}" AND "prevalence" AND "Europe" AND "systematic review"`,
-      `"${safeDisease}" AND "epidemiology" AND "EU" AND ("adults" OR "population")`,
-      `"${safeDisease}" AND "one-year prevalence" AND "Europe"`,
-      `"${safeDisease}" AND "prevalence" AND ("WHO" OR "Global Burden of Disease" OR "GBD") AND ("Europe" OR "UK")`,
-      `"${safeDisease}" AND "prevalence" AND ("CPRD" OR "QResearch" OR "THIN") AND "England"`
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "Europe"[tiab] AND "systematic review"[pt]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("EU"[tiab] OR "European Union"[tiab]) AND "meta-analysis"[pt]`,
+      `"${safeDisease}"[tiab] AND "epidemiology"[tiab] AND "Europe"[tiab] AND "population-based"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "European population"[tiab] AND "adults"[tiab]`,
+      `"${safeDisease}"[tiab] AND "disease burden"[tiab] AND "Europe"[tiab] AND ("DALY"[tiab] OR "disability-adjusted life year"[tiab])`,
+      `"${safeDisease}"[tiab] AND ("per 100 inhabitants"[tiab] OR "per 100,000"[tiab]) AND "Europe"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("ECDC"[tiab] OR "European Centre for Disease Prevention"[tiab])`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("WHO Europe"[tiab] OR "World Health Organization"[tiab])`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("Global Burden of Disease"[tiab] OR "GBD"[tiab]) AND "Europe"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "United Kingdom"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "England"[tiab] AND "NHS"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "UK"[tiab] AND "population-based study"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "UK"[tiab] AND ("primary care"[tiab] OR "general practice"[tiab])`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("CPRD"[tiab] OR "Clinical Practice Research Datalink"[tiab])`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "QResearch"[tiab] AND "England"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "UK Biobank"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("ONS"[tiab] OR "Office for National Statistics"[tiab])`,
+      `"${safeDisease}"[tiab] AND "NICE"[tiab] AND "epidemiology"[tiab] AND "prevalence"[tiab]`,
+      `"${safeDisease}"[tiab] AND "epidemiology"[tiab] AND ("EU"[tiab] OR "European Union"[tiab]) AND ("adults"[tiab] OR "population"[tiab])`,
+      `"${safeDisease}"[tiab] AND "one-year prevalence"[tiab] AND "Europe"[tiab]`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("WHO"[tiab] OR "Global Burden of Disease"[tiab] OR "GBD"[tiab]) AND ("Europe"[tiab] OR "UK"[tiab])`,
+      `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("CPRD"[tiab] OR "QResearch"[tiab] OR "THIN"[tiab]) AND "England"[tiab]`
     );
+
+    if (safeCountry) {
+      templates.push(
+        `"${safeDisease}"[tiab] AND "annual prevalence"[tiab] AND "${safeCountry}"[tiab]`,
+        `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "${safeCountry}"[tiab]`
+      );
+    }
   }
 
   return [...new Set([...prioritizedTemplates, ...templates])];
 }
 
 function buildAnotherKeywordTemplates(drugName, diseaseName, indication) {
-  const templates = [
-    '"environmental risk assessment" "medicinal products for human use"',
-    '"pharmaceutical ERA" "EMA guideline" "EMEA/CHMP/SWP/4447/00"',
-    '"Module 1.6" "marketing authorisation" ERA pharmaceutical',
-    '"pharmaceutical environmental contamination" review',
-    '"FPEN refinement" "disease prevalence" pharmaceutical ERA',
-    '"treatment regimen" FPEN "environmental exposure" pharmaceutical',
-    '"tTREATMENT" "nTREATMENT" pharmaceutical ERA refinement',
-    '"predicted environmental concentration surface water" pharmaceutical',
-    '"market penetration factor" FPEN pharmaceutical ERA',
-    '"PECsw calculation" "default FPEN 0.01" pharmaceutical',
-    '"action limit 0.01 µg/L" pharmaceutical ERA',
-    '"wastewater pharmaceutical" "200 L inhabitant" ERA',
-    '"water solubility" "OECD 105" pharmaceutical environment',
-    '"log Kow" "OECD 107" pharmaceutical "octanol water partition"',
-    '"pKa" "dissociation constant" "OECD 112" pharmaceutical',
-    '"KFOC" "Freundlich adsorption" "OECD 106" pharmaceutical',
-    '"ready biodegradability" "OECD 301" pharmaceutical',
-    '"STP removal" pharmaceutical "activated sludge"',
-    '"SimpleTreat" "STPWIN" pharmaceutical wastewater removal',
-    '"algae growth inhibition" "OECD 201" pharmaceutical',
-    '"Daphnia magna" "acute immobilisation" "OECD 202" pharmaceutical',
-    '"fish acute toxicity" "OECD 203" "LC50" pharmaceutical',
-    '"Daphnia magna reproduction" "OECD 211" "NOEC" pharmaceutical',
-    '"fish early life stage" "OECD 210" "NOEC" pharmaceutical',
-    '"activated sludge respiration inhibition" "OECD 209" pharmaceutical',
-    '"PNEC" "assessment factor" "AF 1000" QSAR pharmaceutical',
-    '"ECOSAR" ecotoxicity prediction pharmaceutical QSAR',
-    '"PBT criteria" "REACH Annex XIII" pharmaceutical environment',
-    '"persistence" "DT50 > 60 days" pharmaceutical P criterion',
-    '"bioaccumulation" "BCF > 2000" pharmaceutical B criterion',
-    '"vPvB" "very persistent very bioaccumulative" pharmaceutical',
-    '"OECD 308" "water sediment" "DT50" pharmaceutical persistence',
-    '"BCFBAF" "EPI Suite" bioaccumulation pharmaceutical QSAR',
-    '"PNECsw" "chronic NOEC" "three trophic levels" pharmaceutical',
-    '"surface water risk quotient" "RQsw" pharmaceutical ERA',
-    '"PECsed" "equilibrium partitioning" pharmaceutical sediment',
-    '"Chironomus riparius" "OECD 218" pharmaceutical sediment',
-    '"PECgw" "bank filtration" "0.25" "PECsw" pharmaceutical',
-    '"drinking water directive" "0.1 µg/L" pharmaceutical groundwater',
-    '"secondary poisoning" "BCF" "biomagnification" pharmaceutical ERA',
-    '"CRED method" "ecotoxicity data" reliability Moermond 2016',
-    '"Klimisch score" pharmaceutical ecotoxicity data reliability',
-    '"GLP" "OECD guideline" pharmaceutical environmental study quality'
+  const prioritizedTemplates = [
+    '"environmental risk assessment"[tiab] AND "pharmaceutical"[tiab]',
+    '("pharmaceuticals"[tiab] AND "environmental contamination"[tiab])',
+    '("pharmaceutical"[tiab] AND "surface water"[tiab])',
+    '("pharmaceutical"[tiab] AND "ecotoxicity"[tiab])',
+    '("ERA"[tiab] AND "medicinal products"[tiab])'
   ];
 
-  const prioritizedTemplates = [];
+  const templates = [
+    '"environmental risk assessment"[tiab] AND "medicinal products"[tiab] AND ("human use"[tiab] OR "pharmaceuticals"[tiab])',
+    '"pharmaceutical"[tiab] AND "environmental risk assessment"[tiab] AND ("EMA guideline"[tiab] OR "EMEA"[tiab] OR "CHMP"[tiab])',
+    '"Module 1.6"[tiab] AND "marketing authorisation"[tiab] AND "environmental risk assessment"[tiab]',
+    '"pharmaceutical"[tiab] AND "environmental contamination"[tiab] AND "review"[pt]',
+    '"FPEN"[tiab] AND "disease prevalence"[tiab] AND ("pharmaceutical"[tiab] OR "ERA"[tiab])',
+    '"European prevalence"[tiab] AND "peer-reviewed"[tiab] AND "population"[tiab]',
+    '"PREGION"[tiab] AND "prevalence"[tiab] AND ("pharmaceutical"[tiab] OR "ERA"[tiab])',
+    '"treatment regimen"[tiab] AND ("FPEN"[tiab] OR "environmental exposure"[tiab]) AND "pharmaceutical"[tiab]',
+    '"predicted environmental concentration"[tiab] AND "surface water"[tiab] AND "pharmaceutical"[tiab]',
+    '"market penetration factor"[tiab] AND ("FPEN"[tiab] OR "pharmaceutical"[tiab]) AND "ERA"[tiab]',
+    '"PECsw"[tiab] AND ("FPEN"[tiab] OR "default"[tiab]) AND "pharmaceutical"[tiab]',
+    '"action limit"[tiab] AND "0.01"[tiab] AND "pharmaceutical"[tiab] AND "ERA"[tiab]',
+    '"wastewater"[tiab] AND "pharmaceutical"[tiab] AND ("200 L"[tiab] OR "per inhabitant"[tiab]) AND "ERA"[tiab]',
+    '"water solubility"[tiab] AND "OECD 105"[tiab] AND "pharmaceutical"[tiab]',
+    '("log Kow"[tiab] OR "octanol water partition"[tiab]) AND "OECD 107"[tiab] AND "pharmaceutical"[tiab]',
+    '"pKa"[tiab] AND "dissociation constant"[tiab] AND ("OECD 112"[tiab] OR "pharmaceutical"[tiab])',
+    '("KFOC"[tiab] OR "Freundlich adsorption"[tiab]) AND "OECD 106"[tiab] AND "pharmaceutical"[tiab]',
+    '"ready biodegradability"[tiab] AND "OECD 301"[tiab] AND "pharmaceutical"[tiab]',
+    '"STP removal"[tiab] AND "pharmaceutical"[tiab] AND "activated sludge"[tiab]',
+    '("SimpleTreat"[tiab] OR "STPWIN"[tiab]) AND "pharmaceutical"[tiab] AND "wastewater"[tiab]',
+    '"algae growth inhibition"[tiab] AND "OECD 201"[tiab] AND "pharmaceutical"[tiab]',
+    '"Daphnia magna"[MeSH Terms] AND "acute immobilisation"[tiab] AND "OECD 202"[tiab]',
+    '"fish"[tiab] AND "acute toxicity"[tiab] AND "OECD 203"[tiab] AND ("LC50"[tiab] OR "pharmaceutical"[tiab])',
+    '"Daphnia magna"[MeSH Terms] AND "reproduction"[tiab] AND "OECD 211"[tiab] AND "NOEC"[tiab]',
+    '"fish early life stage"[tiab] AND "OECD 210"[tiab] AND "NOEC"[tiab] AND "pharmaceutical"[tiab]',
+    '"activated sludge respiration inhibition"[tiab] AND "OECD 209"[tiab] AND "pharmaceutical"[tiab]',
+    '("PNEC"[tiab] OR "predicted no effect concentration"[tiab]) AND "assessment factor"[tiab] AND ("AF 1000"[tiab] OR "QSAR"[tiab])',
+    '("ECOSAR"[tiab] OR "QSAR"[tiab]) AND "ecotoxicity"[tiab] AND "pharmaceutical"[tiab]',
+    '"PBT"[tiab] AND ("REACH Annex XIII"[tiab] OR "persistent bioaccumulative toxic"[tiab]) AND "pharmaceutical"[tiab]',
+    '"persistence"[tiab] AND ("DT50"[tiab] OR "half-life"[tiab]) AND "pharmaceutical"[tiab] AND ("P criterion"[tiab] OR "sediment"[tiab])',
+    '"bioaccumulation"[tiab] AND ("BCF"[tiab] OR "bioconcentration factor"[tiab]) AND "pharmaceutical"[tiab]',
+    '("vPvB"[tiab] OR "very persistent very bioaccumulative"[tiab]) AND "pharmaceutical"[tiab]',
+    '"OECD 308"[tiab] AND ("water sediment"[tiab] OR "sediment"[tiab]) AND ("DT50"[tiab] OR "persistence"[tiab]) AND "pharmaceutical"[tiab]',
+    '("BCFBAF"[tiab] OR "EPI Suite"[tiab]) AND "bioaccumulation"[tiab] AND "pharmaceutical"[tiab]',
+    '"PNECsw"[tiab] AND "chronic NOEC"[tiab] AND "pharmaceutical"[tiab]',
+    '("RQsw"[tiab] OR "risk quotient"[tiab]) AND "surface water"[tiab] AND "pharmaceutical"[tiab] AND "ERA"[tiab]',
+    '"PECsed"[tiab] AND "equilibrium partitioning"[tiab] AND ("pharmaceutical"[tiab] OR "sediment"[tiab])',
+    '"Chironomus riparius"[MeSH Terms] AND "OECD 218"[tiab] AND "pharmaceutical"[tiab]',
+    '"PECgw"[tiab] AND ("bank filtration"[tiab] OR "groundwater"[tiab]) AND "pharmaceutical"[tiab]',
+    '"drinking water"[tiab] AND "0.1 µg/L"[tiab] AND "pharmaceutical"[tiab] AND "groundwater"[tiab]',
+    '"secondary poisoning"[tiab] AND ("BCF"[tiab] OR "biomagnification"[tiab]) AND "pharmaceutical"[tiab] AND "ERA"[tiab]',
+    '"CRED method"[tiab] AND "ecotoxicity data"[tiab] AND ("reliability"[tiab] OR "Moermond"[tiab])',
+    '"Klimisch score"[tiab] AND "pharmaceutical"[tiab] AND ("ecotoxicity"[tiab] OR "environmental study"[tiab])',
+    '("GLP"[tiab] OR "good laboratory practice"[tiab]) AND "OECD guideline"[tiab] AND "pharmaceutical"[tiab] AND "environmental"[tiab]'
+  ];
 
   const safeDrug = drugName ? sanitizeQueryValue(drugName) : '';
   const safeDisease = diseaseName ? sanitizeQueryValue(diseaseName) : '';
 
-  if (safeDrug && safeDisease) {
+  if (safeDisease) {
     prioritizedTemplates.push(
-      `"${safeDrug}" "${safeDisease}" prevalence`,
-      `"${safeDrug}" "${safeDisease}" epidemiology`,
-      `"${safeDrug}" "${safeDisease}" incidence`,
-      `"${safeDrug}" "${safeDisease}" "systematic review" prevalence`,
-      `"${safeDrug}" "${safeDisease}" "population-based study"`,
-      `"${safeDrug}" AND "${safeDisease}" AND ("prevalence" OR "incidence" OR "epidemiology")`,
-      `"${safeDrug}" "${safeDisease}" "disease burden"`
+      `"${safeDisease}"[tiab] AND ("environmental risk assessment"[tiab] OR "pharmaceutical"[tiab])`,
+      `"${safeDisease}"[tiab] AND ("surface water"[tiab] OR "ecotoxicity"[tiab]) AND "pharmaceutical"[tiab]`
     );
   }
-
-  if (diseaseName) {
-    prioritizedTemplates.push(
-      `"${safeDisease} prevalence" "Europe" epidemiology "systematic review"`,
-      `"${safeDisease}" prevalence epidemiology Europe`
-    );
-  }
-
-  const resolvedIndication = indication ? sanitizeQueryValue(indication) : '';
-  if (resolvedIndication) {
-    prioritizedTemplates.push(`"European prevalence" "${resolvedIndication}" "peer-reviewed" population`);
-  }
-
-  prioritizedTemplates.push('"PREGION" "highest prevalence" pharmaceutical ERA');
 
   if (safeDrug) {
     prioritizedTemplates.push(
-      `"${safeDrug} treatment duration" "treatment episodes" posology`,
-      `"${safeDrug} PBT assessment" persistence bioaccumulation toxicity`
+      `"${safeDrug}"[tiab] AND ("environmental risk assessment"[tiab] OR "surface water"[tiab] OR "ecotoxicity"[tiab])`,
+      `"${safeDrug}"[tiab] AND "treatment duration"[tiab] AND ("treatment episodes"[tiab] OR "posology"[tiab])`,
+      `"${safeDrug}"[tiab] AND "PBT assessment"[tiab] AND ("persistence"[tiab] OR "bioaccumulation"[tiab] OR "toxicity"[tiab])`
+    );
+  }
+
+  const safeIndication = indication ? sanitizeQueryValue(indication) : '';
+  if (safeIndication) {
+    prioritizedTemplates.push(
+      `"${safeIndication}"[tiab] AND "environmental risk assessment"[tiab] AND "pharmaceutical"[tiab]`
     );
   }
 
@@ -694,12 +824,16 @@ function getMandatoryMatchDetails(title, abstract, mandatoryTerms) {
   const text = `${String(title || '')} ${String(abstract || '')}`.toLowerCase();
   const requiredDrug = sanitizeQueryValue(mandatoryTerms.drugName || '').toLowerCase();
   const requiredDisease = sanitizeQueryValue(mandatoryTerms.diseaseName || '').toLowerCase();
-  const prevalenceKeywords = (mandatoryTerms.prevalenceKeywords || []).map(k => String(k || '').toLowerCase()).filter(Boolean);
+  const prevalenceKeywords = (mandatoryTerms.prevalenceKeywords || [])
+    .map(k => String(k || '').toLowerCase())
+    .filter(Boolean);
 
   const hasDrug = requiredDrug ? text.includes(requiredDrug) : true;
   const hasDisease = requiredDisease ? text.includes(requiredDisease) : true;
-  const matchedPrevalenceKeywords = prevalenceKeywords.filter(keyword => text.includes(keyword));
-  const hasPrevalence = matchedPrevalenceKeywords.length > 0;
+  const matchedPrevalenceKeywords = prevalenceKeywords.filter(keyword => keywordExistsInText(text, keyword));
+  const hasPrevalence = prevalenceKeywords.length === 0
+    ? true
+    : matchedPrevalenceKeywords.length > 0;
 
   return {
     isMatch: hasDrug && hasDisease && hasPrevalence,
@@ -717,7 +851,10 @@ function buildColumnSearchQuery({
   years = [],
   diseaseName,
   maxTemplates = 20,
-  maxQueryLength = 2200
+  maxQueryLength = 2200,
+  applyCountryFilter = true,
+  applyYearFilter = true,
+  applyDiseaseFilter = true
 }) {
   const normalizedTemplates = templates
     .map(template => template && template.trim())
@@ -733,18 +870,18 @@ function buildColumnSearchQuery({
     .filter(yearValue => /^(19|20)\d{2}$/.test(yearValue)))];
   const safeDisease = sanitizeQueryValue(diseaseName);
 
-  if (safeCountry) {
-    filters.push(`("${safeCountry}"[Title/Abstract] OR "${safeCountry}"[Affiliation])`);
+  if (applyCountryFilter && safeCountry) {
+    filters.push(`("${safeCountry}"[tiab])`);
   }
 
-  if (safeYears.length === 1) {
-    filters.push(`(${safeYears[0]}[PDAT])`);
-  } else if (safeYears.length > 1) {
-    filters.push(`(${safeYears.map(yearValue => `${yearValue}[PDAT]`).join(' OR ')})`);
+  if (applyYearFilter && safeYears.length === 1) {
+    filters.push(`(${safeYears[0]}[dp])`);
+  } else if (applyYearFilter && safeYears.length > 1) {
+    filters.push(`(${safeYears.map(yearValue => `${yearValue}[dp]`).join(' OR ')})`);
   }
 
-  if (safeDisease) {
-    filters.push(`("${safeDisease}"[Title/Abstract])`);
+  if (applyDiseaseFilter && safeDisease) {
+    filters.push(`("${safeDisease}"[tiab])`);
   }
 
   const selectedClauses = [];
@@ -792,12 +929,12 @@ function applyStudyTypeFilter(searchQuery, studyType) {
   return searchQuery;
 }
 
-function buildReferenceStatistics(articles, filteredArticles, categorizedArticles) {
+function buildReferenceStatistics(articles, filteredArticles, categorizedArticles, minimumSimilarityThreshold = MINIMUM_SIMILARITY_THRESHOLD) {
   return {
     totalSearched: articles.length,
     totalFound: filteredArticles.length,
     filteredOut: articles.length - filteredArticles.length,
-    threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+    threshold: `${minimumSimilarityThreshold}%`,
     categoryCounts: Object.fromEntries(
       Object.entries(categorizedArticles).map(([cat, arts]) => [cat, arts.length])
     ),
@@ -849,15 +986,16 @@ async function executeReferenceSearch({
   drugNames,
   includeSubheadings,
   mandatoryTerms = null,
-  rankingProfile = 'default'
+  rankingProfile = 'default',
+  minimumSimilarityThreshold = MINIMUM_SIMILARITY_THRESHOLD,
+  searchRetmax = 80
 }) {
   const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-  const SEARCH_RETMAX = 80;
   const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi`;
   const searchPayload = new URLSearchParams({
     db: 'pubmed',
     term: searchQuery,
-    retmax: String(SEARCH_RETMAX),
+    retmax: String(searchRetmax),
     retmode: 'json',
     sort: 'relevance'
   });
@@ -880,7 +1018,7 @@ async function executeReferenceSearch({
           params: {
             db: 'pubmed',
             term: searchQuery,
-            retmax: SEARCH_RETMAX,
+            retmax: searchRetmax,
             retmode: 'json',
             sort: 'relevance'
           }
@@ -917,7 +1055,7 @@ async function executeReferenceSearch({
     throw wrappedError;
   }
 
-  const pmids = (searchResponse.data.esearchresult?.idlist || []).slice(0, SEARCH_RETMAX);
+  const pmids = (searchResponse.data.esearchresult?.idlist || []).slice(0, searchRetmax);
 
   if (pmids.length === 0) {
     return {
@@ -928,7 +1066,7 @@ async function executeReferenceSearch({
         totalSearched: 0,
         totalFound: 0,
         filteredOut: 0,
-        threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+        threshold: `${minimumSimilarityThreshold}%`,
         categoryCounts: {},
         averageSimilarity: '0%',
         topMatchScore: '0%',
@@ -972,7 +1110,7 @@ async function executeReferenceSearch({
           totalSearched: 0,
           totalFound: 0,
           filteredOut: 0,
-          threshold: `${MINIMUM_SIMILARITY_THRESHOLD}%`,
+          threshold: `${minimumSimilarityThreshold}%`,
           categoryCounts: {},
           averageSimilarity: '0%',
           topMatchScore: '0%',
@@ -1064,7 +1202,7 @@ async function executeReferenceSearch({
         return;
       }
 
-      const drugNameForScoring = userDrugName || (drugNames.length > 0 ? drugNames[0] : null);
+      const drugNameForScoring = userDrugName ? sanitizeQueryValue(userDrugName) : null;
       const similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
       const prevalenceBoost = rankingProfile === 'prevalence'
         ? calculatePrevalencePriorityBoost(title, abstract)
@@ -1102,7 +1240,7 @@ async function executeReferenceSearch({
     throw wrappedError;
   }
 
-  const filteredArticles = articles.filter(a => a.similarityScore >= MINIMUM_SIMILARITY_THRESHOLD);
+  const filteredArticles = articles.filter(a => a.similarityScore >= minimumSimilarityThreshold);
   filteredArticles.sort((a, b) => {
     const rankingDelta = (b.rankingScore ?? b.similarityScore) - (a.rankingScore ?? a.similarityScore);
     if (rankingDelta !== 0) {
@@ -1113,7 +1251,7 @@ async function executeReferenceSearch({
   });
 
   const categorizedArticles = categorizeArticles(filteredArticles, includeSubheadings);
-  const statistics = buildReferenceStatistics(articles, filteredArticles, categorizedArticles);
+  const statistics = buildReferenceStatistics(articles, filteredArticles, categorizedArticles, minimumSimilarityThreshold);
 
   if (filteredArticles.length === 0) {
     return {
@@ -1121,7 +1259,7 @@ async function executeReferenceSearch({
       categorizedArticles,
       totalArticles: 0,
       statistics,
-      message: `No highly relevant articles found (minimum ${MINIMUM_SIMILARITY_THRESHOLD}% similarity required).`
+      message: `No highly relevant articles found (minimum ${minimumSimilarityThreshold}% similarity required).`
     };
   }
 
@@ -1155,6 +1293,12 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const prevalenceDiseaseName = sanitizeQueryValue(req.body.prevalenceDiseaseName || '');
     const hasPrevalenceInputs = Boolean(prevalenceCountry || prevalenceYears.length > 0 || prevalenceDiseaseName);
 
+    if (hasPrevalenceInputs && !prevalenceDiseaseName) {
+      return res.status(400).json({
+        error: 'Disease name is required when using Prevalence options.'
+      });
+    }
+
     console.log('User-specified parameters:', {
       userDrugName,
       doseForm,
@@ -1184,11 +1328,11 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     console.log('Key terms:', keyTerms.slice(0, 10));
 
     if (hasPrevalenceInputs) {
-      const resolvedDrugName = sanitizeQueryValue(userDrugName || (drugNames[0] || ''));
-      const mandatoryTerms = {
+      const resolvedDrugName = sanitizeQueryValue(userDrugName || '');
+      const prevalenceMandatoryTerms = {
         enforce: true,
-        drugName: resolvedDrugName,
-        diseaseName: prevalenceDiseaseName,
+        drugName: resolvedDrugName || null,
+        diseaseName: prevalenceDiseaseName || null,
         prevalenceKeywords: [
           'prevalence',
           'prevalence rate',
@@ -1209,8 +1353,23 @@ router.post('/upload', upload.single('document'), async (req, res) => {
         ]
       };
 
-      const prevalenceTemplates = buildPrevalenceKeywordTemplates(prevalenceDiseaseName, resolvedDrugName);
+      const prevalenceTemplates = buildPrevalenceKeywordTemplates(prevalenceDiseaseName, prevalenceCountry, resolvedDrugName);
       const anotherTemplates = buildAnotherKeywordTemplates(resolvedDrugName, prevalenceDiseaseName, indication);
+      const prevalenceColumnTerms = extractColumnKeyTermsFromTemplates(prevalenceTemplates);
+      const anotherColumnTerms = extractColumnKeyTermsFromTemplates(anotherTemplates);
+      const anotherMandatoryKeywords = extractSingleKeywordsFromTemplates(anotherTemplates);
+      const anotherMandatoryTerms = {
+        enforce: Boolean(anotherMandatoryKeywords.length > 0 || resolvedDrugName || prevalenceDiseaseName),
+        drugName: resolvedDrugName || null,
+        diseaseName: prevalenceDiseaseName || null,
+        prevalenceKeywords: anotherMandatoryKeywords
+      };
+      const prevalenceRelaxedMandatoryTerms = {
+        enforce: true,
+        drugName: null,
+        diseaseName: prevalenceDiseaseName || null,
+        prevalenceKeywords: prevalenceMandatoryTerms.prevalenceKeywords
+      };
 
       const prevalenceSearchQuery = applyStudyTypeFilter(
         buildColumnSearchQuery({
@@ -1218,8 +1377,8 @@ router.post('/upload', upload.single('document'), async (req, res) => {
           country: prevalenceCountry,
           years: prevalenceYears,
           diseaseName: prevalenceDiseaseName,
-          maxTemplates: 30,
-          maxQueryLength: 3200
+          maxTemplates: 32,
+          maxQueryLength: 12000
         }),
         studyType
       );
@@ -1227,36 +1386,59 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       const anotherSearchQuery = applyStudyTypeFilter(
         buildColumnSearchQuery({
           templates: anotherTemplates,
-          country: prevalenceCountry,
-          diseaseName: prevalenceDiseaseName,
-          maxTemplates: 12,
-          maxQueryLength: 1700
+          maxTemplates: 24,
+          maxQueryLength: 12000,
+          applyCountryFilter: false,
+          applyYearFilter: false,
+          applyDiseaseFilter: false
         }),
         studyType
       );
 
-      const [prevalenceResult, anotherResult] = await Promise.all([
+      const [strictPrevalenceResult, anotherResult] = await Promise.all([
         executeReferenceSearch({
           searchQuery: prevalenceSearchQuery,
-          keyTerms,
+          keyTerms: prevalenceColumnTerms.length > 0 ? prevalenceColumnTerms : keyTerms,
           studyType,
           userDrugName,
           drugNames,
           includeSubheadings,
-          mandatoryTerms,
-          rankingProfile: 'prevalence'
+          mandatoryTerms: prevalenceMandatoryTerms,
+          rankingProfile: 'prevalence',
+          searchRetmax: 120
         }),
         executeReferenceSearch({
           searchQuery: anotherSearchQuery,
-          keyTerms,
+          keyTerms: anotherColumnTerms.length > 0 ? anotherColumnTerms : keyTerms,
           studyType,
           userDrugName,
           drugNames,
           includeSubheadings,
-          mandatoryTerms,
-          rankingProfile: 'another'
+          mandatoryTerms: anotherMandatoryTerms.enforce ? anotherMandatoryTerms : null,
+          rankingProfile: 'another',
+          minimumSimilarityThreshold: MINIMUM_ANOTHER_SIMILARITY_THRESHOLD,
+          searchRetmax: 120
         })
       ]);
+
+      let prevalenceResult = strictPrevalenceResult;
+      if (resolvedDrugName && strictPrevalenceResult.totalArticles === 0) {
+        prevalenceResult = await executeReferenceSearch({
+          searchQuery: prevalenceSearchQuery,
+          keyTerms: prevalenceColumnTerms.length > 0 ? prevalenceColumnTerms : keyTerms,
+          studyType,
+          userDrugName,
+          drugNames,
+          includeSubheadings,
+          mandatoryTerms: prevalenceRelaxedMandatoryTerms,
+          rankingProfile: 'prevalence',
+          searchRetmax: 120
+        });
+
+        if (prevalenceResult.totalArticles > 0) {
+          prevalenceResult.message = `${prevalenceResult.message} (No strict drug-name matches found; showing disease-focused prevalence results.)`;
+        }
+      }
 
       const totalCombinedArticles = prevalenceResult.totalArticles + anotherResult.totalArticles;
 

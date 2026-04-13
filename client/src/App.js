@@ -235,11 +235,16 @@ function AppContent() {
     if (normalizedData.dualColumnMode && normalizedData.columns) {
       const prevalenceCount = normalizedData.columns.prevalence?.totalArticles || 0;
       const anotherCount = normalizedData.columns.another?.totalArticles || 0;
-      toast.success(`Found ${prevalenceCount} PREVALENCE and ${anotherCount} ANOTHER references`);
+      const prevalenceLabel = normalizedData.columns.prevalence?.label || 'PREVALENCE';
+      const anotherLabel = normalizedData.columns.another?.label || 'ANOTHER';
+      toast.success(`Found ${prevalenceCount} ${prevalenceLabel} and ${anotherCount} ${anotherLabel} references`);
     } else {
       toast.success(`Found ${data.totalArticles} similar articles organized into ${Object.keys(normalizedData.categorizedArticles).length} categories`);
     }
   };
+
+  const prevalenceColumnLabel = referenceDocResults?.columns?.prevalence?.label || 'PREVALENCE';
+  const anotherColumnLabel = referenceDocResults?.columns?.another?.label || 'ANOTHER';
 
   const handleToggleReferenceArticle = (pmid) => {
     setReferenceDocResults(prev => {
@@ -427,9 +432,11 @@ function AppContent() {
                       {article.mandatoryMatch.diseaseName && (
                         <span className="mandatory-chip">Disease: {article.mandatoryMatch.diseaseName}</span>
                       )}
-                      <span className="mandatory-chip">
-                        Prevalence: {(article.mandatoryMatch.prevalenceKeywords || []).slice(0, 3).join(', ')}
-                      </span>
+                      {(article.mandatoryMatch.prevalenceKeywords || []).length > 0 && (
+                        <span className="mandatory-chip">
+                          {columnKey === 'another' ? 'Another Keywords' : 'Prevalence'}: {(article.mandatoryMatch.prevalenceKeywords || []).slice(0, 3).join(', ')}
+                        </span>
+                      )}
                     </div>
                   )}
                   <h4 className="article-title">{article.title}</h4>
@@ -698,7 +705,7 @@ function AppContent() {
                     <p><strong>Total Articles:</strong> {referenceDocResults.totalArticles}</p>
                     <p><strong>Key Terms Used:</strong> {referenceDocResults.keyTerms?.join(', ')}</p>
                     {referenceDocResults.dualColumnMode && (
-                      <p><strong>Mode:</strong> PREVALENCE | ANOTHER</p>
+                      <p><strong>Mode:</strong> {prevalenceColumnLabel} | {anotherColumnLabel}</p>
                     )}
                     {referenceDocResults.dualColumnMode && referenceDocResults.prevalenceContext && (
                       <p>
@@ -724,8 +731,8 @@ function AppContent() {
                 {referenceDocResults.dualColumnMode && referenceDocResults.columns ? (
                   <div className="reference-dual-layout">
                     <div className="reference-dual-header">
-                      <div className="reference-dual-header-cell">PREVALENCE</div>
-                      <div className="reference-dual-header-cell">ANOTHER</div>
+                      <div className="reference-dual-header-cell">{prevalenceColumnLabel}</div>
+                      <div className="reference-dual-header-cell">{anotherColumnLabel}</div>
                     </div>
 
                     <div className="reference-dual-columns">
@@ -734,9 +741,9 @@ function AppContent() {
                           ? renderReferenceCategorySections(
                             referenceDocResults.columns.prevalence.categorizedArticles,
                             'prevalence',
-                            referenceDocResults.columns.prevalence.label || 'PREVALENCE'
+                            prevalenceColumnLabel
                           )
-                          : <p className="column-empty-message">No PREVALENCE matches found for the selected filters.</p>
+                          : <p className="column-empty-message">No {prevalenceColumnLabel} matches found for the selected filters.</p>
                         }
                       </div>
 
@@ -745,9 +752,9 @@ function AppContent() {
                           ? renderReferenceCategorySections(
                             referenceDocResults.columns.another.categorizedArticles,
                             'another',
-                            referenceDocResults.columns.another.label || 'ANOTHER'
+                            anotherColumnLabel
                           )
-                          : <p className="column-empty-message">No ANOTHER matches found for the selected filters.</p>
+                          : <p className="column-empty-message">No {anotherColumnLabel} matches found for the selected filters.</p>
                         }
                       </div>
                     </div>

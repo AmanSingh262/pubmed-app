@@ -13,6 +13,7 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const [showPrevalenceOptions, setShowPrevalenceOptions] = useState(false);
   const [prevalenceCountry, setPrevalenceCountry] = useState('');
   const [prevalenceYears, setPrevalenceYears] = useState([]);
+  const [manualYearInput, setManualYearInput] = useState('');
   const [prevalenceDiseaseName, setPrevalenceDiseaseName] = useState('');
   const [doseForm, setDoseForm] = useState('');
   const [indication, setIndication] = useState('');
@@ -25,14 +26,103 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     { value: 'India', label: 'India' }
   ];
 
+  const normalizeYearsDescending = (years) => {
+    return [...new Set(
+      years
+        .map((year) => String(year || '').trim())
+        .filter((year) => /^(19|20)\d{2}$/.test(year))
+    )].sort((a, b) => Number(b) - Number(a));
+  };
+
+  const buildYearRange = (startYear, endYear) => {
+    const start = Number(startYear);
+    const end = Number(endYear);
+
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {
+      return [];
+    }
+
+    const minYear = Math.min(start, end);
+    const maxYear = Math.max(start, end);
+    const rangeYears = [];
+
+    for (let year = minYear; year <= maxYear; year += 1) {
+      rangeYears.push(String(year));
+    }
+
+    return rangeYears;
+  };
+
+  const parseManualYearTokens = (inputValue) => {
+    const rawInput = String(inputValue || '').trim();
+    if (!rawInput) {
+      return { years: [], invalidTokens: [] };
+    }
+
+    const tokens = rawInput.split(/[\s,]+/).map((token) => token.trim()).filter(Boolean);
+    const parsedYears = [];
+    const invalidTokens = [];
+
+    tokens.forEach((token) => {
+      const rangeMatch = token.match(/^(19|20)\d{2}-(19|20)\d{2}$/);
+      if (rangeMatch) {
+        const [startYear, endYear] = token.split('-');
+        parsedYears.push(...buildYearRange(startYear, endYear));
+        return;
+      }
+
+      if (/^(19|20)\d{2}$/.test(token)) {
+        parsedYears.push(token);
+        return;
+      }
+
+      invalidTokens.push(token);
+    });
+
+    return {
+      years: normalizeYearsDescending(parsedYears),
+      invalidTokens
+    };
+  };
+
   const handlePrevalenceYearToggle = (year) => {
     setPrevalenceYears((prevYears) => {
       if (prevYears.includes(year)) {
-        return prevYears.filter((selectedYear) => selectedYear !== year);
+        return normalizeYearsDescending(
+          prevYears.filter((selectedYear) => selectedYear !== year)
+        );
       }
 
-      return [...prevYears, year];
+      const candidateYears = normalizeYearsDescending([...prevYears, year]);
+      if (candidateYears.length <= 1) {
+        return candidateYears;
+      }
+
+      // Selecting two endpoints auto-selects every year in between.
+      const minYear = Math.min(...candidateYears.map((selectedYear) => Number(selectedYear)));
+      const maxYear = Math.max(...candidateYears.map((selectedYear) => Number(selectedYear)));
+
+      return normalizeYearsDescending(buildYearRange(minYear, maxYear));
     });
+
+    setError('');
+  };
+
+  const handleManualYearAdd = () => {
+    const { years, invalidTokens } = parseManualYearTokens(manualYearInput);
+
+    if (invalidTokens.length > 0) {
+      setError(`Invalid year value: ${invalidTokens[0]}. Use YYYY or YYYY-YYYY.`);
+      return;
+    }
+
+    if (years.length === 0) {
+      return;
+    }
+
+    setPrevalenceYears((prevYears) => normalizeYearsDescending([...prevYears, ...years]));
+    setManualYearInput('');
+    setError('');
   };
 
   const handleFileSelect = (event) => {
@@ -83,6 +173,25 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
   const handleUpload = async (studyType) => {
     if (!selectedFile) return;
 
+    const { years: parsedManualYears, invalidTokens } = parseManualYearTokens(manualYearInput);
+    if (invalidTokens.length > 0) {
+      setError(`Invalid year value: ${invalidTokens[0]}. Use YYYY or YYYY-YYYY.`);
+      return;
+    }
+
+    const effectivePrevalenceYears = normalizeYearsDescending([...prevalenceYears, ...parsedManualYears]);
+
+    const hasPrevalenceSelection = Boolean(
+      prevalenceCountry.trim() ||
+      effectivePrevalenceYears.length > 0 ||
+      prevalenceDiseaseName.trim()
+    );
+
+    if (hasPrevalenceSelection && !prevalenceDiseaseName.trim()) {
+      setError('Disease Name is required when using Prevalence options.');
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
     setError('');
@@ -98,8 +207,8 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
     if (prevalenceCountry && prevalenceCountry.trim()) {
       formData.append('prevalenceCountry', prevalenceCountry.trim());
     }
-    if (prevalenceYears.length > 0) {
-      formData.append('prevalenceYears', JSON.stringify(prevalenceYears));
+    if (effectivePrevalenceYears.length > 0) {
+      formData.append('prevalenceYears', JSON.stringify(effectivePrevalenceYears));
     }
     if (prevalenceDiseaseName && prevalenceDiseaseName.trim()) {
       formData.append('prevalenceDiseaseName', prevalenceDiseaseName.trim());
@@ -132,6 +241,8 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
 
       setUploadProgress(100);
       setSelectedFile(null);
+      setManualYearInput('');
+      setPrevalenceYears(effectivePrevalenceYears);
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -288,12 +399,37 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
                     );
                   })}
                 </div>
-                <p className="field-hint">Tick one or more years. Year filtering applies only to PREVALENCE.</p>
+                <div className="manual-year-row">
+                  <input
+                    id="manualPrevalenceYear"
+                    type="text"
+                    value={manualYearInput}
+                    onChange={(e) => setManualYearInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleManualYearAdd();
+                      }
+                    }}
+                    placeholder="Type year or range (e.g., 2013 or 2013-2016)"
+                    disabled={isUploading}
+                    className="form-input manual-year-input"
+                  />
+                  <button
+                    type="button"
+                    className="manual-year-add-btn"
+                    onClick={handleManualYearAdd}
+                    disabled={isUploading || !manualYearInput.trim()}
+                  >
+                    Add
+                  </button>
+                </div>
+                <p className="field-hint">Tick two endpoint years to auto-select all years between them. You can also type year values manually.</p>
               </div>
 
               <div className="form-group">
                 <label htmlFor="prevalenceDiseaseName">
-                  Disease Name <span className="optional-tag">(Optional)</span>
+                  Disease Name <span className="optional-tag">(Required for Prevalence filters)</span>
                 </label>
                 <input
                   type="text"
@@ -304,7 +440,7 @@ const ReferenceDocUpload = ({ onResultsReceived }) => {
                   disabled={isUploading}
                   className="form-input"
                 />
-                <p className="field-hint">Injects disease-specific prevalence templates for split-column results</p>
+                <p className="field-hint">Required when Country or Year is selected in Prevalence options.</p>
               </div>
             </div>
           )}
