@@ -13,6 +13,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ExportOptions from './components/ExportOptions';
 import SelectCart from './components/SelectCart';
 import ReferenceDocUpload from './components/ReferenceDocUpload';
+import PrevalenceSearch from './components/PrevalenceSearch';
 import { CartProvider, useCart } from './context/CartContext';
 import { clearBadCartData } from './utils/clearBadCartData';
 
@@ -430,13 +431,36 @@ function AppContent() {
                         <span className="mandatory-chip">Drug: {article.mandatoryMatch.drugName}</span>
                       )}
                       {article.mandatoryMatch.diseaseName && (
-                        <span className="mandatory-chip">Disease: {article.mandatoryMatch.diseaseName}</span>
+                        <span className="mandatory-chip">
+                          {(article.mandatoryMatch.diseaseEvidence || []).length > 0 ? 'Disease focus' : 'Disease filter'}: {article.mandatoryMatch.diseaseName}
+                        </span>
                       )}
                       {(article.mandatoryMatch.prevalenceKeywords || []).length > 0 && (
                         <span className="mandatory-chip">
                           {columnKey === 'another' ? 'Another Keywords' : 'Prevalence'}: {(article.mandatoryMatch.prevalenceKeywords || []).slice(0, 3).join(', ')}
                         </span>
                       )}
+                    </div>
+                  )}
+                  {article.prevalenceData && (
+                    <div className="prevalence-data-row">
+                      {article.prevalenceData.value && (
+                        <span className="prevalence-value-chip">
+                          Prevalence: {article.prevalenceData.value}
+                        </span>
+                      )}
+                      {article.prevalenceData.authorityTier && (
+                        <span className={`authority-tier tier-${article.prevalenceData.authorityTier}`}>
+                          {article.prevalenceData.authorityTier === 1 ? 'WHO/GBD/EMA' :
+                           article.prevalenceData.authorityTier === 2 ? 'Systematic Review' :
+                           article.prevalenceData.authorityTier === 3 ? 'National Registry' : 'Peer-Reviewed'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {article.prevalenceData?.emaComplianceNote && (
+                    <div className="ema-compliance-note">
+                      {article.prevalenceData.emaComplianceNote}
                     </div>
                   )}
                   <h4 className="article-title">{article.title}</h4>
@@ -641,6 +665,9 @@ function AppContent() {
           <div className="content-area">
             {/* Reference Document Upload */}
             <ReferenceDocUpload onResultsReceived={handleReferenceDocResults} />
+
+            {/* Separate Prevalence Search */}
+            <PrevalenceSearch onResultsReceived={handleReferenceDocResults} />
 
             {loading && <LoadingSpinner />}
 

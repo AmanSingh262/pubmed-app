@@ -1,0 +1,266 @@
+.prevalence-search-container {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin: 20px 0;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+}
+
+.prevalence-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.header-icon {
+  font-size: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.header-text h3 {
+  margin: 0 0 4px 0;
+  color: white;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.header-text p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+}
+
+.prevalence-form {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.required-tag {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.optional-tag {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.form-input, .form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-input:focus, .form-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.disease-input {
+  font-size: 16px;
+  padding: 14px 16px;
+}
+
+/* Study Type Toggle */
+.study-type-toggle {
+  margin-bottom: 20px;
+}
+
+.study-type-toggle label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.toggle-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.toggle-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  color: white;
+}
+
+.toggle-icon {
+  font-size: 18px;
+}
+
+/* Years Grid */
+.years-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.year-chip {
+  padding: 8px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.year-chip:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.year-chip.selected {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.selected-years {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+/* Error Banner */
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+/* Buttons */
+.button-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.btn-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-search:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-search:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-clear {
+  padding: 14px 28px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear:hover:not(:disabled) {
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .prevalence-search-container {
+    padding: 16px;
+  }
+
+  .toggle-buttons {
+    flex-direction: column;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+}

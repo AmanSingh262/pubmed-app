@@ -3,6 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const axios = require('axios');
 
+// Import MeSH service for enhanced search
+const meshService = require('../services/meshService');
+
 // Configure multer for file upload (memory storage)
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -324,6 +327,96 @@ function categorizeArticles(articles, includeSubheadings = true) {
 
 const MINIMUM_SIMILARITY_THRESHOLD = 10;
 const MINIMUM_ANOTHER_SIMILARITY_THRESHOLD = 3;
+const MINIMUM_PREVALENCE_SIMILARITY_THRESHOLD = 8; // Balanced for prevalence studies (was 15, too strict)
+
+// Recency boost based on publication year (EMA prioritizes 2021-2026)
+function calculateRecencyBoost(publicationYear) {
+  const year = parseInt(publicationYear, 10);
+  if (!year || isNaN(year)) return 0;
+
+  const currentYear = new Date().getFullYear();
+  if (year >= currentYear - 2) return 5;  // 2024-2026
+  if (year >= currentYear - 5) return 3;  // 2021-2023
+  if (year >= currentYear - 8) return 1;  // 2017-2020
+  return 0; // Older than 8 years
+}
+
+// Extract prevalence values from text (abstract/title)
+function extractPrevalenceValue(title, abstract) {
+  const text = `${title || ''} ${abstract || ''}`;
+
+  // Patterns for prevalence values
+  const patterns = [
+    // "prevalence of X%" or "X% prevalence"
+    /(?:prevalence\s+(?:was|is|of|were|:)?\s*)?(\d+\.?\d*)\s*%/i,
+    /(\d+\.?\d*)\s*%\s*(?:overall\s+)?prevalence/i,
+    // "X per 100,000" or "X per 100000"
+    /(\d+\.?\d*)\s*(?:per\s+100[,\s]*?000|per\s+100000)\b/i,
+    // "X cases per 100,000 population"
+    /(\d+[,.]?\d*)\s*cases?\s*per\s*\d+/i,
+    // "affecting X%" or "X% of population"
+    /(?:affecting|in)\s+(\d+\.?\d*)\s*%/i,
+    // "estimated prevalence: X%"
+    /estimated\s+(?:prevalence|disease\s+burden)[:\s]+(\d+\.?\d*)\s*%/i,
+    // "point prevalence: X%"
+    /(?:point\s+)?prevalence[:\s]+(\d+\.?\d*)\s*%/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const value = parseFloat(match[1].replace(',', ''));
+      if (value > 0 && value <= 100) {
+        return {
+          value: `${value}%`,
+          rawValue: value,
+          context: match[0].substring(0, 80)
+        };
+      } else if (value > 100) {
+        // Likely per 100,000
+        return {
+          value: `${Math.round(value)} per 100,000`,
+          rawValue: value,
+          context: match[0].substring(0, 80)
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+// Determine source authority tier for EMA compliance
+function determineAuthorityTier(title, abstract, journal) {
+  const text = `${title || ''} ${abstract || ''} ${journal || ''}`.toLowerCase();
+
+  const tier1Signals = ['who', 'world health organization', 'global burden of disease', 'gbd', 'ihme', 'ema', 'comp', 'orphan drug', 'european medicines agency'];
+  const tier2Signals = ['systematic review', 'meta-analysis', 'cochrane', ' NICE ', 'public health england', 'ukhsa', 'ecdc', 'eurostat'];
+  const tier3Signals = ['cprd', 'qresearch', 'thins', 'clinical practice research datalink', 'uk biobank', 'ons', 'nhs digital'];
+
+  const hasTier1 = tier1Signals.some(signal => text.includes(signal));
+  if (hasTier1) return 1;
+
+  const hasTier2 = tier2Signals.some(signal => text.includes(signal));
+  if (hasTier2) return 2;
+
+  const hasTier3 = tier3Signals.some(signal => text.includes(signal));
+  if (hasTier3) return 3;
+
+  return 4; // Default tier
+}
+
+// Generate EMA compliance note based on authority tier
+function generateEMAComplianceNote(tier, title, journal, year) {
+  const tierNotes = {
+    1: `WHO/GBD/EMA source provides reliable and independent prevalence estimate for ERA Fpen refinement`,
+    2: `Systematic review/meta-analysis provides peer-reviewed epidemiological data meeting EMA reliability standards`,
+    3: `National registry data (NHS/CPRD/ONS) provides reliable and independent prevalence estimate for ERA`,
+    4: `Peer-reviewed journal article provides epidemiological prevalence data for consideration in ERA`
+  };
+
+  return tierNotes[tier] || tierNotes[4];
+}
 
 function sanitizeQueryValue(value) {
   return String(value || '').replace(/"/g, '').trim();
@@ -463,11 +556,133 @@ function keywordExistsInText(text, keyword) {
   }
 
   if (safeKeyword.includes(' ')) {
-    return safeText.includes(safeKeyword);
+    const pattern = new RegExp(`\\b${escapeRegex(safeKeyword).replace(/\\s+/g, '\\s+')}\\b`, 'i');
+    return pattern.test(safeText);
   }
 
   const pattern = new RegExp(`\\b${escapeRegex(safeKeyword)}\\b`, 'i');
   return pattern.test(safeText);
+}
+
+function splitIntoSentences(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/[.!?]\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+}
+
+function countKeywordOccurrences(text, keyword) {
+  const safeText = String(text || '').toLowerCase();
+  const safeKeyword = String(keyword || '').toLowerCase().trim();
+
+  if (!safeText || !safeKeyword) {
+    return 0;
+  }
+
+  const escapedKeyword = escapeRegex(safeKeyword).replace(/\s+/g, '\\s+');
+  const pattern = new RegExp(`\\b${escapedKeyword}\\b`, 'gi');
+  return safeText.match(pattern)?.length || 0;
+}
+
+function getDiseaseFocusDetails(title, abstract, meshTerms, diseaseName, diseaseMeshTerms = []) {
+  const safeDisease = sanitizeQueryValue(diseaseName || '').toLowerCase();
+
+  if (!safeDisease) {
+    return {
+      hasDisease: true,
+      matchedDiseaseTerms: [],
+      diseaseEvidence: []
+    };
+  }
+
+  const titleText = String(title || '');
+  const abstractText = String(abstract || '');
+  const meshList = Array.isArray(meshTerms) ? meshTerms : [];
+  const diseaseEvidence = [];
+  const matchedDiseaseTerms = [];
+
+  // Build list of all disease terms to check (original + MeSH synonyms)
+  const allDiseaseTerms = [safeDisease];
+  if (Array.isArray(diseaseMeshTerms) && diseaseMeshTerms.length > 0) {
+    diseaseMeshTerms.forEach(term => {
+      const normalized = sanitizeQueryValue(term || '').toLowerCase();
+      if (normalized && normalized !== safeDisease && !allDiseaseTerms.includes(normalized)) {
+        allDiseaseTerms.push(normalized);
+      }
+    });
+  }
+
+  const addEvidence = (evidenceType, matchedTerm) => {
+    if (!diseaseEvidence.includes(evidenceType)) {
+      diseaseEvidence.push(evidenceType);
+    }
+    const termToAdd = matchedTerm || safeDisease;
+    if (!matchedDiseaseTerms.includes(termToAdd)) {
+      matchedDiseaseTerms.push(termToAdd);
+    }
+  };
+
+  // Check all disease terms (original + MeSH synonyms) against title
+  for (const diseaseTerm of allDiseaseTerms) {
+    if (keywordExistsInText(titleText, diseaseTerm)) {
+      addEvidence('title', diseaseTerm);
+    }
+  }
+
+  // Check against article MeSH terms
+  for (const diseaseTerm of allDiseaseTerms) {
+    if (meshList.some(term => keywordExistsInText(term, diseaseTerm))) {
+      addEvidence('mesh', diseaseTerm);
+    }
+  }
+
+  // Check first 2 sentences of abstract
+  const abstractSentences = splitIntoSentences(abstractText);
+  const firstAbstractSentences = abstractSentences.slice(0, 2).join(' ');
+  for (const diseaseTerm of allDiseaseTerms) {
+    if (keywordExistsInText(firstAbstractSentences, diseaseTerm)) {
+      addEvidence('earlyAbstract', diseaseTerm);
+    }
+  }
+
+  const prevalenceFocusTerms = [
+    'prevalence',
+    'epidemiology',
+    'epidemiologic',
+    'incidence',
+    'disease burden',
+    'population-based',
+    'registry',
+    'survey',
+    'per 100',
+    'per 100,000'
+  ];
+  // Check disease + prevalence co-occurrence in sentences
+  for (const diseaseTerm of allDiseaseTerms) {
+    const diseaseSentences = abstractSentences.filter(sentence => keywordExistsInText(sentence, diseaseTerm));
+    if (diseaseSentences.some(sentence => prevalenceFocusTerms.some(term => keywordExistsInText(sentence, term)))) {
+      addEvidence('prevalenceSentence', diseaseTerm);
+    }
+  }
+
+  // Check repeated mentions in abstract
+  for (const diseaseTerm of allDiseaseTerms) {
+    if (countKeywordOccurrences(abstractText, diseaseTerm) >= 2) {
+      addEvidence('repeatedAbstract', diseaseTerm);
+    }
+  }
+
+  // STRONG evidence: disease must appear in title, MeSH, or early abstract (not just buried in text)
+  const hasStrongEvidence = diseaseEvidence.some(e =>
+    ['title', 'mesh', 'earlyAbstract'].includes(e)
+  );
+
+  return {
+    hasDisease: hasStrongEvidence,
+    matchedDiseaseTerms,
+    diseaseEvidence
+  };
 }
 
 function countPhraseHits(text, phrases) {
@@ -632,44 +847,133 @@ function buildDefaultReferenceSearchQuery({ keyTerms, userDrugName, drugNames, d
   return searchQuery;
 }
 
+/**
+ * Build MeSH-enhanced search templates for better context understanding
+ * Uses MeSH terms from NCBI API for accurate disease/drug matching
+ */
+function buildMeshEnhancedTemplates(diseaseName, drugName, diseaseMesh, drugMesh, country = '') {
+  const templates = [];
+  const safeDisease = sanitizeQueryValue(diseaseName);
+  const safeDrug = sanitizeQueryValue(drugName);
+  const safeCountry = sanitizeQueryValue(country);
+
+  // Get search terms from MeSH (fallback to original term if no MeSH found)
+  const diseaseTerms = (diseaseMesh?.searchTerms?.length > 0)
+    ? diseaseMesh.searchTerms
+    : [safeDisease];
+
+  const drugTerms = (drugMesh?.searchTerms?.length > 0)
+    ? drugMesh.searchTerms
+    : (safeDrug ? [safeDrug] : []);
+
+  // 1. MeSH-based exact match (highest priority)
+  if (drugTerms.length > 0 && diseaseTerms.length > 0) {
+    drugTerms.forEach(drug => {
+      diseaseTerms.forEach(disease => {
+        // Exact MeSH match with prevalence
+        templates.push(
+          `("${drug}"[MeSH Terms] OR "${drug}"[tiab]) AND ("${disease}"[MeSH Terms] OR "${disease}"[tiab]) AND "prevalence"[MeSH Terms]`
+        );
+        templates.push(
+          `("${drug}"[MeSH Terms] OR "${drug}"[tiab]) AND ("${disease}"[MeSH Terms] OR "${disease}"[tiab]) AND "epidemiology"[MeSH Terms]`
+        );
+      });
+    });
+  }
+
+  // 2. MeSH major topic search (focused)
+  if (diseaseTerms.length > 0) {
+    diseaseTerms.forEach(disease => {
+      templates.push(
+        `"${disease}"[MeSH Terms:exp] AND "prevalence"[MeSH Terms]`
+      );
+      templates.push(
+        `"${disease}"[MeSH Terms:exp] AND ("prevalence"[tiab] OR "epidemiology"[tiab]) AND "Europe"[tiab]`
+      );
+      templates.push(
+        `"${disease}"[MeSH Terms:exp] AND ("systematic review"[pt] OR "meta-analysis"[pt]) AND "Europe"[tiab]`
+      );
+    });
+  }
+
+  // 3. Combined title/abstract with MeSH
+  if (diseaseTerms.length > 0) {
+    diseaseTerms.forEach(disease => {
+      templates.push(
+        `("${disease}"[Title/Abstract] OR "${disease}"[MeSH Terms]) AND "prevalence"[Title/Abstract]`
+      );
+      templates.push(
+        `("${disease}"[Title/Abstract] OR "${disease}"[MeSH Terms]) AND ("prevalence" OR "epidemiology" OR "incidence")[Title/Abstract]`
+      );
+      templates.push(
+        `("${disease}"[Title/Abstract] OR "${disease}"[MeSH Terms]) AND "population-based"[Title/Abstract]`
+      );
+    });
+  }
+
+  // 4. Add country filter to MeSH queries (with Europe fallback)
+  if (safeCountry) {
+    const countryTemplates = [];
+    const countryFilter = safeCountry.toLowerCase() !== 'europe'
+      ? `"${safeCountry}"[tiab] OR "Europe"[tiab] OR "European"[tiab]`
+      : `"${safeCountry}"[tiab]`;
+    templates.forEach(t => {
+      countryTemplates.push(`(${t}) AND (${countryFilter})`);
+    });
+    return countryTemplates;
+  }
+
+  // Limit templates to avoid overly complex queries
+  return templates.slice(0, 20);
+}
+
 function buildPrevalenceKeywordTemplates(diseaseName, country, drugName = '') {
   const prioritizedTemplates = [];
-
-  const templates = [
-    '("prevalence"[tiab] OR "epidemiology"[tiab]) AND "Europe"[tiab] AND "systematic review"[pt]',
-    '("disease prevalence"[tiab] OR "population-based study"[tiab]) AND "Europe"[tiab]',
-    '"prevalence"[tiab] AND ("European Union"[tiab] OR "EU27"[tiab]) AND "meta-analysis"[pt]',
-    '"prevalence"[tiab] AND "Europe"[tiab] AND ("per 100 inhabitants"[tiab] OR "per 100,000"[tiab])',
-    '"disease burden"[tiab] AND "Europe"[tiab] AND "epidemiological data"[tiab]',
-    '"patient population"[tiab] AND "Europe"[tiab] AND "prevalence estimate"[tiab]',
-    '"prevalence rate"[tiab] AND "European"[tiab] AND "cross-sectional"[tiab]',
-    '("incidence"[tiab] AND "prevalence"[tiab]) AND "Europe"[tiab] AND "cohort study"[tiab]',
-    '"national registry"[tiab] AND "Europe"[tiab] AND "disease statistics"[tiab]',
-    '("WHO Europe"[tiab] OR "World Health Organization Europe"[tiab]) AND "prevalence"[tiab] AND "epidemiology"[tiab]',
-    '("ECDC"[tiab] OR "European Centre for Disease Prevention"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]',
-    '"Eurostat"[tiab] AND "health statistics"[tiab] AND "prevalence"[tiab]',
-    '("GBD"[tiab] OR "Global Burden of Disease"[tiab]) AND "prevalence"[tiab] AND "Europe"[tiab]',
-    '("IHME"[tiab] OR "Institute for Health Metrics"[tiab]) AND "prevalence"[tiab] AND "European"[tiab]',
-    '("systematic review"[pt] OR "meta-analysis"[pt]) AND "prevalence"[tiab] AND "Europe"[tiab]',
-    '"population-based"[tiab] AND "prevalence"[tiab] AND ("EU Member State"[tiab] OR "European"[tiab])',
-    '"observational study"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "adults"[tiab]',
-    '("survey"[tiab] OR "health survey"[tiab]) AND "prevalence"[tiab] AND "European population"[tiab]',
-    '"registry data"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "patients"[tiab]',
-    '"prevalence"[tiab] AND "United Kingdom"[tiab] AND "population-based"[tiab]',
-    '"disease prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab]) AND "NHS"[tiab]',
-    '("CPRD"[tiab] OR "Clinical Practice Research Datalink"[tiab]) AND "prevalence"[tiab]',
-    '("QResearch"[tiab] OR "primary care"[tiab]) AND "prevalence"[tiab] AND "England"[tiab]',
-    '("ONS"[tiab] OR "Office for National Statistics"[tiab]) AND "prevalence"[tiab]',
-    '("Public Health England"[tiab] OR "UKHSA"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]',
-    '"NHS Digital"[tiab] AND "prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab])',
-    '"NICE"[tiab] AND "epidemiology"[tiab] AND "prevalence"[tiab] AND "UK"[tiab]',
-    '"Health Survey for England"[tiab] AND "prevalence"[tiab]'
-  ];
 
   const safeDisease = sanitizeQueryValue(diseaseName);
   const safeCountry = sanitizeQueryValue(country);
   const safeDrug = sanitizeQueryValue(drugName);
 
+  // CRITICAL: Disease name MUST be present in every template
+  // Generic templates without disease name caused irrelevant results (e.g., rhinosinusitis for diabetes search)
+  const D = safeDisease; // shorthand
+
+  // --- Templates that ALWAYS require disease name ---
+
+  // Tier 1: Disease + prevalence + European data sources (highest priority)
+  const templates = D ? [
+    `"${D}"[tiab] AND ("prevalence"[tiab] OR "epidemiology"[tiab]) AND "Europe"[tiab] AND "systematic review"[pt]`,
+    `"${D}"[tiab] AND ("disease prevalence"[tiab] OR "population-based study"[tiab]) AND "Europe"[tiab]`,
+    `"${D}"[tiab] AND "prevalence"[tiab] AND ("European Union"[tiab] OR "EU27"[tiab]) AND "meta-analysis"[pt]`,
+    `"${D}"[tiab] AND "prevalence"[tiab] AND "Europe"[tiab] AND ("per 100 inhabitants"[tiab] OR "per 100,000"[tiab])`,
+    `"${D}"[tiab] AND "disease burden"[tiab] AND "Europe"[tiab] AND "epidemiological data"[tiab]`,
+    `"${D}"[tiab] AND "patient population"[tiab] AND "Europe"[tiab] AND "prevalence estimate"[tiab]`,
+    `"${D}"[tiab] AND "prevalence rate"[tiab] AND "European"[tiab] AND "cross-sectional"[tiab]`,
+    `"${D}"[tiab] AND ("incidence"[tiab] AND "prevalence"[tiab]) AND "Europe"[tiab] AND "cohort study"[tiab]`,
+    `"${D}"[tiab] AND "national registry"[tiab] AND "Europe"[tiab] AND "disease statistics"[tiab]`,
+    `"${D}"[tiab] AND ("WHO Europe"[tiab] OR "World Health Organization Europe"[tiab]) AND "prevalence"[tiab] AND "epidemiology"[tiab]`,
+    `"${D}"[tiab] AND ("ECDC"[tiab] OR "European Centre for Disease Prevention"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]`,
+    `"${D}"[tiab] AND "Eurostat"[tiab] AND "health statistics"[tiab] AND "prevalence"[tiab]`,
+    `"${D}"[tiab] AND ("GBD"[tiab] OR "Global Burden of Disease"[tiab]) AND "prevalence"[tiab] AND "Europe"[tiab]`,
+    `"${D}"[tiab] AND ("IHME"[tiab] OR "Institute for Health Metrics"[tiab]) AND "prevalence"[tiab] AND "European"[tiab]`,
+    `"${D}"[tiab] AND ("systematic review"[pt] OR "meta-analysis"[pt]) AND "prevalence"[tiab] AND "Europe"[tiab]`,
+    `"${D}"[tiab] AND "population-based"[tiab] AND "prevalence"[tiab] AND ("EU Member State"[tiab] OR "European"[tiab])`,
+    `"${D}"[tiab] AND "observational study"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "adults"[tiab]`,
+    `"${D}"[tiab] AND ("survey"[tiab] OR "health survey"[tiab]) AND "prevalence"[tiab] AND "European population"[tiab]`,
+    `"${D}"[tiab] AND "registry data"[tiab] AND "prevalence"[tiab] AND "European"[tiab] AND "patients"[tiab]`,
+    // UK-specific data sources
+    `"${D}"[tiab] AND "prevalence"[tiab] AND "United Kingdom"[tiab] AND "population-based"[tiab]`,
+    `"${D}"[tiab] AND "disease prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab]) AND "NHS"[tiab]`,
+    `"${D}"[tiab] AND ("CPRD"[tiab] OR "Clinical Practice Research Datalink"[tiab]) AND "prevalence"[tiab]`,
+    `"${D}"[tiab] AND ("QResearch"[tiab] OR "primary care"[tiab]) AND "prevalence"[tiab] AND "England"[tiab]`,
+    `"${D}"[tiab] AND ("ONS"[tiab] OR "Office for National Statistics"[tiab]) AND "prevalence"[tiab]`,
+    `"${D}"[tiab] AND ("Public Health England"[tiab] OR "UKHSA"[tiab]) AND "prevalence"[tiab] AND "surveillance"[tiab]`,
+    `"${D}"[tiab] AND "NHS Digital"[tiab] AND "prevalence"[tiab] AND ("England"[tiab] OR "UK"[tiab])`,
+    `"${D}"[tiab] AND "NICE"[tiab] AND "epidemiology"[tiab] AND "prevalence"[tiab] AND "UK"[tiab]`,
+    `"${D}"[tiab] AND "Health Survey for England"[tiab] AND "prevalence"[tiab]`
+  ] : [];
+
+  // --- Drug + Disease combination templates ---
   if (safeDrug && safeDisease) {
     prioritizedTemplates.push(
       `"${safeDrug}"[tiab] AND "${safeDisease}"[tiab] AND ("prevalence"[tiab] OR "epidemiology"[tiab])`,
@@ -689,8 +993,9 @@ function buildPrevalenceKeywordTemplates(diseaseName, country, drugName = '') {
     );
   }
 
+  // --- Disease-specific templates (highest relevance) ---
   if (safeDisease) {
-    templates.push(
+    prioritizedTemplates.push(
       `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "Europe"[tiab] AND "systematic review"[pt]`,
       `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND ("EU"[tiab] OR "European Union"[tiab]) AND "meta-analysis"[pt]`,
       `"${safeDisease}"[tiab] AND "epidemiology"[tiab] AND "Europe"[tiab] AND "population-based"[tiab]`,
@@ -716,7 +1021,7 @@ function buildPrevalenceKeywordTemplates(diseaseName, country, drugName = '') {
     );
 
     if (safeCountry) {
-      templates.push(
+      prioritizedTemplates.push(
         `"${safeDisease}"[tiab] AND "annual prevalence"[tiab] AND "${safeCountry}"[tiab]`,
         `"${safeDisease}"[tiab] AND "prevalence"[tiab] AND "${safeCountry}"[tiab]`
       );
@@ -810,11 +1115,13 @@ function buildAnotherKeywordTemplates(drugName, diseaseName, indication) {
   return [...new Set([...prioritizedTemplates, ...templates])];
 }
 
-function getMandatoryMatchDetails(title, abstract, mandatoryTerms) {
+function getMandatoryMatchDetails(title, abstract, mandatoryTerms, meshTerms = [], diseaseMeshTerms = []) {
   if (!mandatoryTerms || !mandatoryTerms.enforce) {
     return {
       isMatch: true,
       matchedPrevalenceKeywords: [],
+      matchedDiseaseTerms: [],
+      diseaseEvidence: [],
       hasDrug: true,
       hasDisease: true,
       hasPrevalence: true
@@ -828,8 +1135,9 @@ function getMandatoryMatchDetails(title, abstract, mandatoryTerms) {
     .map(k => String(k || '').toLowerCase())
     .filter(Boolean);
 
-  const hasDrug = requiredDrug ? text.includes(requiredDrug) : true;
-  const hasDisease = requiredDisease ? text.includes(requiredDisease) : true;
+  const hasDrug = requiredDrug ? keywordExistsInText(text, requiredDrug) : true;
+  const diseaseFocusDetails = getDiseaseFocusDetails(title, abstract, meshTerms, requiredDisease, diseaseMeshTerms);
+  const hasDisease = requiredDisease ? diseaseFocusDetails.hasDisease : true;
   const matchedPrevalenceKeywords = prevalenceKeywords.filter(keyword => keywordExistsInText(text, keyword));
   const hasPrevalence = prevalenceKeywords.length === 0
     ? true
@@ -838,6 +1146,8 @@ function getMandatoryMatchDetails(title, abstract, mandatoryTerms) {
   return {
     isMatch: hasDrug && hasDisease && hasPrevalence,
     matchedPrevalenceKeywords,
+    matchedDiseaseTerms: diseaseFocusDetails.matchedDiseaseTerms,
+    diseaseEvidence: diseaseFocusDetails.diseaseEvidence,
     hasDrug,
     hasDisease,
     hasPrevalence
@@ -871,7 +1181,12 @@ function buildColumnSearchQuery({
   const safeDisease = sanitizeQueryValue(diseaseName);
 
   if (applyCountryFilter && safeCountry) {
-    filters.push(`("${safeCountry}"[tiab])`);
+    // Include "Europe" as fallback when a specific country is selected
+    if (safeCountry.toLowerCase() !== 'europe') {
+      filters.push(`("${safeCountry}"[tiab] OR "Europe"[tiab] OR "European"[tiab])`);
+    } else {
+      filters.push(`("${safeCountry}"[tiab])`);
+    }
   }
 
   if (applyYearFilter && safeYears.length === 1) {
@@ -881,7 +1196,9 @@ function buildColumnSearchQuery({
   }
 
   if (applyDiseaseFilter && safeDisease) {
-    filters.push(`("${safeDisease}"[tiab])`);
+    // Strict disease filter: require disease in title, abstract, OR MeSH Terms
+    // MeSH Terms catches articles properly indexed even if disease name not in text
+    filters.push(`("${safeDisease}"[tiab] OR "${safeDisease}"[MeSH Terms])`);
   }
 
   const selectedClauses = [];
@@ -988,7 +1305,8 @@ async function executeReferenceSearch({
   mandatoryTerms = null,
   rankingProfile = 'default',
   minimumSimilarityThreshold = MINIMUM_SIMILARITY_THRESHOLD,
-  searchRetmax = 80
+  searchRetmax = 80,
+  diseaseMeshTerms = []
 }) {
   const PUBMED_API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   const searchUrl = `${PUBMED_API_BASE}/esearch.fcgi`;
@@ -1197,17 +1515,56 @@ async function executeReferenceSearch({
         }
       }
 
-      const mandatoryMatchDetails = getMandatoryMatchDetails(title, abstract, mandatoryTerms);
+      const mandatoryMatchDetails = getMandatoryMatchDetails(title, abstract, mandatoryTerms, meshTerms, diseaseMeshTerms);
       if (mandatoryTerms?.enforce && !mandatoryMatchDetails.isMatch) {
-        return;
+        // Relaxed: instead of rejecting entirely, check if article has at least disease OR prevalence
+        // Only fully reject if article has NONE of the mandatory signals
+        const hasAnySignal = mandatoryMatchDetails.hasDisease || mandatoryMatchDetails.hasPrevalence;
+        if (!hasAnySignal) {
+          return; // Reject only if completely irrelevant
+        }
+        // Otherwise demote below (handled via similarity penalty)
       }
 
       const drugNameForScoring = userDrugName ? sanitizeQueryValue(userDrugName) : null;
-      const similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
+      let similarityScore = calculateSimilarityScore(keyTerms, title, abstract, drugNameForScoring);
       const prevalenceBoost = rankingProfile === 'prevalence'
         ? calculatePrevalencePriorityBoost(title, abstract)
         : 0;
-      const rankingScore = Math.round((similarityScore + prevalenceBoost) * 10) / 10;
+      // Get publication year for recency boost
+      const pubYear = article.Journal?.JournalIssue?.PubDate?.Year || '';
+      // Add recency boost for publication year (2021-2026 prioritized for EMA)
+      const recencyBoost = rankingProfile === 'prevalence'
+        ? calculateRecencyBoost(pubYear)
+        : 0;
+
+      // Apply penalty for partial mandatory matches (instead of rejection)
+      let mandatoryPenalty = 0;
+      if (mandatoryTerms?.enforce && !mandatoryMatchDetails.isMatch) {
+        // Partial match: has some signals but not all
+        if (!mandatoryMatchDetails.hasDrug && mandatoryTerms.drugName) mandatoryPenalty += 8;
+        if (!mandatoryMatchDetails.hasPrevalence) mandatoryPenalty += 5;
+        if (!mandatoryMatchDetails.hasDisease && mandatoryTerms.diseaseName) {
+          mandatoryPenalty += 35;
+        }
+        
+        // Boost for what DID match
+        if (mandatoryMatchDetails.hasDisease) mandatoryPenalty -= 3;
+        similarityScore = Math.max(0, similarityScore - mandatoryPenalty);
+      }
+
+      const rankingScore = Math.round((similarityScore + prevalenceBoost + recencyBoost) * 10) / 10;
+
+      // Extract prevalence data for EMA compliance
+      const prevalenceData = rankingProfile === 'prevalence'
+        ? extractPrevalenceValue(title, abstract)
+        : null;
+      const authorityTier = rankingProfile === 'prevalence'
+        ? determineAuthorityTier(title, abstract, pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '')
+        : null;
+      const emaComplianceNote = rankingProfile === 'prevalence' && authorityTier
+        ? generateEMAComplianceNote(authorityTier, title, pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '', pubYear)
+        : null;
 
       articles.push({
         pmid,
@@ -1219,7 +1576,7 @@ async function executeReferenceSearch({
           ).map(a => `${a.LastName || ''} ${a.ForeName || ''}`.trim()).filter(Boolean)
           : [],
         journal: pubmedArticle.MedlineCitation?.Article?.Journal?.Title || '',
-        publicationDate: article.Journal?.JournalIssue?.PubDate?.Year || '',
+        publicationDate: pubYear,
         abstract,
         url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
         similarityScore,
@@ -1228,9 +1585,20 @@ async function executeReferenceSearch({
         mandatoryMatch: mandatoryTerms?.enforce ? {
           drugName: mandatoryTerms.drugName || null,
           diseaseName: mandatoryTerms.diseaseName || null,
+          matchedDiseaseTerms: mandatoryMatchDetails.matchedDiseaseTerms,
+          diseaseEvidence: mandatoryMatchDetails.diseaseEvidence,
           prevalenceKeywords: mandatoryMatchDetails.matchedPrevalenceKeywords
         } : undefined,
-        selected: false
+        selected: false,
+        // Enhanced prevalence data for EMA compliance
+        ...(prevalenceData && {
+          prevalenceData: {
+            value: prevalenceData.value,
+            context: prevalenceData.context,
+            authorityTier,
+            emaComplianceNote
+          }
+        })
       });
     });
   } catch (error) {
@@ -1329,6 +1697,21 @@ router.post('/upload', upload.single('document'), async (req, res) => {
 
     if (hasPrevalenceInputs) {
       const resolvedDrugName = sanitizeQueryValue(userDrugName || '');
+
+      // Fetch MeSH terms for disease to improve matching
+      let diseaseMesh = null;
+      if (prevalenceDiseaseName) {
+        try {
+          diseaseMesh = await meshService.fetchMeshTerms(prevalenceDiseaseName, 'disease');
+        } catch (e) {
+          console.log('[MeSH] Failed to fetch disease terms for upload:', e.message);
+        }
+      }
+      const diseaseMeshSearchTerms = [
+        prevalenceDiseaseName,
+        ...(diseaseMesh?.searchTerms || [])
+      ].filter(Boolean);
+
       const prevalenceMandatoryTerms = {
         enforce: true,
         drugName: resolvedDrugName || null,
@@ -1356,6 +1739,10 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       const prevalenceTemplates = buildPrevalenceKeywordTemplates(prevalenceDiseaseName, prevalenceCountry, resolvedDrugName);
       const anotherTemplates = buildAnotherKeywordTemplates(resolvedDrugName, prevalenceDiseaseName, indication);
       const prevalenceColumnTerms = extractColumnKeyTermsFromTemplates(prevalenceTemplates);
+      const prevalenceScoringTerms = [...new Set([
+        prevalenceDiseaseName.toLowerCase(),
+        ...prevalenceColumnTerms
+      ].filter(Boolean))];
       const anotherColumnTerms = extractColumnKeyTermsFromTemplates(anotherTemplates);
       const anotherMandatoryKeywords = extractSingleKeywordsFromTemplates(anotherTemplates);
       const anotherMandatoryTerms = {
@@ -1398,14 +1785,16 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       const [strictPrevalenceResult, anotherResult] = await Promise.all([
         executeReferenceSearch({
           searchQuery: prevalenceSearchQuery,
-          keyTerms: prevalenceColumnTerms.length > 0 ? prevalenceColumnTerms : keyTerms,
+          keyTerms: prevalenceScoringTerms.length > 0 ? prevalenceScoringTerms : keyTerms,
           studyType,
           userDrugName,
           drugNames,
           includeSubheadings,
           mandatoryTerms: prevalenceMandatoryTerms,
           rankingProfile: 'prevalence',
-          searchRetmax: 120
+          minimumSimilarityThreshold: MINIMUM_PREVALENCE_SIMILARITY_THRESHOLD,
+          searchRetmax: 120,
+          diseaseMeshTerms: diseaseMeshSearchTerms
         }),
         executeReferenceSearch({
           searchQuery: anotherSearchQuery,
@@ -1417,7 +1806,8 @@ router.post('/upload', upload.single('document'), async (req, res) => {
           mandatoryTerms: anotherMandatoryTerms.enforce ? anotherMandatoryTerms : null,
           rankingProfile: 'another',
           minimumSimilarityThreshold: MINIMUM_ANOTHER_SIMILARITY_THRESHOLD,
-          searchRetmax: 120
+          searchRetmax: 120,
+          diseaseMeshTerms: diseaseMeshSearchTerms
         })
       ]);
 
@@ -1425,14 +1815,16 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       if (resolvedDrugName && strictPrevalenceResult.totalArticles === 0) {
         prevalenceResult = await executeReferenceSearch({
           searchQuery: prevalenceSearchQuery,
-          keyTerms: prevalenceColumnTerms.length > 0 ? prevalenceColumnTerms : keyTerms,
+          keyTerms: prevalenceScoringTerms.length > 0 ? prevalenceScoringTerms : keyTerms,
           studyType,
           userDrugName,
           drugNames,
           includeSubheadings,
           mandatoryTerms: prevalenceRelaxedMandatoryTerms,
           rankingProfile: 'prevalence',
-          searchRetmax: 120
+          minimumSimilarityThreshold: MINIMUM_PREVALENCE_SIMILARITY_THRESHOLD,
+          searchRetmax: 120,
+          diseaseMeshTerms: diseaseMeshSearchTerms
         });
 
         if (prevalenceResult.totalArticles > 0) {
@@ -1581,12 +1973,199 @@ router.post('/fetch-abstracts', async (req, res) => {
     }
     
     res.json({ abstracts });
-    
+
   } catch (error) {
     console.error('Fetch abstracts error:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch abstracts', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to fetch abstracts',
+      details: error.message
+    });
+  }
+});
+
+// NEW: Prevalence-only search endpoint (no file required)
+router.post('/prevalence-search', async (req, res) => {
+  try {
+    const {
+      studyType = 'all',
+      prevalenceCountry = '',
+      prevalenceYears = '',
+      prevalenceDiseaseName = '',
+      drugName = '',
+      includeSubheadings = true
+    } = req.body;
+
+    if (!prevalenceDiseaseName || !prevalenceDiseaseName.trim()) {
+      return res.status(400).json({ error: 'Disease name is required' });
+    }
+
+    const resolvedDrugName = drugName && drugName.trim() ? drugName.trim() : null;
+    const safeCountry = sanitizeQueryValue(prevalenceCountry || '');
+    const safeDisease = sanitizeQueryValue(prevalenceDiseaseName.trim());
+    const safeYears = parseSelectedYears(prevalenceYears);
+    const safeDrug = sanitizeQueryValue(resolvedDrugName || '');
+
+    console.log('Prevalence-only search:', { safeDisease, safeCountry, safeYears, safeDrug, studyType });
+
+    // STEP 1: Fetch MeSH terms for better context understanding
+    console.log('[MeSH] Fetching MeSH terms for disease:', safeDisease);
+    const diseaseMesh = await meshService.fetchMeshTerms(safeDisease, 'disease');
+    console.log('[MeSH] Disease terms found:', diseaseMesh?.searchTerms?.slice(0, 5));
+
+    let drugMesh = null;
+    if (safeDrug) {
+      console.log('[MeSH] Fetching MeSH terms for drug:', safeDrug);
+      drugMesh = await meshService.fetchMeshTerms(safeDrug, 'drug');
+      console.log('[MeSH] Drug terms found:', drugMesh?.searchTerms?.slice(0, 5));
+    }
+
+    // STEP 2: Build MeSH-enhanced templates
+    const meshEnhancedTemplates = buildMeshEnhancedTemplates(
+      safeDisease,
+      safeDrug,
+      diseaseMesh,
+      drugMesh,
+      safeCountry
+    );
+
+    // Combine with existing templates
+    const prevalenceTemplates = [
+      ...meshEnhancedTemplates,
+      ...buildPrevalenceKeywordTemplates(safeDisease, safeCountry, safeDrug)
+    ];
+
+    // Remove duplicates while preserving order
+    const uniqueTemplates = [...new Set(prevalenceTemplates)];
+
+    // Build search query
+    const prevalenceSearchQuery = buildColumnSearchQuery({
+      templates: uniqueTemplates,
+      country: safeCountry,
+      years: safeYears,
+      diseaseName: safeDisease,
+      maxTemplates: 48,
+      maxQueryLength: 15000
+    });
+
+    // Build "Another" column templates (broader search without strict prevalence filter)
+    const anotherTemplates = buildAnotherKeywordTemplates(safeDrug, safeDisease, '');
+    const anotherSearchQuery = buildColumnSearchQuery({
+      templates: anotherTemplates,
+      country: safeCountry,
+      years: safeYears,
+      diseaseName: safeDisease,
+      maxTemplates: 32,
+      maxQueryLength: 12000
+    });
+
+    const prevalenceQueryWithFilter = applyStudyTypeFilter(prevalenceSearchQuery, studyType);
+    const anotherQueryWithFilter = applyStudyTypeFilter(anotherSearchQuery, studyType);
+
+    console.log('[Search] Final prevalence query (first 200 chars):', prevalenceQueryWithFilter.substring(0, 200));
+
+    // Build expanded key terms using MeSH synonyms for better scoring
+    const prevalenceKeyTerms = [
+      safeDisease,
+      'prevalence',
+      'epidemiology',
+      'population',
+      safeDrug,
+      ...(diseaseMesh?.searchTerms || []).slice(0, 8),
+      ...(drugMesh?.searchTerms || []).slice(0, 4)
+    ].filter(Boolean);
+    const uniquePrevalenceKeyTerms = [...new Set(prevalenceKeyTerms.map(t => t.toLowerCase()))];
+
+    const anotherKeyTerms = [
+      safeDisease,
+      'environmental risk',
+      'pharmaceutical',
+      safeDrug,
+      ...(diseaseMesh?.searchTerms || []).slice(0, 4),
+      ...(drugMesh?.searchTerms || []).slice(0, 2)
+    ].filter(Boolean);
+    const uniqueAnotherKeyTerms = [...new Set(anotherKeyTerms.map(t => t.toLowerCase()))];
+
+    // Extract MeSH search terms for disease matching in mandatory check
+    const diseaseMeshSearchTerms = [
+      safeDisease,
+      ...(diseaseMesh?.searchTerms || [])
+    ].filter(Boolean);
+
+    // Execute both searches in parallel
+    const [prevalenceResult, anotherResult] = await Promise.all([
+      executeReferenceSearch({
+        searchQuery: prevalenceQueryWithFilter,
+        keyTerms: uniquePrevalenceKeyTerms,
+        studyType,
+        userDrugName: resolvedDrugName,
+        drugNames: resolvedDrugName ? [resolvedDrugName] : [],
+        includeSubheadings,
+        mandatoryTerms: {
+          enforce: true,
+          drugName: resolvedDrugName || null,
+          diseaseName: safeDisease,
+          prevalenceKeywords: [
+            'prevalence', 'epidemiology', 'epidemiologic', 'prevalence rate',
+            'population prevalence', 'one-year prevalence', 'annual prevalence',
+            'disease burden', 'population-based', 'cross-sectional',
+            'incidence', 'survey', 'registry', 'frequency', 'occurrence',
+            'per 100', 'per 100,000', 'point prevalence'
+          ]
+        },
+        rankingProfile: 'prevalence',
+        minimumSimilarityThreshold: MINIMUM_PREVALENCE_SIMILARITY_THRESHOLD,
+        searchRetmax: 120,
+        diseaseMeshTerms: diseaseMeshSearchTerms
+      }),
+      executeReferenceSearch({
+        searchQuery: anotherQueryWithFilter,
+        keyTerms: uniqueAnotherKeyTerms,
+        studyType,
+        userDrugName: resolvedDrugName,
+        drugNames: resolvedDrugName ? [resolvedDrugName] : [],
+        includeSubheadings,
+        mandatoryTerms: null,
+        rankingProfile: 'another',
+        minimumSimilarityThreshold: MINIMUM_ANOTHER_SIMILARITY_THRESHOLD,
+        searchRetmax: 120,
+        diseaseMeshTerms: diseaseMeshSearchTerms
+      })
+    ]);
+
+    res.json({
+      dualColumnMode: true,
+      columns: {
+        prevalence: {
+          label: 'PREVALENCE',
+          searchQuery: prevalenceQueryWithFilter,
+          categorizedArticles: prevalenceResult.categorizedArticles,
+          totalArticles: prevalenceResult.totalArticles,
+          statistics: prevalenceResult.statistics,
+          message: prevalenceResult.message
+        },
+        another: {
+          label: 'ANOTHER',
+          searchQuery: anotherQueryWithFilter,
+          categorizedArticles: anotherResult.categorizedArticles,
+          totalArticles: anotherResult.totalArticles,
+          statistics: anotherResult.statistics,
+          message: anotherResult.message
+        }
+      },
+      prevalenceContext: {
+        country: safeCountry || null,
+        years: safeYears.length > 0 ? safeYears : null,
+        diseaseName: safeDisease
+      },
+      totalArticles: prevalenceResult.totalArticles + anotherResult.totalArticles,
+      filteredArticles: prevalenceResult.totalArticles + anotherResult.totalArticles
+    });
+
+  } catch (error) {
+    console.error('Prevalence search error:', error);
+    res.status(500).json({
+      error: 'Prevalence search failed',
+      details: error.message
     });
   }
 });
